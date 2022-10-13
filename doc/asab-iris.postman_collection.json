@@ -1,0 +1,105 @@
+{
+	"info": {
+		"_postman_id": "6250e49d-eff0-4a31-94f2-117ca722f898",
+		"name": "asab-print",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Send PDF/HTML to email.",
+			"request": {
+				"method": "PUT",
+				"header": [],
+				"url": {
+					"raw": "localhost:8082/jinja/report.html?format=pdf&template=file:///opt/template/sample.html&output=email&to=example@example.com&subject=Report&messagebody=Report attached below &cc=None&bcc=None&body_template=file:///opt/template/sample.html",
+					"host": [
+						"localhost"
+					],
+					"port": "8082",
+					"path": [
+						"jinja",
+						"report.html"
+					],
+					"query": [
+						{
+							"key": "format",
+							"value": "pdf",
+							"description": "PDF/HTML"
+						},
+						{
+							"key": "template",
+							"value": "file:///opt/template/sample.html",
+							"description": "Location of template in filesystem/zookeeper"
+						},
+						{
+							"key": "output",
+							"value": "email",
+							"description": "reports are sent over email when o/p is mail"
+						},
+						{
+							"key": "to",
+							"value": "example@example.com"
+						},
+						{
+							"key": "subject",
+							"value": "Report",
+							"description": "Subject of email"
+						},
+						{
+							"key": "messagebody",
+							"value": "Report attached below ",
+							"description": "Body of email"
+						},
+						{
+							"key": "cc",
+							"value": "None",
+							"description": "Carbon copy"
+						},
+						{
+							"key": "bcc",
+							"value": "None",
+							"description": "blind carbon copy"
+						},
+						{
+							"key": "body_template",
+							"value": "file:///opt/template/sample.html",
+							"description": "Location of template in filesystem/Zookeeper"
+						}
+					]
+				}
+			},
+			"response": []
+		},
+		{
+			"name": "Send PDF/HTML",
+			"request": {
+				"method": "PUT",
+				"header": [],
+				"url": {
+					"raw": "localhost:8082/jinja/report.html?format=pdf&template=file:///opt/template/sample.html",
+					"host": [
+						"localhost"
+					],
+					"port": "8082",
+					"path": [
+						"jinja",
+						"report.html"
+					],
+					"query": [
+						{
+							"key": "format",
+							"value": "pdf",
+							"description": "PDF OR HTML"
+						},
+						{
+							"key": "template",
+							"value": "file:///opt/template/sample.html",
+							"description": "Location of template in filesystem/Zookeeper"
+						}
+					]
+				}
+			},
+			"response": []
+		}
+	]
+}

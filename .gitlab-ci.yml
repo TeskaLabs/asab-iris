@@ -1,0 +1,145 @@
+# .gitlab-ci.yaml
+  stages:
+    - test
+    - build
+
+  test py37:
+    stage: test
+    image: python:3.7
+    tags:
+    - amd64
+    - docker
+    script:
+      - apt-get update
+      - pip install --upgrade pip
+      - pip install -U git+https://github.com/TeskaLabs/asab
+      - pip install flake8
+      - pip install jinja2
+      - pip install reportlab==3.6.6  # Freeze reportlab version because of https://github.com/xhtml2pdf/xhtml2pdf/issues/589
+      - pip install xhtml2pdf
+      - pip install Markdown
+      - pip install Pillow
+      - pip install aiosmtplib
+      - pip install aiohttp
+      - pip install requests
+      - pip install temp
+      - pip install aiokafka
+      - python3 -m unittest test
+
+
+  test py38:
+    stage: test
+    image: python:3.8
+    tags:
+    - amd64
+    - docker
+    script:
+      - apt-get update
+      - pip install --upgrade pip
+      - pip install -U git+https://github.com/TeskaLabs/asab
+      - pip install flake8
+      - pip install jinja2
+      - pip install aiosmtplib
+      - pip install Markdown
+      - pip install reportlab==3.6.6  # Freeze reportlab version because of https://github.com/xhtml2pdf/xhtml2pdf/issues/589
+      - pip install xhtml2pdf
+      - pip install Pillow
+      - pip install requests
+      - pip install aiohttp
+      - pip install temp
+      - pip install aiokafka
+      - python3 -m unittest test
+
+  test py39:
+    stage: test
+    image: python:3.9
+    tags:
+    - amd64
+    - docker
+    script:
+      - apt-get update
+      - pip install --upgrade pip
+      - pip install flake8
+      - pip install jinja2
+      - pip install Markdown
+      - pip install aiosmtplib
+      - pip install reportlab==3.6.6  # Freeze reportlab version because of https://github.com/xhtml2pdf/xhtml2pdf/issues/589
+      - pip install xhtml2pdf
+      - pip install Pillow
+      - pip install requests
+      - pip install aiohttp
+      - pip install -U git+https://github.com/TeskaLabs/asab
+      - pip install temp
+      - pip install aiokafka
+      - python3 -m unittest test
+
+  test flake:
+    stage: test
+    image: python:3.9
+    tags:
+    - amd64
+    - docker
+    script:
+      - apt-get update
+      - pip install --upgrade pip
+      - pip install flake8
+      - pip install pyppeteer
+      - pip install jinja2
+      - pip install aiosmtplib
+      - pip install Markdown
+      - pip install aiohttp
+      - pip install temp
+      - pip install aiokafka
+      - pip install -U git+https://github.com/TeskaLabs/asab
+      - python3 -m flake8 asabiris
+
+
+  build docker:
+    stage: build
+    image: docker:20
+
+    tags:
+    # The shell Gitlab runner has to be used for this
+    - shell
+
+    only:
+      # Execute only for master branch
+      - master
+
+    before_script:
+      - docker info
+      # We want to run in the clean environment
+      - docker system prune -f
+
+    script:
+      - docker build -t $DOCKER_REGISTRY_IMAGE .
+      - docker login -u "$DOCKER_USER" -p "$DOCKER_PASSWORD" "$DOCKER_REGISTRY"
+      - docker push $DOCKER_REGISTRY_IMAGE
+
+    after_script:
+      # Clean-up
+      - docker container prune -f > /dev/null 2> /dev/null
+      - docker image prune -a -f > /dev/null 2> /dev/null
+
+  build docker-tag: 
+    stage: build
+    image: docker:20
+
+    tags:
+      # The shell Gitlab runner has to be used for this
+      - shell
+
+    only:
+      - tags
+
+    before_script:
+      - docker info
+      # We want to run in the clean environment
+      - docker system prune -f
+
+    script:
+      - docker build -t "${DOCKER_REGISTRY_IMAGE}:${CI_COMMIT_TAG}" --no-cache .
+      - docker login -u "$DOCKER_USER" -p "$DOCKER_PASSWORD" "$DOCKER_REGISTRY"
+      - docker push "${DOCKER_REGISTRY_IMAGE}:${CI_COMMIT_TAG}"
+      - docker rmi "${DOCKER_REGISTRY_IMAGE}:${CI_COMMIT_TAG}"
+
