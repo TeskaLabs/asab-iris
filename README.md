@@ -5,6 +5,10 @@ ASAB Iris is a microservice for (1) rendering documents (reports, email bodies a
 ASAB Iris could be used for e.g. generating emails based on templates, rendering regular reports from dataset and so on.
 It is a multifuntional messanger.
 
+## Documentation
+
+https://teskalabs.github.io/asab-iris/
+
 
 ## Supported technologies
 
