@@ -9,7 +9,6 @@ import fastjsonschema
 import asab
 
 from .emailschema import email_schema
-from .. import utils
 
 
 #
@@ -19,7 +18,7 @@ L = logging.getLogger(__name__)
 #
 
 
-class KafkaNotificationsHandler(asab.Service):
+class KafkaHandler(asab.Service):
 
 	ValidationSchemaMail = fastjsonschema.compile(email_schema)
 
@@ -36,7 +35,7 @@ class KafkaNotificationsHandler(asab.Service):
 	})
 
 
-	def __init__(self, app, service_name="asab.NotificationsService"):
+	def __init__(self, app, service_name="KafkaHandler"):
 		super().__init__(app, service_name)
 
 		self.Task = None
@@ -86,7 +85,7 @@ class KafkaNotificationsHandler(asab.Service):
 		msg_type = msg.pop("type", "<missing>")
 		if msg_type == "email":
 			try:
-				KafkaNotificationsHandler.ValidationSchemaMail(msg)
+				KafkaHandler.ValidationSchemaMail(msg)
 			except fastjsonschema.exceptions.JsonSchemaException as e:
 				L.warning("Invalid notification format: {}".format(e))
 				return
@@ -94,7 +93,7 @@ class KafkaNotificationsHandler(asab.Service):
 
 		elif msg_type == "slack":
 			try:
-				KafkaNotificationsHandler.ValidationSchemaSlack(msg)
+				KafkaHandler.ValidationSchemaSlack(msg)
 			except fastjsonschema.exceptions.JsonSchemaException as e:
 				L.warning("Invalid notification format: {}".format(e))
 				return

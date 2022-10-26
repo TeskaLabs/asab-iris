@@ -18,7 +18,7 @@ from .output.slack import SlackOutputService
 from .orchestration.sendmail import SendMailOrchestrator
 from .orchestration.render import RenderReportOrchestrator
 
-from .orchestration.kafkahandler import KafkaNotificationsHandler
+from .orchestration.kafkahandler import KafkaHandler
 from .orchestration.webhandler import WebHandler
 
 
@@ -76,4 +76,4 @@ class IRISApplication(asab.Application):
 
 		# Apache Kafka API is conditional
 		if "kafka" in asab.Config.sections():
-			self.KafkaNotificationsHandler = KafkaNotificationsHandler(self)
+			self.KafkaHandler = KafkaHandler(self)
