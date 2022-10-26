@@ -43,3 +43,9 @@ https://teskalabs.github.io/asab-iris/
  * Use formatter(s) to get HTML or PDF document
  * HTTP REST API to get the report
  * Templates are in the ASAB library
+
+
+## Architecture
+
+![](./docs/asab-iris-architecture.drawio.svg)
+
