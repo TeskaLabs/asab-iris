@@ -1,0 +1,159 @@
+import logging
+
+import asab.web.rest
+
+import aiohttp.web
+import aiohttp.payload_streamer
+
+from .emailschema import email_schema
+
+#
+
+L = logging.getLogger(__name__)
+
+#
+
+
+class WebHandler(object):
+
+	def __init__(self, app):
+		self.App = app
+
+		web_app = app.WebContainer.WebApp
+		web_app.router.add_put(r"/send_mail", self.send_mail)
+		web_app.router.add_put(r"/render", self.render)
+
+
+	@asab.web.rest.json_schema_handler(email_schema)
+	async def send_mail(self, request, *, json_data):
+		"""
+		This endpoint is for sending emails.
+		```
+		1) It collects the basic email info (to, cc, bcc, subject, from)
+		2) It renders the email body based on the template
+		3) Optionally it adds attachments:
+
+			3.1) The attachment is renders by this service.
+
+			3.2) The attachment is provided by the caller.
+
+		```
+		Example body:
+
+		```
+		{
+			"to": ['Tony.Montana@Goodfellas.com'],
+			"cc": ['Jimmy2.times@Goodfellas.com'],
+			"bcc": ['Henry.Hill@Goodfellas.com'],
+			"subject": "Lufthansa Hiest",
+			"from": "Jimmy.Conway@Goodfellas.com",
+			"body": {
+				"template": "test.md",
+				"params": {
+					"Name": "Toddy Siciro"
+			}
+		},
+		"attachments": [
+			{
+			"template": "test.md",
+			"params": {
+				"Name": "Michael Corleone"
+				},
+			"format": "pdf",
+			"filename": "Made.pdf"
+			}]
+		}
+
+		```
+		Attached will be retrieved from request.conent when rendering the email is not required.
+
+		Example of the email body template:
+		```
+		SUBJECT: Automated email for {{name}}
+
+		Hi {{name}},
+
+		this is a nice template for an email.
+		It is {{time}} to leave.
+
+		Br,
+		Your automated ASAB report
+		```
+
+		It is a markdown template.
+		---
+		tags: ['Send mail']
+		"""
+
+		response = await self.App.SendMailOrchestrator.send_mail(
+			email_to=json_data["to"],
+			body_template=json_data["body"]["template"],
+			email_cc=json_data.get("cc", []),  # Optional
+			email_bcc=json_data.get("bcc", []),  # Optional
+			email_subject=json_data.get("subject", None),  # Optional
+			email_from=json_data.get("from"),
+			body_params=json_data["body"].get("params", {}),  # Optional
+			attachments=json_data.get("attachments", []),  # Optional
+		)
+
+		if response is True:
+			return asab.web.rest.json_response(request, {"result": "OK"}, reason=200)
+		else:
+			return asab.web.rest.json_response(request, {"result": "ERROR"})
+
+
+	# TODO: JSON schema
+	async def render(self, request):
+		"""
+		This endpoint renders request body into template based on the format specified.
+		Example:
+		```
+		localhost:8080/render?format=pdf&template=test.md
+
+		format: pdf/html
+
+		template : Location of template in the library (e.g. on the filesystem)
+		```
+		body example:
+		```
+		{
+			"order_id":123,
+			"order_creation_date":"2020-01-01 14:14:52",
+			"company_name":"Test Company",
+			"city":"Mumbai",
+			"state":"MH"
+		}
+		```
+		"""
+		fmt = request.query.get("format", "html")
+		template = request.query.get("template", None)
+		template_data = await request.json()
+
+		# Render a body
+		html = await self.render(template, template_data)
+		# get pdf from html if present.
+		if fmt == 'pdf':
+			content_type = "application/pdf"
+			pdf = self.App.HtmlToPdfService.format(html)
+		elif fmt == 'html':
+			content_type = "text/html"
+		else:
+			raise ValueError("Invalid/unknown format: '{}'".format(fmt))
+
+		return aiohttp.web.Response(
+			content_type=content_type,
+			body=html if content_type == "text/html" else file_sender(pdf)
+		)
+
+
+@aiohttp.payload_streamer.streamer
+async def file_sender(writer, pdf_content):
+	"""
+	This function will read large file chunk by chunk and send it through HTTP
+	without reading them into memory
+	"""
+	while True:
+		chunk = pdf_content.read(2048)
+		if chunk is None or len(chunk) == 0:
+			break
+		await writer.write(chunk)

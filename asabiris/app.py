@@ -16,19 +16,19 @@ from .output.slack import SlackOutputService
 
 # orchestrators.
 from .orchestration.sendmail import SendMailOrchestrator
-from .orchestration.sendmail import SendMailHandler
-
 from .orchestration.render import RenderReportOrchestrator
-from .orchestration.kafka import KafkaNotificationsOrchestrator
+
+from .orchestration.kafkahandler import KafkaNotificationsHandler
+from .orchestration.webhandler import WebHandler
+
 
 L = logging.getLogger(__name__)
 
-asab.Config.add_defaults(
-	{
-		"web": {
-		},
-	}
-)
+
+asab.Config.add_defaults({
+	"web": {
+	},
+})
 
 
 class IRISApplication(asab.Application):
@@ -62,17 +62,18 @@ class IRISApplication(asab.Application):
 		# formatter
 		self.Markdown2HTMLService = MarkdownFormatterService(self)
 		self.PdfFormatterService = PdfFormatterService(self)
-		self.JinjaPrintService = JinjaFormatterService(self)
+		self.JinjaFormatterService = JinjaFormatterService(self)
 
 		# output services
 		self.EmailOutputService = EmailOutputService(self)
 		self.SlackOutputService = SlackOutputService(self)
 
-		# Initialize our orchestrators
+		# Orchestrators
 		self.SendMailOrchestrator = SendMailOrchestrator(self)
-		self.SendMailHandler = SendMailHandler(self)
 		self.RenderReportOrchestrator = RenderReportOrchestrator(self)
+
+		self.WebHandler = WebHandler(self)
 
 		# Apache Kafka API is conditional
 		if "kafka" in asab.Config.sections():
-			self.KafkaNotificationsOrchestrator = KafkaNotificationsOrchestrator(self)
+			self.KafkaNotificationsHandler = KafkaNotificationsHandler(self)

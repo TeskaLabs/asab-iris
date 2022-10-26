@@ -2,12 +2,6 @@ import os
 import datetime
 import logging
 
-import asab.web.rest
-
-import aiohttp
-import aiohttp.web
-import aiohttp.payload_streamer
-
 from .. import utils
 
 #
@@ -15,171 +9,6 @@ from .. import utils
 L = logging.getLogger(__name__)
 
 #
-
-
-class SendMailHandler(object):
-
-	def __init__(self, app):
-		web_app = app.WebContainer.WebApp
-		web_app.router.add_put(r"/send_mail", self.send)
-
-		self.Orchestrator = SendMailOrchestrator(app)
-
-	@asab.web.rest.json_schema_handler({
-		"type": "object",
-		"required": [
-			"to",
-			"body"
-		],
-		"properties": {
-			"to": {
-				"type": "array",
-				"items": {
-					"type": "string",
-				},
-				"default": ['henry.hill@teskalabs.com'],
-			},
-			"cc": {
-				"type": "array",
-				"items": {
-					"type": "string",
-				},
-				"default": ['charlie.chaplin@teskalabs.com'],
-			},
-			"bcc": {
-				"type": "array",
-				"items": {
-					"type": "string",
-				},
-				"default": ['jimmy.conway@teskalabs.com'],
-			},
-			"subject": {
-				"type": "string",
-				"default": "Alert-reports",
-			},
-			"from": {
-				"type": "string",
-				"default": "tony.montana@teskalabs.com",
-			},
-			"body": {
-				"type": "object",
-				"required": [
-					"template",
-					"params"
-				],
-				"properties": {
-					"template": {
-						"type": "string",
-						"default": "alert.md",
-					},
-					"params": {
-						"type": "object",
-						"default": {},
-					}
-				},
-			},
-			"attachments": {
-				"type": "array",
-				"items": {
-					"type": "object",
-					"required": [
-						"template",
-						"params",
-						"format"
-					],
-					"properties": {
-						"template": {
-							"type": "string",
-							"default": "alert.md",
-						},
-						"params": {
-							"type": "object",
-							"default": {},
-						},
-						"format": {
-							"type": "string",
-							"default": "html",
-						}
-					},
-				},
-			}
-		},
-	})
-	async def send(self, request, *, json_data):
-		"""
-		This endpoint is for sending emails.
-		```
-		1) It collects the basic email info (to, cc, bcc, subject, from)
-		2) It renders the email body based on the template
-		3) Optionally it adds attachments:
-
-			3.1) The attachment is renders by this service.
-
-			3.2) The attachment is provided by the caller.
-
-		```
-		Example body:
-
-		```
-		{
-			"to": ['Tony.Montana@Goodfellas.com'],
-			"cc": ['Jimmy2.times@Goodfellas.com'],
-			"bcc": ['Henry.Hill@Goodfellas.com'],
-			"subject": "Lufthansa Hiest",
-			"from": "Jimmy.Conway@Goodfellas.com",
-			"body": {
-				"template": "test.md",
-				"params": {
-					"Name": "Toddy Siciro"
-			}
-		},
-		"attachments": [
-			{
-			"template": "test.md",
-			"params": {
-				"Name": "Michael Corleone"
-				},
-			"format": "pdf",
-			"filename": "Made.pdf"
-			}]
-		}
-
-		```
-		Attached will be retrieved from request.conent when rendering the email is not required.
-
-		Example of the email body template:
-		```
-		SUBJECT: Automated email for {{name}}
-
-		Hi {{name}},
-
-		this is a nice template for an email.
-		It is {{time}} to leave.
-
-		Br,
-		Your automated ASAB report
-		```
-
-		It is a markdown template.
-		---
-		tags: ['Send mail']
-		"""
-
-		response = await self.Orchestrator.send_mail(
-			email_to=json_data["to"],
-			body_template=json_data["body"]["template"],
-			email_cc=json_data.get("cc", []),  # Optional
-			email_bcc=json_data.get("bcc", []),  # Optional
-			email_subject=json_data.get("subject", None),  # Optional
-			email_from=json_data.get("from"),
-			body_params=json_data["body"].get("params", {}),  # Optional
-			attachments=json_data.get("attachments", []),  # Optional
-		)
-
-		if response is True:
-			return asab.web.rest.json_response(request, {"result": "OK"}, reason=200)
-		else:
-			return asab.web.rest.json_response(request, {"result": "ERROR"})
 
 
 class SendMailOrchestrator(object):
@@ -193,6 +22,7 @@ class SendMailOrchestrator(object):
 
 		# output
 		self.SmtpService = app.get_service("SmtpService")
+
 
 	async def send_mail(
 		self, *,
@@ -208,12 +38,12 @@ class SendMailOrchestrator(object):
 		if email_subject_body is not None:
 			email_subject = email_subject_body
 		else:
-			L.info("Subject not present in body template. Using subject from configuration.")
+			L.debug("Subject not present in body template. Using subject from configuration.")
 
 		atts = []
 
 		if len(attachments) == 0:
-			L.info("No attachment's to render.")
+			L.debug("No attachment's to render.")
 		else:
 			for a in attachments:
 				"""
@@ -234,14 +64,16 @@ class SendMailOrchestrator(object):
 						email_subject = email_subject_body
 
 					# get pdf from html if present.
-					if a.get('format') == 'pdf':
+					fmt = a.get('format')
+					if fmt == 'pdf':
 						result = self.HtmlToPdfService.format(body)
 						content_type = "application/pdf"
-					elif a.get('format') == 'html':
+					elif fmt == 'html':
 						result = jinja_output
 						content_type = "text/html"
 					else:
-						raise aiohttp.web.HTTPBadRequest(reason="Invalid format {}`".format(a.get('format')))
+						raise ValueError("Invalid/unknown format '{}'".format(fmt))
+
 					# fill-up the tuple and add it to attachment list.
 					attach_tuple = (result, content_type, file_name)
 					atts.append(attach_tuple)
@@ -310,7 +142,7 @@ class SendMailOrchestrator(object):
 					buffer = b""
 				return result
 		else:
-			raise aiohttp.web.HTTPBadRequest(reason="Please use content_type `application/octet-stream`")
+			raise ValueError("Use content_type 'application/octet-stream'")
 
 
 	async def extract_subject_body_from_html(self, html, template_path):
@@ -327,6 +159,7 @@ class SendMailOrchestrator(object):
 			raise RuntimeError("Failed to extract subject. Unknown extention '{}'".format(extension))
 
 		return subject, body
+
 
 	def get_file_name(self, attachment):
 		"""
