@@ -74,14 +74,6 @@ class KafkaNotificationsHandler(asab.Service):
 			try:
 				msg = msg.value.decode("utf-8")
 				msg = json.loads(msg)
-				msg = {
-					"type": "email",
-					"to": ["ales.teska@teskalabs.com"],
-					"body": {
-						"template": "hello.md"
-					}
-				}
-
 			except Exception as e:
 				L.warning("Invalid message format: '{}'".format(e))
 			try:
@@ -126,6 +118,7 @@ class KafkaNotificationsHandler(asab.Service):
 
 
 	async def send_to_slack(self, msg):
+		# TODO: This ... based on send_email() method
 		template = msg.pop("template")
 		body = await self.JinjaFormatterService.format(msg, template)
 		await self.App.SlackOutputService.send(body)
