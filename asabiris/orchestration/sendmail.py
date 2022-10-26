@@ -32,7 +32,11 @@ class SendMailOrchestrator(object):
 		attachments=[],
 	):
 		# Render a body
-		body, html = await self.render(body_template, body_params)
+		try:
+			body, html = await self.render(body_template, body_params)
+		except KeyError as e:
+			return False
+
 		email_subject_body, body = await self.extract_subject_body_from_html(body, body_template)
 
 		if email_subject_body is not None:

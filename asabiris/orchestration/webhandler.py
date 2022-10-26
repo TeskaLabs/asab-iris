@@ -85,7 +85,7 @@ class WebHandler(object):
 		tags: ['Send mail']
 		"""
 
-		response = await self.App.SendMailOrchestrator.send_mail(
+		ok = await self.App.SendMailOrchestrator.send_mail(
 			email_to=json_data["to"],
 			body_template=json_data["body"]["template"],
 			email_cc=json_data.get("cc", []),  # Optional
@@ -96,10 +96,10 @@ class WebHandler(object):
 			attachments=json_data.get("attachments", []),  # Optional
 		)
 
-		if response is True:
-			return asab.web.rest.json_response(request, {"result": "OK"}, reason=200)
+		if ok is True:
+			return asab.web.rest.json_response(request, {"result": "OK"})
 		else:
-			return asab.web.rest.json_response(request, {"result": "ERROR"})
+			return asab.web.rest.json_response(request, {"result": "ERROR"}, status=500)
 
 
 	# TODO: JSON schema
