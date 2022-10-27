@@ -76,13 +76,13 @@ class EmailOutputService(asab.Service, OutputABC):
 
 		if email_to is not None:
 			assert (isinstance(email_to, list))
-			msg['To'] = ','.join(email_to)
+			msg['To'] = ', '.join(email_to)
 
 		if len(email_cc) != 0:
 			assert (isinstance(email_cc, list))
 			msg['Cc'] = ', '.join(email_cc)
 
-		if email_subject is not None and len(email_from) > 0:
+		if email_subject is not None and len(email_subject) > 0:
 			msg['Subject'] = email_subject
 		else:
 			msg['Subject'] = self.Subject
