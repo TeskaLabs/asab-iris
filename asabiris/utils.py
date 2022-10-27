@@ -22,7 +22,7 @@ def find_subject_in_html(body):
 def find_subject_in_md(body):
 	if not body.startswith("SUBJECT:"):
 		return None, body
-	subject = body.split("\n")[0].replace("SUBJECT:", "")
+	subject = body.split("\n")[0].replace("SUBJECT:", "").lstrip()
 	body = "\n".join(body.split("\n")[1:])
 	return subject, body
 
