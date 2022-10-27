@@ -20,7 +20,7 @@ bootstrap_servers=kafka-1,kafka-2,kafka-3
     "type": "email",
     "to": ["john.doe@example.com", "jane.doe@example.com"],
     "body": {
-    	"template": "hello.md"
+        "template": "hello.md"
     }
 }
 ```
