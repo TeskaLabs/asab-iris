@@ -30,7 +30,6 @@ email_schema = {
 		},
 		"from": {
 			"type": "string",
-			"default": "",
 		},
 		"body": {
 			"type": "object",
@@ -59,7 +58,6 @@ email_schema = {
 				"properties": {
 					"template": {
 						"type": "string",
-						"default": "alert.md",
 					},
 					"params": {
 						"type": "object",

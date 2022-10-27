@@ -60,7 +60,7 @@ class IRISApplication(asab.Application):
 			self.ASABApiService.initialize_zookeeper()
 
 		# formatter
-		self.Markdown2HTMLService = MarkdownFormatterService(self)
+		self.MarkdownFormatterService = MarkdownFormatterService(self)
 		self.PdfFormatterService = PdfFormatterService(self)
 		self.JinjaFormatterService = JinjaFormatterService(self)
 
