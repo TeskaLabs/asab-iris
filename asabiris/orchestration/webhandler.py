@@ -88,7 +88,7 @@ class WebHandler(object):
 		"""
 
 		try:
-			ok = await self.App.SendMailOrchestrator.send_mail(
+			await self.App.SendMailOrchestrator.send_mail(
 				email_to=json_data["to"],
 				body_template=json_data["body"]["template"],
 				email_cc=json_data.get("cc", []),  # Optional
@@ -98,21 +98,16 @@ class WebHandler(object):
 				body_params=json_data["body"].get("params", {}),  # Optional
 				attachments=json_data.get("attachments", []),  # Optional
 			)
+
+		except KeyError as e:
+			raise aiohttp.web.HTTPNotFound(text="{}".format(e))
+
 		except jinja2.exceptions.UndefinedError as e:
-			return asab.web.rest.json_response(
-				request,
-				{
-					"result": "ERROR",
-					"detail": "Jinja2 template failure: {}".format(e) 
-				}, status=500
-			)
+			raise aiohttp.web.HTTPBadRequest(text="Jinja2 error: {}".format(e))
 		
 		# More specific exception handling goes here so that the service provides nice output
 
-		if ok is True:
-			return asab.web.rest.json_response(request, {"result": "OK"})
-		else:
-			return asab.web.rest.json_response(request, {"result": "ERROR"}, status=500)
+		return asab.web.rest.json_response(request, {"result": "OK"})
 
 
 	# TODO: JSON schema

@@ -22,8 +22,8 @@ asab.Config.add_defaults(
 			"password": "",
 			"ssl": "no",  # Use TLS/SSL for connection
 			"starttls": "yes",  # Use STARTTLS protocol
-			"subject": "Report",
-			"message_body": "Report is attached.",
+			"subject": "ASAB Iris email",
+			"message_body": "",
 			"file_size": 50 * 1024 * 1024  # 50 MB
 		}
 	})
@@ -50,10 +50,14 @@ class EmailOutputService(asab.Service, OutputABC):
 
 	async def send(
 		self, *,
-		email_to, body,
-		email_cc=[], email_bcc=[], email_subject=None, email_from=None,
-		attachments=[]):
-
+		email_to,
+		body,
+		email_cc=[],
+		email_bcc=[],
+		email_subject=None,
+		email_from=None,
+		attachments=[]
+	):
 		"""
 		Send an outgoing email with the given parameters.
 
@@ -119,20 +123,15 @@ class EmailOutputService(asab.Service, OutputABC):
 			else:
 				msg.add_attachment(content, maintype='application', subtype='zip', filename=file_name)
 
-		try:
-			result = await aiosmtplib.send(
-				msg,
-				sender=sender,
-				recipients=email_to + email_cc + email_bcc,
-				hostname=self.Host,
-				username=self.User,
-				password=self.Password,
-				use_tls=self.SSL,
-				start_tls=self.StartTLS
-			)
-		except Exception as e:
-			L.warning("Sending email failed for reason: {}".format(e))
-			return False
+		result = await aiosmtplib.send(
+			msg,
+			sender=sender,
+			recipients=email_to + email_cc + email_bcc,
+			hostname=self.Host,
+			username=self.User,
+			password=self.Password,
+			use_tls=self.SSL,
+			start_tls=self.StartTLS
+		)
 
-		L.log(asab.LOG_NOTICE, "Email sent", struct_data={'result': result[1]})
-		return True
+		L.log(asab.LOG_NOTICE, "Email sent", struct_data={'result': result[1], "host": self.Host})
