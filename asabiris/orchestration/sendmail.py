@@ -71,11 +71,10 @@ class SendMailOrchestrator(object):
 				if params is not None:
 					# get file-name of the attachment
 					file_name = self.get_file_name(a)
-					template_path = a['template']
 					jinja_output, result = await self.render(a['template'], params)
 
 					# get pdf from html if present.
-					fmt = a.get('format')
+					fmt = a.get('format', 'html')
 					if fmt == 'pdf':
 						result = self.HtmlToPdfService.format(jinja_output)
 						content_type = "application/pdf"
