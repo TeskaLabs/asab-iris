@@ -154,4 +154,3 @@ class EmailOutputService(asab.Service, OutputABC):
 			raise SMTPDeliverError("SMTP delivery failed")
 
 		L.log(asab.LOG_NOTICE, "Email sent", struct_data={'result': result[1], "host": self.Host})
-

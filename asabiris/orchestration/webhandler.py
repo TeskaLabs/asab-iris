@@ -108,7 +108,7 @@ class WebHandler(object):
 
 		except SMTPDeliverError:
 			raise aiohttp.web.HTTPServiceUnavailable(text="SMTP error")
-		
+
 		# More specific exception handling goes here so that the service provides nice output
 
 		return asab.web.rest.json_response(request, {"result": "OK"})

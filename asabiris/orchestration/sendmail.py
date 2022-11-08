@@ -37,7 +37,7 @@ class SendMailOrchestrator(object):
 	):
 		"""
 		It sends an email
-		
+
 		:param email_to: The email address to send the email to
 		:param email_from: The email address to send the email from. If not provided, the default email
 		address will be used
@@ -100,7 +100,7 @@ class SendMailOrchestrator(object):
 			email_to=email_to,
 			email_cc=email_cc,
 			email_bcc=email_bcc,
-			email_subject=email_subject, 
+			email_subject=email_subject,
 			body=body_html,
 			attachments=atts
 		)
