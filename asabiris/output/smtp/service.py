@@ -15,15 +15,15 @@ L = logging.getLogger(__name__)
 asab.Config.add_defaults(
 	{
 		'smtp': {
-			"sender_email_address": "",
+			"from": "",
 			"host": "localhost",
 			"port": "",
 			"user": "",
 			"password": "",
 			"ssl": "no",  # Use TLS/SSL for connection
 			"starttls": "yes",  # Use STARTTLS protocol
-			"subject": "Report",
-			"message_body": "Report is attached.",
+			"subject": "ASAB Iris email",
+			"message_body": "",
 			"file_size": 50 * 1024 * 1024  # 50 MB
 		}
 	})
@@ -33,7 +33,7 @@ class EmailOutputService(asab.Service, OutputABC):
 	def __init__(self, app, service_name="SmtpService", config_section_name='smtp'):
 		super().__init__(app, service_name)
 
-		self.Sender = asab.Config.get(config_section_name, "sender_email_address")
+		self.Sender = asab.Config.get(config_section_name, "from")
 		self.SSL = asab.Config.getboolean(config_section_name, "ssl")
 		self.StartTLS = asab.Config.getboolean(config_section_name, "starttls")
 		self.Host = asab.Config.get(config_section_name, "host")
@@ -50,10 +50,14 @@ class EmailOutputService(asab.Service, OutputABC):
 
 	async def send(
 		self, *,
-		email_to, body,
-		email_cc=[], email_bcc=[], email_subject=None, email_from=None,
-		attachments=[]):
-
+		email_to,
+		body,
+		email_cc=[],
+		email_bcc=[],
+		email_subject=None,
+		email_from=None,
+		attachments=[]
+	):
 		"""
 		Send an outgoing email with the given parameters.
 
@@ -76,18 +80,18 @@ class EmailOutputService(asab.Service, OutputABC):
 
 		if email_to is not None:
 			assert (isinstance(email_to, list))
-			msg['To'] = ','.join(email_to)
+			msg['To'] = ', '.join(email_to)
 
 		if len(email_cc) != 0:
 			assert (isinstance(email_cc, list))
 			msg['Cc'] = ', '.join(email_cc)
 
-		if email_subject is not None:
+		if email_subject is not None and len(email_subject) > 0:
 			msg['Subject'] = email_subject
 		else:
 			msg['Subject'] = self.Subject
 
-		if email_from is not None:
+		if email_from is not None and len(email_from) > 0:
 			msg['From'] = sender = email_from
 		else:
 			msg['From'] = sender = self.Sender
@@ -119,20 +123,15 @@ class EmailOutputService(asab.Service, OutputABC):
 			else:
 				msg.add_attachment(content, maintype='application', subtype='zip', filename=file_name)
 
-		try:
-			result = await aiosmtplib.send(
-				msg,
-				sender=sender,
-				recipients=email_to + email_cc + email_bcc,
-				hostname=self.Host,
-				username=self.User,
-				password=self.Password,
-				use_tls=self.SSL,
-				start_tls=self.StartTLS
-			)
-		except Exception as e:
-			L.warning("Sending email failed for reason: {}".format(e))
-			return False
+		result = await aiosmtplib.send(
+			msg,
+			sender=sender,
+			recipients=email_to + email_cc + email_bcc,
+			hostname=self.Host,
+			username=self.User,
+			password=self.Password,
+			use_tls=self.SSL,
+			start_tls=self.StartTLS
+		)
 
-		L.log(asab.LOG_NOTICE, "Email sent", struct_data={'result': result[1]})
-		return True
+		L.log(asab.LOG_NOTICE, "Email sent", struct_data={'result': result[1], "host": self.Host})
