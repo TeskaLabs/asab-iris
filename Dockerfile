@@ -26,8 +26,8 @@ RUN pip3 install -r requirements.txt
 RUN apk del .buildenv
 
 COPY asabiris /opt/asab-iris/asabiris
-COPY asabiris.py /opt/asab-iris/asabiris.py
+COPY asab-iris.py /opt/asab-iris/asab-iris.py
 COPY etc /conf
-RUN chmod a+x /opt/asab-iris/asabiris.py
+RUN chmod a+x /opt/asab-iris/asab-iris.py
 
-CMD ["./asabiris.py", "-c", "/conf/asab-iris.conf"]
+CMD ["./asab-iris.py", "-c", "/conf/asab-iris.conf"]
