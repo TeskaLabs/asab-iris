@@ -103,8 +103,8 @@
     - shell
 
     only:
-      # Execute only for master branch
-      - master
+      # Execute only for master/main branch
+      - main
 
     before_script:
       - docker info
