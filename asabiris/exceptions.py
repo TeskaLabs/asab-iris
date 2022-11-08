@@ -1,0 +1,2 @@
+class SMTPDeliverError(Exception):
+	pass

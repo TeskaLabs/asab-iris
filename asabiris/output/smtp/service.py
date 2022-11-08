@@ -1,11 +1,13 @@
-import asab
+import sys
 import logging
 import email
-import aiosmtplib
 import email.message
-import sys
+
+import asab
+import aiosmtplib
 
 from ...output_abc import OutputABC
+from ...exceptions import SMTPDeliverError
 
 #
 
@@ -16,7 +18,7 @@ asab.Config.add_defaults(
 	{
 		'smtp': {
 			"from": "",
-			"host": "localhost",
+			"host": "",
 			"port": "",
 			"user": "",
 			"password": "",
@@ -33,12 +35,18 @@ class EmailOutputService(asab.Service, OutputABC):
 	def __init__(self, app, service_name="SmtpService", config_section_name='smtp'):
 		super().__init__(app, service_name)
 
-		self.Sender = asab.Config.get(config_section_name, "from")
+		self.Host = asab.Config.get(config_section_name, "host")
+		if self.Host == "":
+			L.warning("SMTP server server is not configured")
+		self.Port = asab.Config.get(config_section_name, "port")
+
 		self.SSL = asab.Config.getboolean(config_section_name, "ssl")
 		self.StartTLS = asab.Config.getboolean(config_section_name, "starttls")
-		self.Host = asab.Config.get(config_section_name, "host")
+
 		self.User = asab.Config.get(config_section_name, "user")
 		self.Password = asab.Config.get(config_section_name, "password")
+
+		self.Sender = asab.Config.get(config_section_name, "from")
 		self.Subject = asab.Config.get(config_section_name, "subject")
 
 		# file size.
@@ -123,15 +131,27 @@ class EmailOutputService(asab.Service, OutputABC):
 			else:
 				msg.add_attachment(content, maintype='application', subtype='zip', filename=file_name)
 
-		result = await aiosmtplib.send(
-			msg,
-			sender=sender,
-			recipients=email_to + email_cc + email_bcc,
-			hostname=self.Host,
-			username=self.User,
-			password=self.Password,
-			use_tls=self.SSL,
-			start_tls=self.StartTLS
-		)
+		try:
+			result = await aiosmtplib.send(
+				msg,
+				sender=sender,
+				recipients=email_to + email_cc + email_bcc,
+				hostname=self.Host,
+				port=int(self.Port) if self.Port != "" else None,
+				username=self.User,
+				password=self.Password,
+				use_tls=self.SSL,
+				start_tls=self.StartTLS
+			)
+		except aiosmtplib.errors.SMTPConnectError as e:
+			L.error("Connection failed: {}".format(e), struct_data={"host": self.Host, "port": self.Port})
+			raise SMTPDeliverError("SMTP delivery failed")
+		except aiosmtplib.errors.SMTPServerDisconnected as e:
+			L.error("Server disconnected: {}; check the SMTP credentials".format(e), struct_data={"host": self.Host})
+			raise SMTPDeliverError("SMTP delivery failed")
+		except Exception as e:
+			L.error("Generic error: {}; check credentials".format(e), struct_data={"host": self.Host})
+			raise SMTPDeliverError("SMTP delivery failed")
 
 		L.log(asab.LOG_NOTICE, "Email sent", struct_data={'result': result[1], "host": self.Host})
+

@@ -8,6 +8,7 @@ import aiohttp.payload_streamer
 import jinja2
 
 from .emailschema import email_schema
+from ..exceptions import SMTPDeliverError
 
 #
 
@@ -104,6 +105,9 @@ class WebHandler(object):
 
 		except jinja2.exceptions.UndefinedError as e:
 			raise aiohttp.web.HTTPBadRequest(text="Jinja2 error: {}".format(e))
+
+		except SMTPDeliverError:
+			raise aiohttp.web.HTTPServiceUnavailable(text="SMTP error")
 		
 		# More specific exception handling goes here so that the service provides nice output
 
