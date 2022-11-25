@@ -63,11 +63,8 @@ class SendMailOrchestrator(object):
 
 		else:
 			for a in attachments:
-				"""
-				If there are 'template' we render 'template's' else we throw a sweet warning.
-				If content-type is application/octet-stream we assume there is additional attachments in
-				request else we raise bad-request error.
-				"""
+				# If there are 'template' we render 'template's' else we throw a sweet warning.
+				# If content-type is application/octet-stream we assume there is additional attachments in request else we raise bad-request error.
 				template = a.get('template', None)
 				if template is not None:
 					params = a.get('params', {})
@@ -90,15 +87,15 @@ class SendMailOrchestrator(object):
 					atts.append((result, content_type, file_name))
 					continue
 
+				# If there is `base64` field, then the content of the attachment is provided in the body in base64
 				base64cnt = a.get('base64', None)
 				if base64cnt is not None:
-					content_type = a.get('content-type', "application/octet-stream")	
+					content_type = a.get('content-type', "application/octet-stream")
 					file_name = self.get_file_name(a)
 					result = base64.b64decode(base64cnt)
 					atts.append((result, content_type, file_name))
 					continue
 
-				
 				L.warning("Unknown/invalid attachment.")
 
 
@@ -149,7 +146,7 @@ class SendMailOrchestrator(object):
 		This method returns a file-name if provided in the attachment-dict.
 		If not then the name of the file is current date with appropriate
 		extensions.
-		"""		
+		"""
 		if attachment.get('filename') is None:
 			now = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
 			return "att-" + now + "." + attachment.get('format')
