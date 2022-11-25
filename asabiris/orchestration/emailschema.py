@@ -52,11 +52,12 @@ email_schema = {
 			"items": {
 				"type": "object",
 				"required": [
-					"template",
-					"format"
 				],
 				"properties": {
 					"template": {
+						"type": "string",
+					},
+					"base64": {
 						"type": "string",
 					},
 					"params": {

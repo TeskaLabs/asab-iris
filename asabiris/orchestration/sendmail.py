@@ -1,4 +1,5 @@
 import os
+import base64
 import datetime
 import logging
 
@@ -63,15 +64,17 @@ class SendMailOrchestrator(object):
 		else:
 			for a in attachments:
 				"""
-				If there are 'params' we render 'template's' else we throw a sweet warning.
+				If there are 'template' we render 'template's' else we throw a sweet warning.
 				If content-type is application/octet-stream we assume there is additional attachments in
 				request else we raise bad-request error.
 				"""
-				params = a.get('params', None)
-				if params is not None:
+				template = a.get('template', None)
+				if template is not None:
+					params = a.get('params', {})
+
 					# get file-name of the attachment
 					file_name = self.get_file_name(a)
-					jinja_output, result = await self.render(a['template'], params)
+					jinja_output, result = await self.render(template, params)
 
 					# get pdf from html if present.
 					fmt = a.get('format', 'html')
@@ -85,15 +88,19 @@ class SendMailOrchestrator(object):
 						raise ValueError("Invalid/unknown format '{}'".format(fmt))
 
 					atts.append((result, content_type, file_name))
+					continue
 
-				else:
-					# get attachment from request-content if present.
-					content_type = a.get('content-type')
-					if content_type is not None:
-						result = await self.get_attachment_from_request_content(a, content_type)
-						atts.append((result, content_type, file_name))
-					else:
-						L.info("No attachment's in request's content.")
+				base64cnt = a.get('base64', None)
+				if base64cnt is not None:
+					content_type = a.get('content-type', "application/octet-stream")	
+					file_name = self.get_file_name(a)
+					result = base64.b64decode(base64cnt)
+					atts.append((result, content_type, file_name))
+					continue
+
+				
+				L.warning("Unknown/invalid attachment.")
+
 
 		await self.SmtpService.send(
 			email_from=email_from,
@@ -137,34 +144,14 @@ class SendMailOrchestrator(object):
 			raise RuntimeError("Failed to render templates. Reason: Unknown extention '{}'".format(extension))
 
 
-	async def get_attachment_from_request_content(self, req_content, content_type):
-		"""
-		This method extracts attachmenst from request's contant.
-		if content type is not 'application/octet-stream'
-		it raises HTTP bad=-req.
-		"""
-		if content_type == 'application/octet-stream':
-			buffer = b""
-			async for data, _ in req_content.iter_chunks():
-				buffer += data
-				if req_content.content.at_eof():
-					result = buffer
-					buffer = b""
-				return result
-		else:
-			raise ValueError("Use content_type 'application/octet-stream'")
-
-
 	def get_file_name(self, attachment):
 		"""
 		This method returns a file-name if provided in the attachment-dict.
 		If not then the name of the file is current date with appropriate
 		extensions.
-		"""
-		date = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+		"""		
 		if attachment.get('filename') is None:
-			return "att-" + date + "." + attachment.get('format')
-		elif attachment.get('content-type') == 'application/octet-stream':
-			return "att-" + date + ".zip"
+			now = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+			return "att-" + now + "." + attachment.get('format')
 		else:
 			return attachment.get('filename')
