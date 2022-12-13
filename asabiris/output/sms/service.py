@@ -45,7 +45,7 @@ class SMSOutputService(asab.Service, OutputABC):
 		self.URL = asab.Config.get("url")
 
 
-	async def send_message(self, *, phone, message_body):
+	async def send(self, *, phone, message_body):
 		if phone is None or phone == "":
 			L.error("Empty or no phone number specified.")
 			raise RuntimeError("Empty or no phone number specified.")
