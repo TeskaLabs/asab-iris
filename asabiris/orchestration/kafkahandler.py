@@ -39,7 +39,7 @@ class KafkaHandler(asab.Service):
 		super().__init__(app, service_name)
 
 		self.Task = None
-
+		self.JinjaService = app.get_service("JinjaService")
 		topic = asab.Config.get("kafka", "topic")
 		group_id = asab.Config.get("kafka", "group_id")
 		bootstrap_servers = list(asab.Config.get("kafka", "bootstrap_servers").split(","))
@@ -119,5 +119,5 @@ class KafkaHandler(asab.Service):
 	async def send_to_slack(self, msg):
 		# TODO: This ... based on send_email() method
 		template = msg.pop("template")
-		body = await self.JinjaFormatterService.format(msg, template)
+		body = await self.JinjaService.format(msg, template)
 		await self.App.SlackOutputService.send(body)
