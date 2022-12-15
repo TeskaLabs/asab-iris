@@ -120,6 +120,18 @@ class WebHandler(object):
 		"""
 		This endpoint is for sending slack-notification.
 		```
+		```
+		Example body:
+
+		```
+		{
+			"type": "slack",
+			"body": {
+				"template": "test.md",
+				"params": {
+					"Name": "Toddy Siciro"
+			}
+		},
 		---
 		tags: ['Send alerts']
 		"""
