@@ -32,10 +32,8 @@ class KafkaHandler(asab.Service):
 					"template": {"type": "string"},
 					"params": {"type": "object"},
 				}},
-			"alert": {"type": "object"},
-			"event": {"type": "object"}
 		},
-		"required": ["type", "body", "alert", "event"],
+		"required": ["type", "body"],
 	})
 
 	def __init__(self, app, service_name="KafkaHandler"):
