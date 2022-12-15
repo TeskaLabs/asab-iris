@@ -8,6 +8,7 @@ import aiohttp.payload_streamer
 import jinja2
 
 from .emailschema import email_schema
+from .slackschema import slack_schema
 from ..exceptions import SMTPDeliverError
 
 #
@@ -114,7 +115,7 @@ class WebHandler(object):
 
 		return asab.web.rest.json_response(request, {"result": "OK"})
 
-	@asab.web.rest.json_schema_handler(email_schema)
+	@asab.web.rest.json_schema_handler(slack_schema)
 	async def send_alert(self, request, *, json_data):
 		"""
 		This endpoint is for sending emails.
