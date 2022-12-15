@@ -118,62 +118,10 @@ class WebHandler(object):
 	@asab.web.rest.json_schema_handler(slack_schema)
 	async def send_alert(self, request, *, json_data):
 		"""
-		This endpoint is for sending emails.
+		This endpoint is for sending slack-notification.
 		```
-		1) It collects the basic email info (to, cc, bcc, subject, from)
-		2) It renders the email body based on the template
-		3) Optionally it adds attachments:
-
-			3.1) The attachment is renders by this service.
-
-			3.2) The attachment is provided by the caller.
-
-		```
-		Example body:
-
-		```
-		{
-			"to": ['Tony.Montana@Goodfellas.com'],
-			"cc": ['Jimmy2.times@Goodfellas.com'],
-			"bcc": ['Henry.Hill@Goodfellas.com'],
-			"subject": "Lufthansa Hiest",
-			"from": "Jimmy.Conway@Goodfellas.com",
-			"body": {
-				"template": "test.md",
-				"params": {
-					"Name": "Toddy Siciro"
-			}
-		},
-		"attachments": [
-			{
-			"template": "test.md",
-			"params": {
-				"Name": "Michael Corleone"
-				},
-			"format": "pdf",
-			"filename": "Made.pdf"
-			}]
-		}
-
-		```
-		Attached will be retrieved from request.conent when rendering the email is not required.
-
-		Example of the email body template:
-		```
-		SUBJECT: Automated email for {{name}}
-
-		Hi {{name}},
-
-		this is a nice template for an email.
-		It is {{time}} to leave.
-
-		Br,
-		Your automated ASAB report
-		```
-
-		It is a markdown template.
 		---
-		tags: ['Send mail']
+		tags: ['Send alerts']
 		"""
 
 		try:
