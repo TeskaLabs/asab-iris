@@ -9,7 +9,7 @@ import fastjsonschema
 import asab
 
 from .emailschema import email_schema
-
+from .slackschema import slack_schema
 #
 
 L = logging.getLogger(__name__)
@@ -19,22 +19,11 @@ L = logging.getLogger(__name__)
 
 
 class KafkaHandler(asab.Service):
+
+	# validate slack and email messages
 	ValidationSchemaMail = fastjsonschema.compile(email_schema)
 
-	# TODO: This is incorrect
-	ValidationSchemaSlack = fastjsonschema.compile({
-		"type": "object",
-		"properties": {
-			"type": {"type": "string"},
-			"body": {
-				"type": "object",
-				"properties": {
-					"template": {"type": "string"},
-					"params": {"type": "object"},
-				}},
-		},
-		"required": ["type", "body"],
-	})
+	ValidationSchemaSlack = fastjsonschema.compile(slack_schema)
 
 	def __init__(self, app, service_name="KafkaHandler"):
 		super().__init__(app, service_name)
