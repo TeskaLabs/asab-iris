@@ -104,6 +104,6 @@ class KafkaHandler(asab.Service):
 		)
 
 	async def send_to_slack(self, msg):
-		# TODO: This ... based on send_email() method
+		body = msg.get("body")
 		body = await self.JinjaService.format(body['template'], body['params'])
 		await self.App.SlackOutputService.send(body)
