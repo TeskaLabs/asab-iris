@@ -1,5 +1,7 @@
 import logging
+import fastjsonschema
 
+from ..schemas import slack_schema
 
 L = logging.getLogger(__name__)
 
@@ -8,6 +10,8 @@ L = logging.getLogger(__name__)
 
 
 class SendSlackOrchestrator(object):
+
+	ValidationSchemaSlack = fastjsonschema.compile(slack_schema)
 
 
 	def __init__(self, app):
@@ -18,9 +22,12 @@ class SendSlackOrchestrator(object):
 
 
 	async def send_to_slack(self, msg):
-		body = msg.get("body", None)
-		if body is not 	None:
-			body = await self.JinjaService.format(body['template'], body['params'])
-			await self.SlackOutputService.send(body)
-		else:
-			raise RuntimeError("Failed to send message to Slack. Reason: Missing body info.")
+		try:
+			SendSlackOrchestrator.ValidationSchemaSlack(msg)
+		except fastjsonschema.exceptions.JsonSchemaException as e:
+			L.warning("Invalid notification format: {}".format(e))
+			return
+		body = msg['body']
+		body = await self.JinjaService.format(body['template'], body['params'])
+		await self.SlackOutputService.send(body)
+
