@@ -27,7 +27,7 @@ ValidationSchemaSlack = fastjsonschema.compile({
 
 
 class SlackOutputService(asab.Service, OutputABC):
-	def __init__(self, app, service_name="KafkaOutputService"):
+	def __init__(self, app, service_name="SlackOutputService"):
 		super().__init__(app, service_name)
 		# If there is slack configuration section, but no webhook_url, exception is raised.
 		try:
