@@ -79,7 +79,6 @@ class KafkaHandler(asab.Service):
 
 		elif msg_type == "slack":
 			try:
-				print(msg_type)
 				KafkaHandler.ValidationSchemaSlack(msg)
 			except fastjsonschema.exceptions.JsonSchemaException as e:
 				L.warning("Invalid notification format: {}".format(e))
