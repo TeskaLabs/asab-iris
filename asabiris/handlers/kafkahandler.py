@@ -68,14 +68,13 @@ class KafkaHandler(asab.Service):
 				L.exception("General error when dispatching message")
 
 	async def dispatch(self, msg):
-		msg_type = msg.get("type", "<missing>")
+		msg_type = msg.pop("type", "<missing>")
 		if msg_type == "email":
 			try:
 				KafkaHandler.ValidationSchemaMail(msg)
 			except fastjsonschema.exceptions.JsonSchemaException as e:
 				L.warning("Invalid notification format: {}".format(e))
 				return
-			msg.pop("type")
 			await self.send_email(msg)
 
 		elif msg_type == "slack":
@@ -85,7 +84,6 @@ class KafkaHandler(asab.Service):
 			except fastjsonschema.exceptions.JsonSchemaException as e:
 				L.warning("Invalid notification format: {}".format(e))
 				return
-			msg.pop("type")
 			await self.send_to_slack(msg)
 
 		else:
