@@ -11,8 +11,9 @@ slack_schema = {
 					"type": "object",
 					"default": {}
 				},
-			}
+			},
+			"required": ["template"],
 		},
 	},
-	"required": ["body", "template"],
+	"required": ["body"],
 }
