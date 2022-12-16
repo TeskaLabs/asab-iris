@@ -8,8 +8,8 @@ import fastjsonschema
 
 import asab
 
-from asabiris.schemas.emailschema import email_schema
-from asabiris.schemas.slackschema import slack_schema
+from ..schemas.emailschema import email_schema
+from ..schemas.slackschema import slack_schema
 #
 
 L = logging.getLogger(__name__)
@@ -104,6 +104,4 @@ class KafkaHandler(asab.Service):
 		)
 
 	async def send_to_slack(self, msg):
-		body = msg.get("body")
-		body = await self.JinjaService.format(body['template'], body['params'])
-		await self.App.SlackOutputService.send(body)
+		await self.App.SendSlackOrchestrator.send_to_slack(msg)

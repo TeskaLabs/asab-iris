@@ -20,7 +20,7 @@ from .orchestration.render import RenderReportOrchestrator
 
 from .orchestration.kafkahandler import KafkaHandler
 from .orchestration.webhandler import WebHandler
-
+from .orchestration.sendslack import SendSlackOrchestrator
 
 L = logging.getLogger(__name__)
 
@@ -71,6 +71,7 @@ class IRISApplication(asab.Application):
 		# Orchestrators
 		self.SendMailOrchestrator = SendMailOrchestrator(self)
 		self.RenderReportOrchestrator = RenderReportOrchestrator(self)
+		self.SendSlackOrchestrator = SendSlackOrchestrator(self)
 
 		self.WebHandler = WebHandler(self)
 
