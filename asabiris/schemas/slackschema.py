@@ -1,13 +1,18 @@
-slack_schema ={
-		"type": "object",
-		"properties": {
-			"type": {"type": "string"},
-			"body": {
-				"type": "object",
-				"properties": {
-					"template": {"type": "string"},
-					"params": {"type": "object"},
-				}},
+slack_schema = {
+	"type": "object",
+	"properties": {
+		"body": {
+			"type": "object",
+			"properties": {
+				"template": {
+					"type": "string",
+				},
+				"params": {
+					"type": "object",
+					"default": {}
+				},
+			}
 		},
-		"required": ["type", "body"],
-	}
+	},
+	"required": ["body", "template"],
+}
