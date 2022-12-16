@@ -7,8 +7,9 @@ import aiohttp.payload_streamer
 
 import jinja2
 
-from .emailschema import email_schema
-from .slackschema import slack_schema
+from ..schemas.emailschema import email_schema
+from ..schemas.slackschema import slack_schema
+
 from ..exceptions import SMTPDeliverError
 
 #
