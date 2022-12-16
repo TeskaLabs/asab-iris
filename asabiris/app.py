@@ -18,8 +18,8 @@ from .output.slack import SlackOutputService
 from .orchestration.sendmail import SendMailOrchestrator
 from .orchestration.render import RenderReportOrchestrator
 
-from .orchestration.kafkahandler import KafkaHandler
-from .orchestration.webhandler import WebHandler
+from .handlers.kafkahandler import KafkaHandler
+from .handlers.webhandler import WebHandler
 from .orchestration.sendslack import SendSlackOrchestrator
 
 L = logging.getLogger(__name__)

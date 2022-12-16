@@ -7,10 +7,10 @@ import aiohttp.payload_streamer
 
 import jinja2
 
-from ..schemas.emailschema import email_schema
-from ..schemas.slackschema import slack_schema
+from asabiris.schemas.emailschema import email_schema
+from asabiris.schemas.slackschema import slack_schema
 
-from ..exceptions import SMTPDeliverError
+from asabiris.exceptions import SMTPDeliverError
 
 #
 

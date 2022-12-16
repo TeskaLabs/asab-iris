@@ -8,8 +8,8 @@ import fastjsonschema
 
 import asab
 
-from ..schemas.emailschema import email_schema
-from ..schemas.slackschema import slack_schema
+from asabiris.schemas.emailschema import email_schema
+from asabiris.schemas.slackschema import slack_schema
 #
 
 L = logging.getLogger(__name__)
