@@ -28,6 +28,11 @@ class SendSlackOrchestrator(object):
 			L.warning("Invalid notification format: {}".format(e))
 			return
 		body = msg['body']
-		body = await self.JinjaService.format(body['template'], body['params'])
-		await self.SlackOutputService.send(body)
+		# set body to new variable
+		output = msg['body']['template']
+
+		if len(body['params']) != 0:
+			output = await self.JinjaService.format(body['template'], body['params'])
+
+		await self.SlackOutputService.send(output)
 
