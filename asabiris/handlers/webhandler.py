@@ -27,7 +27,7 @@ class WebHandler(object):
 		web_app = app.WebContainer.WebApp
 		web_app.router.add_put(r"/send_mail", self.send_mail)
 		web_app.router.add_put(r"/render", self.render)
-		web_app.router.add_put(r"/send_alerts", self.send_alert)
+		web_app.router.add_put(r"/send_slack", self.send_alert)
 
 
 	@asab.web.rest.json_schema_handler(email_schema)
