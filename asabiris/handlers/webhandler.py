@@ -138,7 +138,7 @@ class WebHandler(object):
 		"""
 
 		try:
-			await self.App.KafkaHandler.send_to_slack(json_data)
+			await self.App.SendSlackOrchestrator.send_to_slack(json_data)
 
 		except jinja2.exceptions.UndefinedError as e:
 			raise aiohttp.web.HTTPBadRequest(text="Jinja2 error: {}".format(e))
