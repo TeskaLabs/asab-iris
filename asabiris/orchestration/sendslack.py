@@ -28,7 +28,7 @@ class SendSlackOrchestrator(object):
 			L.warning("Invalid notification format: {}".format(e))
 			return
 		body = msg['body']
-		# set body to new variable
+		# output will be used if we skip jinja-formatting.
 		output = msg['body']['template']
 
 		if len(body['params']) != 0:
