@@ -2,7 +2,6 @@ import configparser
 import logging
 
 import aiohttp
-import fastjsonschema
 
 import asab
 

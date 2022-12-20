@@ -35,4 +35,3 @@ class SendSlackOrchestrator(object):
 			output = await self.JinjaService.format(body['template'], body['params'])
 
 		await self.SlackOutputService.send(output)
-
