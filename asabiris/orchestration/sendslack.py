@@ -27,15 +27,10 @@ class SendSlackOrchestrator(object):
 		except fastjsonschema.exceptions.JsonSchemaException as e:
 			L.warning("Invalid notification format: {}".format(e))
 			return
-		# setup o/p variable
-		output = None
-		body = msg['body']
-		params = body.get("params", {})
-		template = body.get("template", None)
 
-		if template is not None:
-			output = await self.JinjaService.format(body['template'], params)
-		else:
-			L.warning("Sending to slack failed. Reason: Template name not provided.")
+		body = msg['body']
+		body["params"] = body.get("params", {})
+
+		output = await self.JinjaService.format(body["template"], body["params"])
 
 		await self.SlackOutputService.send(output)
