@@ -29,6 +29,7 @@ class SendSlackOrchestrator(object):
 			return
 
 		body = msg['body']
+		# if params no provided pass empty params
 		body["params"] = body.get("params", {})
 
 		output = await self.JinjaService.format(body["template"], body["params"])
