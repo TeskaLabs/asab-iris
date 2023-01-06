@@ -8,38 +8,28 @@ import fastjsonschema
 
 import asab
 
-from .emailschema import email_schema
-
-
+from asabiris.schemas.emailschema import email_schema
+from asabiris.schemas.slackschema import slack_schema
 #
 
 L = logging.getLogger(__name__)
+
 
 #
 
 
 class KafkaHandler(asab.Service):
 
+	# validate slack and email messages
 	ValidationSchemaMail = fastjsonschema.compile(email_schema)
 
-	# TODO: This is incorrect
-	ValidationSchemaSlack = fastjsonschema.compile({
-		"type": "object",
-		"properties": {
-			"type": {"type": "string"},
-			"template": {"type": "string"},
-			"alert": {"type": "object"},
-			"event": {"type": "object"}
-		},
-		"required": ["type", "template", "alert", "event"],
-	})
-
+	ValidationSchemaSlack = fastjsonschema.compile(slack_schema)
 
 	def __init__(self, app, service_name="KafkaHandler"):
 		super().__init__(app, service_name)
 
 		self.Task = None
-
+		self.JinjaService = app.get_service("JinjaService")
 		topic = asab.Config.get("kafka", "topic")
 		group_id = asab.Config.get("kafka", "group_id")
 		bootstrap_servers = list(asab.Config.get("kafka", "bootstrap_servers").split(","))
@@ -52,7 +42,6 @@ class KafkaHandler(asab.Service):
 			auto_offset_reset="earliest",
 		)
 
-
 	async def initialize(self, app):
 		try:
 			await self.Consumer.start()
@@ -61,12 +50,10 @@ class KafkaHandler(asab.Service):
 			exit()
 		self.Task = asyncio.ensure_future(self.consume(), loop=self.App.Loop)
 
-
 	async def finalize(self, app):
 		await self.Consumer.stop()
 		if self.Task.exception() is not None:
-			L.warning("Exception occured during alert notifications: {}".format(self.Task.exception()))
-
+			L.warning("Exception occurred during alert notifications: {}".format(self.Task.exception()))
 
 	async def consume(self):
 		async for msg in self.Consumer:
@@ -79,7 +66,6 @@ class KafkaHandler(asab.Service):
 				await self.dispatch(msg)
 			except Exception:
 				L.exception("General error when dispatching message")
-
 
 	async def dispatch(self, msg):
 		msg_type = msg.pop("type", "<missing>")
@@ -102,7 +88,6 @@ class KafkaHandler(asab.Service):
 		else:
 			L.warning("Message type '{}' not implemented.".format(msg_type))
 
-
 	async def send_email(self, json_data):
 		await self.App.SendMailOrchestrator.send_mail(
 			email_to=json_data["to"],
@@ -115,9 +100,5 @@ class KafkaHandler(asab.Service):
 			attachments=json_data.get("attachments", []),  # Optional
 		)
 
-
 	async def send_to_slack(self, msg):
-		# TODO: This ... based on send_email() method
-		template = msg.pop("template")
-		body = await self.JinjaFormatterService.format(msg, template)
-		await self.App.SlackOutputService.send(body)
+		await self.App.SendSlackOrchestrator.send_to_slack(msg)

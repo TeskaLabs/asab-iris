@@ -44,6 +44,13 @@ https://teskalabs.github.io/asab-iris/
  * HTTP REST API to get the report
  * Templates are in the ASAB library
 
+### Send slack Alerts
+
+ * Consume the messages from Kafka topic.
+ * With the help of info from messages , get a template from ASAB library.
+ * HTTP REST API to send the alert messages using rendered template.
+
+
 
 ## Architecture
 

@@ -7,7 +7,9 @@ import aiohttp.payload_streamer
 
 import jinja2
 
-from .emailschema import email_schema
+from ..schemas.emailschema import email_schema
+from ..schemas.slackschema import slack_schema
+
 from ..exceptions import SMTPDeliverError
 
 #
@@ -25,6 +27,7 @@ class WebHandler(object):
 		web_app = app.WebContainer.WebApp
 		web_app.router.add_put(r"/send_mail", self.send_mail)
 		web_app.router.add_put(r"/render", self.render)
+		web_app.router.add_put(r"/send_slack", self.send_alert)
 
 
 	@asab.web.rest.json_schema_handler(email_schema)
@@ -108,6 +111,37 @@ class WebHandler(object):
 
 		except SMTPDeliverError:
 			raise aiohttp.web.HTTPServiceUnavailable(text="SMTP error")
+
+		# More specific exception handling goes here so that the service provides nice output
+
+		return asab.web.rest.json_response(request, {"result": "OK"})
+
+	@asab.web.rest.json_schema_handler(slack_schema)
+	async def send_alert(self, request, *, json_data):
+		"""
+		This endpoint is for sending slack-notification.
+		```
+		```
+		Example body:
+
+		```
+		{
+			"type": "slack",
+			"body": {
+				"template": "test.md",
+				"params": {
+					"Name": "Toddy Siciro"
+			}
+		},
+		---
+		tags: ['Send alerts']
+		"""
+
+		try:
+			await self.App.SendSlackOrchestrator.send_to_slack(json_data)
+
+		except jinja2.exceptions.UndefinedError as e:
+			raise aiohttp.web.HTTPBadRequest(text="Jinja2 error: {}".format(e))
 
 		# More specific exception handling goes here so that the service provides nice output
 
