@@ -17,14 +17,15 @@ class RenderReportOrchestrator(object):
 		self.JinjaService = app.get_service("JinjaService")
 		self.HtmlToPdfService = app.get_service("HtmlToPdfService")
 		self.MarkdownToHTMLService = app.get_service("MarkdownToHTMLService")
-
+		self.RenderPath = "/Template/render"
 
 	async def render(self, template, params):
 		"""
 		This method renders templates based on the depending on the
 		extension of template. Returns the html/pdf.
 		"""
-		html = await self.JinjaService.format(template, params)
+		jinja_path = self.RenderPath + template
+		html = await self.JinjaService.format(jinja_path, params)
 		_, extension = os.path.splitext(template)
 
 		if extension == '.html':
