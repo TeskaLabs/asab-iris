@@ -19,7 +19,8 @@ class SendSlackOrchestrator(object):
 		self.JinjaService = app.get_service("JinjaService")
 		# output
 		self.SlackOutputService = app.get_service("SlackOutputService")
-
+		# location of slack templates
+		self.TempPath = "/Templates/slack"
 
 	async def send_to_slack(self, msg):
 		try:
@@ -31,7 +32,7 @@ class SendSlackOrchestrator(object):
 		body = msg['body']
 		# if params no provided pass empty params
 		body["params"] = body.get("params", {})
-
+		body['template'] = self.TempPath + body['template']
 		output = await self.JinjaService.format(body["template"], body["params"])
 
 		await self.SlackOutputService.send(output)
