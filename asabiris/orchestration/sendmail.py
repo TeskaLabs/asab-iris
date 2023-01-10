@@ -23,7 +23,7 @@ class SendMailOrchestrator(object):
 
 		# output
 		self.SmtpService = app.get_service("SmtpService")
-
+		self.TempPath = "/Templates/email"
 
 	async def send_mail(
 		self, *,
@@ -71,7 +71,8 @@ class SendMailOrchestrator(object):
 
 					# get file-name of the attachment
 					file_name = self.get_file_name(a)
-					jinja_output, result = await self.render(template, params)
+					template_path = self.TempPath + template
+					jinja_output, result = await self.render(template_path, params)
 
 					# get pdf from html if present.
 					fmt = a.get('format', 'html')
