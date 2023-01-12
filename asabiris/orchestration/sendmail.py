@@ -71,6 +71,7 @@ class SendMailOrchestrator(object):
 
 					# get file-name of the attachment
 					file_name = self.get_file_name(a)
+					assert template[:1] == "/"
 					template_path = self.TempPath + template
 					jinja_output, result = await self.render(template_path, params)
 
