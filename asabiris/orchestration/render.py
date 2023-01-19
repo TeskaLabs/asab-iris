@@ -23,7 +23,7 @@ class RenderReportOrchestrator(object):
 		This method renders templates based on the depending on the
 		extension of template. Returns the html/pdf.
 		"""
-		assert template == '/'
+		assert template[:1] != '/'
 		template_path = self.TempPath + template
 		html = await self.JinjaService.format(template_path, params)
 		_, extension = os.path.splitext(template)
