@@ -17,7 +17,6 @@ class RenderReportOrchestrator(object):
 		self.JinjaService = app.get_service("JinjaService")
 		self.HtmlToPdfService = app.get_service("HtmlToPdfService")
 		self.MarkdownToHTMLService = app.get_service("MarkdownToHTMLService")
-		self.TempPath = "/Templates/render"
 
 	async def render(self, template, params):
 		"""

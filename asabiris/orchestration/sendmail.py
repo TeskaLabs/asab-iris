@@ -23,7 +23,6 @@ class SendMailOrchestrator(object):
 
 		# output
 		self.SmtpService = app.get_service("SmtpService")
-		self.TempPath = "/Templates/email"
 
 	async def send_mail(
 		self, *,

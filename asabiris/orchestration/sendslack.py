@@ -20,7 +20,6 @@ class SendSlackOrchestrator(object):
 		# output
 		self.SlackOutputService = app.get_service("SlackOutputService")
 		# location of slack templates
-		self.TempPath = "/Templates/slack"
 
 	async def send_to_slack(self, msg):
 		try:
