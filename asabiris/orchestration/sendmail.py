@@ -65,12 +65,15 @@ class SendMailOrchestrator(object):
 				# If there are 'template' we render 'template's' else we throw a sweet warning.
 				# If content-type is application/octet-stream we assume there is additional attachments in request else we raise bad-request error.
 				template = a.get('template', None)
+
+				if not template.startswith("/Template"):
+					raise AssertionError
+
 				if template is not None:
 					params = a.get('params', {})
 
 					# get file-name of the attachment
 					file_name = self.get_file_name(a)
-					assert template[:1] != "/Templates"
 					jinja_output, result = await self.render(template, params)
 
 					# get pdf from html if present.

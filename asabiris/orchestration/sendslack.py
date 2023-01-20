@@ -30,7 +30,8 @@ class SendSlackOrchestrator(object):
 
 		body = msg['body']
 		# if params no provided pass empty params
-		assert body['template'][:1] != '/Templates'
+		if not body['template'].startswith("/Template"):
+			raise AssertionError
 		body["params"] = body.get("params", {})
 		output = await self.JinjaService.format(body["template"], body["params"])
 
