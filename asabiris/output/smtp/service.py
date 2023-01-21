@@ -17,7 +17,7 @@ L = logging.getLogger(__name__)
 asab.Config.add_defaults(
 	{
 		'smtp': {
-			"from": "",
+			"from": "asab.iris@mail.com",
 			"host": "",
 			"port": "",
 			"user": "",
