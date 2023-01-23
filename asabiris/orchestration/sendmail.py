@@ -52,7 +52,7 @@ class SendMailOrchestrator(object):
 		# Render a body
 		body_html, email_subject_body = await self.render(body_template, body_params)
 
-		if email_subject is None:
+		if email_subject_body is not None:
 			email_subject = email_subject_body
 
 		atts = []
@@ -129,6 +129,7 @@ class SendMailOrchestrator(object):
 			raise
 
 		_, extension = os.path.splitext(template)
+
 
 		if extension == '.html':
 			return utils.find_subject_in_html(jinja_output)
