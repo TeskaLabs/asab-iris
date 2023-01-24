@@ -78,7 +78,6 @@ class SendMailOrchestrator(object):
 
 					# get file-name of the attachment
 					file_name = self.get_file_name(a)
-					assert template != None, "Template cannot be None"
 					jinja_output, result = await self.render(template, params)
 
 					# get pdf from html if present.
