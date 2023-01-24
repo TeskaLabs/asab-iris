@@ -70,11 +70,12 @@ class SendMailOrchestrator(object):
 				# - primarily use absolute path - starts with "/"
 				# - if absolute path is used, check it start with "/Templates"
 				# - if it is not absolute path, it is file name - assume it's a file in Templates folder
-				if template.startswith("/"):
-					assert template.startswith("/Templates"), "Templates must start with /Templates"
 
 				if template is not None:
 					params = a.get('params', {})
+
+					if template.startswith("/"):
+						assert template.startswith("/Templates"), "Templates must start with /Templates"
 
 					# get file-name of the attachment
 					file_name = self.get_file_name(a)
