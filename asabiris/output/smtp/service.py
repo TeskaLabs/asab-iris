@@ -128,8 +128,9 @@ class EmailOutputService(asab.Service, OutputABC):
 				f_size = sys.getsizeof(a)
 				if f_size > int(self.FileSize):
 					L.warning("Failed to send email with attachment: file size is too large.")
-			else:
-				msg.add_attachment(content, maintype='application', subtype='zip', filename=file_name)
+				else:
+					msg.add_attachment(content, maintype='application', subtype='zip', filename=file_name)
+
 
 		try:
 			result = await aiosmtplib.send(
