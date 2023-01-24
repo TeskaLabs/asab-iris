@@ -23,7 +23,11 @@ class RenderReportOrchestrator(object):
 		This method renders templates based on the depending on the
 		extension of template. Returns the html/pdf.
 		"""
-		assert template.startswith("/Templates")
+		# - primarily use absolute path - starts with "/"
+		# - if absolute path is used, check it start with "/Templates"
+		# - if it is not absolute path, it is file name - assume it's a file in Templates folder
+		if template.startswith("/"):
+			assert template.startswith("/Templates")
 
 		html = await self.JinjaService.format(template, params)
 		_, extension = os.path.splitext(template)
