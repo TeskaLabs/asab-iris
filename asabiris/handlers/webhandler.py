@@ -112,8 +112,8 @@ class WebHandler(object):
 		except SMTPDeliverError:
 			raise aiohttp.web.HTTPServiceUnavailable(text="SMTP error")
 
-		except AssertionError:
-			raise aiohttp.web.HTTPBadRequest(text="Your template must be stored in /Templates directory")
+		except AssertionError as e:
+			raise aiohttp.web.HTTPBadRequest(text="{}".format(e))
 
 		# More specific exception handling goes here so that the service provides nice output
 
@@ -146,8 +146,8 @@ class WebHandler(object):
 		except jinja2.exceptions.UndefinedError as e:
 			raise aiohttp.web.HTTPBadRequest(text="Jinja2 error: {}".format(e))
 
-		except AssertionError:
-			raise aiohttp.web.HTTPBadRequest(text="Your template must be stored in /Templates directory")
+		except AssertionError as e:
+			raise aiohttp.web.HTTPBadRequest(text="{}".format(e))
 
 		# More specific exception handling goes here so that the service provides nice output
 

@@ -34,7 +34,7 @@ class SendSlackOrchestrator(object):
 		# - if absolute path is used, check it start with "/Templates"
 		# - if it is not absolute path, it is file name - assume it's a file in Templates folder
 		if body['template'].startswith("/"):
-			assert body['template'].startswith("/Templates")
+			assert body['template'].startswith("/Templates"), "Templates must start with /Templates"
 
 		body["params"] = body.get("params", {})
 		output = await self.JinjaService.format(body["template"], body["params"])
