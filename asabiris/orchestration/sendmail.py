@@ -52,8 +52,9 @@ class SendMailOrchestrator(object):
 		# Render a body
 		body_html, email_subject_body = await self.render(body_template, body_params)
 
-		if email_subject_body is not None:
+		if email_subject is None:
 			email_subject = email_subject_body
+
 
 		atts = []
 
@@ -66,8 +67,7 @@ class SendMailOrchestrator(object):
 				# If content-type is application/octet-stream we assume there is additional attachments in request else we raise bad-request error.
 				template = a.get('template', None)
 
-				if not template.startswith("/Template"):
-					raise AssertionError
+				assert template.startswith("/Templates")
 
 				if template is not None:
 					params = a.get('params', {})
