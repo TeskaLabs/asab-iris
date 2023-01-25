@@ -131,6 +131,9 @@ class EmailOutputService(asab.Service, OutputABC):
 				else:
 					msg.add_attachment(content, maintype='application', subtype='zip', filename=file_name)
 
+			else:
+				raise Exception("Unsupported content-type {}".format(content_type))
+
 
 		try:
 			result = await aiosmtplib.send(
