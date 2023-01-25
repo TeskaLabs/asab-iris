@@ -26,8 +26,7 @@ class RenderReportOrchestrator(object):
 		# - primarily use absolute path - starts with "/"
 		# - if absolute path is used, check it start with "/Templates"
 		# - if it is not absolute path, it is file name - assume it's a file in Templates folder
-		if template.startswith("/"):
-			assert template.startswith("/Templates"), "Your template must be stored in /Templates directory"
+		assert template.startswith("/Templates"), "Your template must be stored in /Templates directory"
 
 		html = await self.JinjaService.format(template, params)
 		_, extension = os.path.splitext(template)
