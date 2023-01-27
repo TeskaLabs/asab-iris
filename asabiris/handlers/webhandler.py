@@ -112,6 +112,9 @@ class WebHandler(object):
 		except SMTPDeliverError:
 			raise aiohttp.web.HTTPServiceUnavailable(text="SMTP error")
 
+		except AssertionError as e:
+			raise aiohttp.web.HTTPBadRequest(text="{}".format(e))
+
 		# More specific exception handling goes here so that the service provides nice output
 
 		return asab.web.rest.json_response(request, {"result": "OK"})
@@ -142,6 +145,9 @@ class WebHandler(object):
 
 		except jinja2.exceptions.UndefinedError as e:
 			raise aiohttp.web.HTTPBadRequest(text="Jinja2 error: {}".format(e))
+
+		except AssertionError as e:
+			raise aiohttp.web.HTTPBadRequest(text="{}".format(e))
 
 		# More specific exception handling goes here so that the service provides nice output
 

@@ -18,12 +18,16 @@ class RenderReportOrchestrator(object):
 		self.HtmlToPdfService = app.get_service("HtmlToPdfService")
 		self.MarkdownToHTMLService = app.get_service("MarkdownToHTMLService")
 
-
 	async def render(self, template, params):
 		"""
 		This method renders templates based on the depending on the
 		extension of template. Returns the html/pdf.
 		"""
+		# - primarily use absolute path - starts with "/"
+		# - if absolute path is used, check it start with "/Templates"
+		# - if it is not absolute path, it is file name - assume it's a file in Templates folder
+		assert template.startswith("/Templates"), "Template must be stored in /Templates directory"
+
 		html = await self.JinjaService.format(template, params)
 		_, extension = os.path.splitext(template)
 

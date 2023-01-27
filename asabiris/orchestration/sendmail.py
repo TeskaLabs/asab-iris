@@ -9,6 +9,7 @@ from .. import utils
 
 L = logging.getLogger(__name__)
 
+
 #
 
 
@@ -24,17 +25,16 @@ class SendMailOrchestrator(object):
 		# output
 		self.SmtpService = app.get_service("SmtpService")
 
-
 	async def send_mail(
-		self, *,
-		email_to,
-		email_from=None,
-		email_cc=[],
-		email_bcc=[],
-		email_subject=None,
-		body_template,
-		body_params={},
-		attachments=[],
+			self, *,
+			email_to,
+			email_from=None,
+			email_cc=[],
+			email_bcc=[],
+			email_subject=None,
+			body_template,
+			body_params={},
+			attachments=[],
 	):
 		"""
 		It sends an email
@@ -66,8 +66,15 @@ class SendMailOrchestrator(object):
 				# If there are 'template' we render 'template's' else we throw a sweet warning.
 				# If content-type is application/octet-stream we assume there is additional attachments in request else we raise bad-request error.
 				template = a.get('template', None)
+
+				# - primarily use absolute path - starts with "/"
+				# - if absolute path is used, check it start with "/Templates"
+				# - if it is not absolute path, it is file name - assume it's a file in Templates folder
+
 				if template is not None:
 					params = a.get('params', {})
+
+					assert template.startswith("/Templates"), "Template must be stored in /Templates directory"
 
 					# get file-name of the attachment
 					file_name = self.get_file_name(a)
@@ -98,7 +105,6 @@ class SendMailOrchestrator(object):
 
 				L.warning("Unknown/invalid attachment.")
 
-
 		await self.SmtpService.send(
 			email_from=email_from,
 			email_to=email_to,
@@ -109,7 +115,6 @@ class SendMailOrchestrator(object):
 			attachments=atts
 		)
 
-
 	async def render(self, template, params):
 		"""
 		This method renders templates based on the depending on the
@@ -119,6 +124,8 @@ class SendMailOrchestrator(object):
 
 		jinja_output will be used for extracting subject.
 		"""
+		assert template.startswith("/Templates"), "Template must be stored in /Templates directory"
+
 		try:
 			jinja_output = await self.JinjaService.format(template, params)
 		except KeyError:
@@ -139,7 +146,6 @@ class SendMailOrchestrator(object):
 
 		else:
 			raise RuntimeError("Failed to render templates. Reason: Unknown extention '{}'".format(extension))
-
 
 	def get_file_name(self, attachment):
 		"""

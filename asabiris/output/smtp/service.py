@@ -17,7 +17,7 @@ L = logging.getLogger(__name__)
 asab.Config.add_defaults(
 	{
 		'smtp': {
-			"from": "",
+			"from": "asab.iris@mail.com",
 			"host": "",
 			"port": "",
 			"user": "",
@@ -128,8 +128,12 @@ class EmailOutputService(asab.Service, OutputABC):
 				f_size = sys.getsizeof(a)
 				if f_size > int(self.FileSize):
 					L.warning("Failed to send email with attachment: file size is too large.")
+				else:
+					msg.add_attachment(content, maintype='application', subtype='zip', filename=file_name)
+
 			else:
-				msg.add_attachment(content, maintype='application', subtype='zip', filename=file_name)
+				raise AssertionError("Unsupported content-type {}".format(content_type))
+
 
 		try:
 			result = await aiosmtplib.send(
