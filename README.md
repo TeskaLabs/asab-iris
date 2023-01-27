@@ -56,3 +56,19 @@ https://teskalabs.github.io/asab-iris/
 
 ![](./docs/asab-iris-architecture.drawio.svg)
 
+**WARNING: Templates used for email or Slack must be stored in Templates dir in filesystem or Templates node in zookeeper**
+
+**Templates used for emailing must be stored under**
+```
+/Templates/Mails/
+```
+
+**Templates used by Slack must be stored under**
+```
+/Templates/Slack/
+```
+
+**Templates used for other porpose must be stored under**
+```
+/Templates/General/
+```
