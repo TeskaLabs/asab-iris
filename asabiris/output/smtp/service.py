@@ -1,7 +1,6 @@
-import sys
-import logging
 import email
 import email.message
+import logging
 
 import asab
 import aiosmtplib
@@ -100,37 +99,17 @@ class EmailOutputService(asab.Service, OutputABC):
 		else:
 			msg['From'] = sender = self.Sender
 
-		for a in attachments:
-			# unpack tuple
-			(content, content_type, file_name) = a
+		# Add attachments
+		for content, content_type, file_name in attachments:
+			maintype, subtype = content_type.split('/', 1)
+			msg.add_attachment(
+				content,
+				maintype=maintype,
+				subtype=subtype,
+				filename=file_name
+			)
 
-			if content_type == "text/html":
-				# attach html file
-				msg.add_attachment(content, subtype=content_type, filename=file_name)
-				# attach text
-				msg.add_attachment("Please see the HTML part of this email.", filename="readme.txt")
-
-			elif content_type == "application/pdf":
-				# read the whole pdf content
-				data = content.read(int(self.FileSize))
-
-				if len(data) > (self.FileSize):
-					L.error("PDF size is too large to be sent over email.")
-					raise Exception("PDF size is too large to be sent over email.")
-				else:
-					msg.add_attachment(data, maintype='application', subtype='pdf', filename=file_name)
-
-			elif content_type == "application/octet-stream":
-				f_size = sys.getsizeof(a)
-				if f_size > int(self.FileSize):
-					L.warning("Failed to send email with attachment: file size is too large.")
-				else:
-					msg.add_attachment(content, maintype='application', subtype='zip', filename=file_name)
-
-			else:
-				raise AssertionError("Unsupported content-type {}".format(content_type))
-
-
+		# Send the result over SMTP
 		try:
 			result = await aiosmtplib.send(
 				msg,
