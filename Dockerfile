@@ -13,7 +13,7 @@ RUN apk add --no-cache \
   py3-pip \
   freetype
 
-RUN apk add --no-cache --virtual .buildenv python3-dev gcc musl-dev git freetype-dev
+RUN apk add --no-cache --virtual .buildenv python3-dev gcc musl-dev git freetype-dev libgit2-dev
 
 RUN mkdir -p /opt/asab-iris
 WORKDIR /opt/asab-iris
