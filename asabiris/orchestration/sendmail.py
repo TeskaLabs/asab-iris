@@ -26,15 +26,15 @@ class SendMailOrchestrator(object):
 		self.SmtpService = app.get_service("SmtpService")
 
 	async def send_mail(
-			self, *,
-			email_to,
-			email_from=None,
-			email_cc=[],
-			email_bcc=[],
-			email_subject=None,
-			body_template,
-			body_params={},
-			attachments=[],
+		self, *,
+		email_to,
+		email_from=None,
+		email_cc=[],
+		email_bcc=[],
+		email_subject=None,
+		body_template,
+		body_params={},
+		attachments=[],
 	):
 		"""
 		It sends an email
