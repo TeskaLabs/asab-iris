@@ -26,7 +26,6 @@ asab.Config.add_defaults(
 			"starttls": "yes",  # Use STARTTLS protocol
 			"subject": "ASAB Iris email",
 			"message_body": "",
-			"file_size": 50 * 1024 * 1024  # 50 MB
 		}
 	})
 
@@ -48,9 +47,6 @@ class EmailOutputService(asab.Service, OutputABC):
 
 		self.Sender = asab.Config.get(config_section_name, "from")
 		self.Subject = asab.Config.get(config_section_name, "subject")
-
-		# file size.
-		self.FileSize = int(asab.Config.get(config_section_name, "file_size"))
 
 		if len(self.User) == 0:
 			self.User = None
