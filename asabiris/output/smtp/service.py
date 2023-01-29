@@ -132,7 +132,7 @@ class EmailOutputService(asab.Service, OutputABC):
 					msg.add_attachment(content, maintype='application', subtype='zip', filename=file_name)
 
 			else:
-				raise AssertionError("Unsupported content-type {}".format(content_type))
+				msg.add_attachment(content, maintype=content_type.split("/")[0], subtype=content_type.split("/")[1], filename=file_name)
 
 
 		try:
