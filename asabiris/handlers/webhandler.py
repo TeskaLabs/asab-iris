@@ -25,13 +25,14 @@ class WebHandler(object):
 		self.App = app
 
 		web_app = app.WebContainer.WebApp
-		web_app.router.add_put(r"/send_mail", self.send_mail)
+		web_app.router.add_put(r"/send_email", self.send_email)
+		web_app.router.add_put(r"/send_mail", self.send_email)  # This one is for backward compatiblity
 		web_app.router.add_put(r"/render", self.render)
 		web_app.router.add_put(r"/send_slack", self.send_alert)
 
 
 	@asab.web.rest.json_schema_handler(email_schema)
-	async def send_mail(self, request, *, json_data):
+	async def send_email(self, request, *, json_data):
 		"""
 		This endpoint is for sending emails.
 		```
@@ -112,11 +113,7 @@ class WebHandler(object):
 		except SMTPDeliverError:
 			raise aiohttp.web.HTTPServiceUnavailable(text="SMTP error")
 
-		except AssertionError as e:
-			raise aiohttp.web.HTTPBadRequest(text="{}".format(e))
-
 		# More specific exception handling goes here so that the service provides nice output
-
 		return asab.web.rest.json_response(request, {"result": "OK"})
 
 	@asab.web.rest.json_schema_handler(slack_schema)
@@ -145,9 +142,6 @@ class WebHandler(object):
 
 		except jinja2.exceptions.UndefinedError as e:
 			raise aiohttp.web.HTTPBadRequest(text="Jinja2 error: {}".format(e))
-
-		except AssertionError as e:
-			raise aiohttp.web.HTTPBadRequest(text="{}".format(e))
 
 		# More specific exception handling goes here so that the service provides nice output
 
