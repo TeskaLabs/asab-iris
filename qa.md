@@ -81,3 +81,18 @@
 }
 ```
 
+## TSM04: Try to render PDF report using html template
+
+`PUT /render?format=pdf&template=/Templates/hello.html`
+
+```
+{}
+```
+
+## TSM05: Try to render PDF report using html template
+
+`PUT /render?format=html&template=/Templates/hello.html`
+
+```
+{}
+```
