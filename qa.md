@@ -13,7 +13,10 @@
 {
     "to": ["foo@example.com"],
     "body": {
-        "template": "/Templates/Emails/hello.md"
+        "template": "/Templates/Emails/hello.html"
+         "params":{
+            "name":"Iris"
+      }
     }
 }
 ```
@@ -28,6 +31,9 @@
     "to": ["foo@example.com"],
     "body": {
         "template": "/Templates/Emails/hello.html"
+         "params":{
+            "name":"Iris"
+      }
     }
 }
 ```
@@ -44,6 +50,9 @@
     "bcc": ["foo5@example.com", "foo6@example.com"],
     "body": {
         "template": "/Templates/Emails/hello.html"
+         "params":{
+            "name":"Iris"
+      }
     }
 }
 ```
