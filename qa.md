@@ -33,7 +33,7 @@
 ```
 
 
-## TSM03: Send an email to multiple To, CC and BCC
+## TSM03: Send an email to multiple To, CC and BCC.
 
 `PUT /send_mail`
 
@@ -80,3 +80,4 @@
     }]
 }
 ```
+
