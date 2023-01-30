@@ -93,7 +93,7 @@ class WebHandler(object):
 		"""
 
 		try:
-			await self.App.SendMailOrchestrator.send_mail(
+			await self.App.SendEmailOrchestrator.send_mail(
 				email_to=json_data["to"],
 				body_template=json_data["body"]["template"],
 				email_cc=json_data.get("cc", []),  # Optional
@@ -103,6 +103,10 @@ class WebHandler(object):
 				body_params=json_data["body"].get("params", {}),  # Optional
 				attachments=json_data.get("attachments", []),  # Optional
 			)
+
+
+		except ValueError as e:
+			raise aiohttp.web.HTTPException(text="{}".format(e))
 
 		except KeyError as e:
 			raise aiohttp.web.HTTPNotFound(text="{}".format(e))
@@ -142,6 +146,9 @@ class WebHandler(object):
 
 		except jinja2.exceptions.UndefinedError as e:
 			raise aiohttp.web.HTTPBadRequest(text="Jinja2 error: {}".format(e))
+
+		except ValueError as e:
+			raise aiohttp.web.HTTPException(text="{}".format(e))
 
 		# More specific exception handling goes here so that the service provides nice output
 

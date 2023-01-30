@@ -13,7 +13,7 @@ L = logging.getLogger(__name__)
 #
 
 
-class SendMailOrchestrator(object):
+class SendEmailOrchestrator(object):
 
 	def __init__(self, app):
 
@@ -74,7 +74,8 @@ class SendMailOrchestrator(object):
 				if template is not None:
 					params = a.get('params', {})
 
-					assert template.startswith("/Templates"), "Template must be stored in /Templates directory"
+					if not template.startswith("/Templates/Mails"):
+						raise ValueError("Template must be stored in /Templates/Mails directory")
 
 					# get file-name of the attachment
 					file_name = self.get_file_name(a)
