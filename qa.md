@@ -65,7 +65,6 @@
 {
     "to": ["foo@example.com"],
      "subject":"Alert-Report-Test",
-     "from":"foo1@example.com",
      "body":{
       "template":"/Templates/Emails/hello.md",
       "params":{
@@ -82,12 +81,35 @@
         }
       ]
    }
-    "body": {
-        "template": "/Templates/MISSING.html"
-    }
 }
 ```
 
+## TSM004: Try to send an email with template as body and a missing html attachment.
+
+`PUT /send_mail`
+
+```
+{
+    "to": ["foo@example.com"],
+     "subject":"Alert-Report-Test",
+     "body":{
+      "template":"/Templates/Emails/hello.md",
+      "params":{
+         "name":"Iris"
+      }
+   },
+    "attachments":[
+        {
+            "template":"/Templates/MISSING.html",
+            "params":{
+                "name":"Iris"
+            },       
+            "format":"pdf"
+        }
+      ]
+   }
+}
+```
 
 ## TSM005: Try to send an email with missing template
 
