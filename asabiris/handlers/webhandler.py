@@ -106,7 +106,7 @@ class WebHandler(object):
 
 
 		except ValueError as e:
-			raise aiohttp.web.HTTPException(text="{}".format(e))
+			raise aiohttp.web.HTTPNotFound(text="{}".format(e))
 
 		except KeyError as e:
 			raise aiohttp.web.HTTPNotFound(text="{}".format(e))
@@ -148,7 +148,7 @@ class WebHandler(object):
 			raise aiohttp.web.HTTPBadRequest(text="Jinja2 error: {}".format(e))
 
 		except ValueError as e:
-			raise aiohttp.web.HTTPException(text="{}".format(e))
+			raise aiohttp.web.HTTPNotFound(text="{}".format(e))
 
 		# More specific exception handling goes here so that the service provides nice output
 
