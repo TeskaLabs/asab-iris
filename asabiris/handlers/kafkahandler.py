@@ -89,7 +89,7 @@ class KafkaHandler(asab.Service):
 			L.warning("Message type '{}' not implemented.".format(msg_type))
 
 	async def send_email(self, json_data):
-		await self.App.SendEmailOrchestrator.send_mail(
+		await self.App.SendEmailOrchestrator.send_email(
 			email_to=json_data["to"],
 			body_template=json_data["body"]["template"],
 			email_cc=json_data.get("cc", []),  # Optional

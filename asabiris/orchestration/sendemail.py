@@ -25,7 +25,7 @@ class SendEmailOrchestrator(object):
 		# output
 		self.SmtpService = app.get_service("SmtpService")
 
-	async def send_mail(
+	async def send_email(
 		self, *,
 		email_to,
 		email_from=None,

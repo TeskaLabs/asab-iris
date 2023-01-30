@@ -93,7 +93,7 @@ class WebHandler(object):
 		"""
 
 		try:
-			await self.App.SendEmailOrchestrator.send_mail(
+			await self.App.SendEmailOrchestrator.send_email(
 				email_to=json_data["to"],
 				body_template=json_data["body"]["template"],
 				email_cc=json_data.get("cc", []),  # Optional

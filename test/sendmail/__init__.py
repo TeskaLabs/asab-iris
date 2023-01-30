@@ -16,7 +16,7 @@ class TestSendMail(TestCase):
 		orch = SendEmailOrchestrator(self.App)
 
 		self.App.Loop.run_until_complete(
-			orch.send_mail(
+			orch.send_email(
 				email_to="support@teskalabs.com",
 				email_cc=["john@teskalabs.com", "bar@teskalabs.com"],
 				body_template="alert.md",
