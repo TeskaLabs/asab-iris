@@ -104,7 +104,6 @@ class WebHandler(object):
 				attachments=json_data.get("attachments", []),  # Optional
 			)
 
-
 		except ValueError as e:
 			raise aiohttp.web.HTTPNotFound(text="{}".format(e))
 
@@ -183,7 +182,11 @@ class WebHandler(object):
 		template_data = await request.json()
 
 		# Render a body
-		html = await self.App.RenderReportOrchestrator.render(template, template_data)
+		try:
+			html = await self.App.RenderReportOrchestrator.render(template, template_data)
+		except ValueError as e:
+			raise aiohttp.web.HTTPNotFound(text="{}".format(e))
+
 		# get pdf from html if present.
 		if fmt == 'pdf':
 			content_type = "application/pdf"
