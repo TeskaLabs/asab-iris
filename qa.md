@@ -84,7 +84,7 @@
 }
 ```
 
-## TSM004: Try to send an email with template as body and a missing html attachment.
+## TSM005: Try to send an email with template as body and a missing html attachment.
 
 `PUT /send_mail`
 
@@ -107,11 +107,10 @@
             "format":"pdf"
         }
       ]
-   }
 }
 ```
 
-## TSM005: Try to send an email with missing template
+## TSM006: Try to send an email with missing template
 
 `PUT /send_mail`
 
@@ -125,7 +124,7 @@
 ```
 
 
-## TSM006: Try to send an email with base64 attachment.
+## TSM007: Try to send an email with base64 attachment.
 
 `PUT /send_mail`
 
@@ -143,7 +142,7 @@
 }
 ```
 
-## TSM007: Try to render PDF report using html template
+## TSM008: Try to render PDF report using html template
 
 `PUT /render?format=pdf&template=/Templates/General/hello.html`
 
@@ -153,7 +152,7 @@
 }
 ```
 
-## TSM008: Try to render PDF report using html template
+## TSM009: Try to render PDF report using html template
 
 `PUT /render?format=html&template=/Templates/General/hello.html`
 
@@ -163,7 +162,7 @@
 }
 ```
 
-## TSM009: Try to render PDF report using markdown template
+## TSM010: Try to render PDF report using markdown template
 
 `PUT /render?format=pdf&template=/Templates/General/hello.md`
 
@@ -173,7 +172,7 @@
 }
 ```
 
-## TSM100: Try to render PDF report using html template
+## TSM011: Try to render PDF report using html template
 
 `PUT /render?format=html&template=/Templates/General/hello.md`
 
@@ -183,7 +182,7 @@
 }
 ```
 
-## TSM011: Try to render PDF using missing template
+## TSM012: Try to render PDF using missing template
 
 `PUT /render?format=pdf&template=/Templates/MISSING.html`
 
@@ -191,7 +190,7 @@
 {}
 ```
 
-## TSM012: Try to render HTML using missing template
+## TSM013: Try to render HTML using missing template
 
 `PUT /render?format=html&template=/Templates/MISSING.html`
 
@@ -201,7 +200,7 @@
 
 ```
 
-## TSM013: Try to send Slack message using markdown template
+## TSM014: Try to send Slack message using markdown template
 
 `PUT /send_slack`
 
@@ -217,7 +216,7 @@
 }
 ```
 
-## TSM014: Try to send Slack message using missing template
+## TSM015: Try to send Slack message using missing template
 
 `PUT /send_slack`
 
