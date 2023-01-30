@@ -86,7 +86,9 @@
 `PUT /render?format=pdf&template=/Templates/General/hello.html`
 
 ```
-{}
+{
+    "name": "Iris"
+}
 ```
 
 ## TSM05: Try to render PDF report using html template
@@ -94,7 +96,9 @@
 `PUT /render?format=html&template=/Templates/General/hello.html`
 
 ```
-{}
+{
+    "name": "Iris"
+}
 ```
 
 ## TSM06: Try to render PDF report using markdown template
@@ -102,7 +106,9 @@
 `PUT /render?format=pdf&template=/Templates/General/hello.md`
 
 ```
-{}
+{
+    "name": "Iris"
+}
 ```
 
 ## TSM07: Try to render PDF report using html template
@@ -110,7 +116,9 @@
 `PUT /render?format=html&template=/Templates/General/hello.md`
 
 ```
-{}
+{
+    "name": "Iris"
+}
 ```
 
 ## TSM08: Try to render PDF using missing template
@@ -140,7 +148,24 @@
    "body":{
       "template":"/Templats/General/hello.md",
       "params":{
-         "name":"Iris"
+         "message":"I am testing a template",
+         "event":"Iris-Event",
+      }
+   }
+}
+```
+
+## TSM10: Try to send Slack message using missing template
+
+`PUT /send_slack`
+
+```
+{
+   "body":{
+      "template":"/Templats/General/MISSING.md",
+      "params":{
+         "message":"I am testing a template",
+         "event":"Iris-Event",
       }
    }
 }
