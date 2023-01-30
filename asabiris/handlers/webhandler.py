@@ -183,11 +183,11 @@ class WebHandler(object):
 		template_data = await request.json()
 
 		# Render a body
-		html = await self.render(template, template_data)
+		html = await self.App.RenderReportOrchestrator.render(template, template_data)
 		# get pdf from html if present.
 		if fmt == 'pdf':
 			content_type = "application/pdf"
-			pdf = self.App.HtmlToPdfService.format(html)
+			pdf = self.App.PdfFormatterService.format(html)
 		elif fmt == 'html':
 			content_type = "text/html"
 		else:
