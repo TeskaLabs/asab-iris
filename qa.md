@@ -3,7 +3,7 @@
 ## Instructions
 
 1) Configure proper SMTP server for a test
-2) Replace `foo@example.com` by the valid email address that you have an access into
+2) Replace `foo@example.com` by the valid email address that you have access into
 
 ## TSM001: Send an email using Markdown template
 
@@ -92,6 +92,22 @@
 ## TSM05: Try to render PDF report using html template
 
 `PUT /render?format=html&template=/Templates/hello.html`
+
+```
+{}
+```
+
+## TSM06: Try to render PDF report using html template
+
+`PUT /render?format=pdf&template=/Templates/hello.md`
+
+```
+{}
+```
+
+## TSM05: Try to render PDF report using html template
+
+`PUT /render?format=html&template=/Templates/hello.md`
 
 ```
 {}
