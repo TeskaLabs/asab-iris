@@ -124,7 +124,8 @@ class SendMailOrchestrator(object):
 
 		jinja_output will be used for extracting subject.
 		"""
-		assert template.startswith("/Templates"), "Template must be stored in /Templates directory"
+		if not template.startswith("/Templates/Mails"):
+			raise ValueError("Template must be stored in /Templates/Mails directory")
 
 		try:
 			jinja_output = await self.JinjaService.format(template, params)
