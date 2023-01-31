@@ -84,7 +84,34 @@
 }
 ```
 
-## TSM005: Try to send an email with template as body and a missing html attachment.
+## TSM005: Try to send an email with template as body and attachment.
+
+`PUT /send_mail`
+
+```
+{
+    "to": ["foo@example.com"],
+     "subject":"Alert-Report-Test",
+     "body":{
+      "template":"/Templates/Emails/hello.md",
+      "params":{
+         "name":"Iris"
+      }
+   },
+    "attachments":[
+        {
+            "template":"/Templates/Email/hello.md",
+            "params":{
+                "name":"Iris"
+            },       
+            "format":"html"
+        }
+      ]
+   }
+}
+```
+
+## TSM006: Try to send an email with template as body and a missing html attachment.
 
 `PUT /send_mail`
 
@@ -110,7 +137,7 @@
 }
 ```
 
-## TSM006: Try to send an email with missing template
+## TSM007: Try to send an email with missing template
 
 `PUT /send_mail`
 
@@ -123,8 +150,20 @@
 }
 ```
 
+## TSM008: Try to send an email with no template
 
-## TSM007: Try to send an email with base64 attachment.
+`PUT /send_mail`
+
+```
+{
+    "to": ["foo@example.com"],
+    "body": {
+        "template": "/Templates/MISSING.html"
+    }
+}
+```
+
+## TSM009: Try to send an email with base64 attachment.
 
 `PUT /send_mail`
 
@@ -142,7 +181,7 @@
 }
 ```
 
-## TSM008: Try to render PDF report using html template
+## TSM010: Try to render PDF report using html template
 
 `PUT /render?format=pdf&template=/Templates/General/hello.html`
 
@@ -152,7 +191,7 @@
 }
 ```
 
-## TSM009: Try to render PDF report using html template
+## TSM011: Try to render PDF report using html template
 
 `PUT /render?format=html&template=/Templates/General/hello.html`
 
@@ -162,7 +201,7 @@
 }
 ```
 
-## TSM010: Try to render PDF report using markdown template
+## TSM012: Try to render PDF report using markdown template
 
 `PUT /render?format=pdf&template=/Templates/General/hello.md`
 
@@ -172,7 +211,7 @@
 }
 ```
 
-## TSM011: Try to render PDF report using html template
+## TSM013: Try to render PDF report using html template
 
 `PUT /render?format=html&template=/Templates/General/hello.md`
 
@@ -182,7 +221,7 @@
 }
 ```
 
-## TSM012: Try to render PDF using missing template
+## TSM014: Try to render PDF using missing template
 
 `PUT /render?format=pdf&template=/Templates/MISSING.html`
 
@@ -190,7 +229,7 @@
 {}
 ```
 
-## TSM013: Try to render HTML using missing template
+## TSM015: Try to render HTML using missing template
 
 `PUT /render?format=html&template=/Templates/MISSING.html`
 
@@ -200,7 +239,7 @@
 
 ```
 
-## TSM014: Try to send Slack message using markdown template
+## TSM015: Try to send Slack message using markdown template
 
 `PUT /send_slack`
 
@@ -216,7 +255,7 @@
 }
 ```
 
-## TSM015: Try to send Slack message using missing template
+## TSM017: Try to send Slack message using missing template
 
 `PUT /send_slack`
 
