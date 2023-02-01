@@ -26,7 +26,7 @@ class WebHandler(object):
 
 		web_app = app.WebContainer.WebApp
 		web_app.router.add_put(r"/send_email", self.send_email)
-		web_app.router.add_put(r"/send_mail", self.send_email)  # This one is for backward compatiblity
+		web_app.router.add_put(r"/send_mail", self.send_email)  # This one is for backward compatibility
 		web_app.router.add_put(r"/render", self.render)
 		web_app.router.add_put(r"/send_slack", self.send_alert)
 
@@ -55,24 +55,24 @@ class WebHandler(object):
 			"subject": "Lufthansa Hiest",
 			"from": "Jimmy.Conway@Goodfellas.com",
 			"body": {
-				"template": "test.md",
+				"template": "/Templates/Emails/test.md",
 				"params": {
 					"Name": "Toddy Siciro"
 			}
 		},
 		"attachments": [
 			{
-			"template": "test.md",
+			"template": "/Templates/Emails/hello.html",
 			"params": {
 				"Name": "Michael Corleone"
 				},
 			"format": "pdf",
-			"filename": "Made.pdf"
+			"filename": "dd-mm--yy.pdf"
 			}]
 		}
 
 		```
-		Attached will be retrieved from request.conent when rendering the email is not required.
+		Attached will be retrieved from request.content when rendering the email is not required.
 
 		Example of the email body template:
 		```
@@ -131,7 +131,7 @@ class WebHandler(object):
 		{
 			"type": "slack",
 			"body": {
-				"template": "test.md",
+				"template": "/Templates/Slack/alert.md",
 				"params": {
 					"Name": "Toddy Siciro"
 			}
@@ -160,7 +160,7 @@ class WebHandler(object):
 		This endpoint renders request body into template based on the format specified.
 		Example:
 		```
-		localhost:8080/render?format=pdf&template=test.md
+		localhost:8080/render?format=pdf&template=/Templates/General/test.md
 
 		format: pdf/html
 
