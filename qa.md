@@ -13,7 +13,7 @@
 {
     "to": ["foo@example.com"],
     "body": {
-        "template": "/Templates/Emails/hello.html"
+        "template": "/Templates/Emails/hello.md",
          "params":{
             "name":"Iris"
       }
@@ -30,7 +30,7 @@
 {
     "to": ["foo@example.com"],
     "body": {
-        "template": "/Templates/Emails/hello.html"
+        "template": "/Templates/Emails/hello.html",
          "params":{
             "name":"Iris"
       }
@@ -49,7 +49,7 @@
     "cc": ["foo3@example.com", "foo4@example.com"],
     "bcc": ["foo5@example.com", "foo6@example.com"],
     "body": {
-        "template": "/Templates/Emails/hello.html"
+        "template": "/Templates/Emails/hello.html",
          "params":{
             "name":"Iris"
       }
@@ -158,7 +158,6 @@
 {
     "to": ["foo@example.com"],
     "body": {
-        "template": "/Templates/MISSING.html"
     }
 }
 ```
@@ -173,17 +172,17 @@
     "body": {
         "template": "/Templates/Emails/hello.html"
     },
-    'attachments': [{
-        'base64': '',
-        'content-type': 'text/csv',
-        'filename': 'c7fbbb3d716d4d7c95d3b887b288ed62.csv'
+    "attachments": [{
+        "base64": "",
+        "content-type": "text/csv",
+        "filename": "c7fbbb3d716d4d7c95d3b887b288ed62.csv"
     }]
 }
 ```
 
 ## TSM010: Try to render PDF report using html template
 
-`PUT /render?format=pdf&template=/Templates/General/hello.html`
+`PUT /render?format=html&template=/Templates/General/hello.html`
 
 ```
 {
@@ -193,7 +192,7 @@
 
 ## TSM011: Try to render PDF report using html template
 
-`PUT /render?format=html&template=/Templates/General/hello.html`
+`PUT /render?format=pdf&template=/Templates/General/hello.html`
 
 ```
 {
@@ -246,10 +245,10 @@
 ```
 {
    "body":{
-      "template":"/Templats/General/hello.md",
+      "template":"/Templates/Slack/alert.md",
       "params":{
          "message":"I am testing a template",
-         "event":"Iris-Event",
+         "event":"Iris-Event"
       }
    }
 }
@@ -262,10 +261,10 @@
 ```
 {
    "body":{
-      "template":"/Templats/General/MISSING.md",
+      "template":"/Templats/MISSING.md",
       "params":{
          "message":"I am testing a template",
-         "event":"Iris-Event",
+         "event":"Iris-Event"
       }
    }
 }
