@@ -67,13 +67,9 @@ class SendEmailOrchestrator(object):
 				# If content-type is application/octet-stream we assume there is additional attachments in request else we raise bad-request error.
 				template = a.get('template', None)
 
-				# - primarily use absolute path - starts with "/"
-				# - if absolute path is used, check it start with "/Templates"
-				# - if it is not absolute path, it is file name - assume it's a file in Templates folder
-
 				if template is not None:
 					params = a.get('params', {})
-
+					# templates must be stores in /Templates/Emails
 					if not template.startswith("/Templates/Emails"):
 						raise ValueError("Template must be stored in /Templates/Emails directory")
 
@@ -125,6 +121,7 @@ class SendEmailOrchestrator(object):
 
 		jinja_output will be used for extracting subject.
 		"""
+		# templates must be stores in /Templates/Emails
 		if not template.startswith("/Templates/Emails"):
 			raise ValueError("Template must be stored in /Templates/Emails directory")
 
