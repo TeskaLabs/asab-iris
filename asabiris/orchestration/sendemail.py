@@ -70,8 +70,8 @@ class SendEmailOrchestrator(object):
 				if template is not None:
 					params = a.get('params', {})
 					# templates must be stores in /Templates/Emails
-					if not template.startswith("/Templates/Emails"):
-						raise ValueError("Template must be stored in /Templates/Emails directory")
+					if not template.startswith("/Templates/Email"):
+						raise ValueError("Template must be stored in /Templates/Email directory")
 
 					# get file-name of the attachment
 					file_name = self.get_file_name(a)
@@ -122,8 +122,8 @@ class SendEmailOrchestrator(object):
 		jinja_output will be used for extracting subject.
 		"""
 		# templates must be stores in /Templates/Emails
-		if not template.startswith("/Templates/Emails"):
-			raise ValueError("Template must be stored in /Templates/Emails directory")
+		if not template.startswith("/Templates/Email"):
+			raise ValueError("Template must be stored in /Templates/Email directory")
 
 		try:
 			jinja_output = await self.JinjaService.format(template, params)

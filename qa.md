@@ -13,7 +13,7 @@
 {
     "to": ["foo@example.com"],
     "body": {
-        "template": "/Templates/Emails/hello.md",
+        "template": "/Templates/Email/hello.md",
          "params":{
             "name":"Iris"
       }
@@ -30,7 +30,7 @@
 {
     "to": ["foo@example.com"],
     "body": {
-        "template": "/Templates/Emails/hello.html",
+        "template": "/Templates/Email/hello.html",
          "params":{
             "name":"Iris"
       }
@@ -49,7 +49,7 @@
     "cc": ["foo3@example.com", "foo4@example.com"],
     "bcc": ["foo5@example.com", "foo6@example.com"],
     "body": {
-        "template": "/Templates/Emails/hello.html",
+        "template": "/Templates/Email/hello.html",
          "params":{
             "name":"Iris"
       }
@@ -66,7 +66,7 @@
     "to": ["foo@example.com"],
      "subject":"Alert-Report-Test",
      "body":{
-      "template":"/Templates/Emails/hello.md",
+      "template":"/Templates/Email/hello.md",
       "params":{
          "name":"Iris"
       }
@@ -81,7 +81,7 @@
         }
       ]
    }
-}
+
 ```
 
 ## TSM005: Try to send an email with template as body and attachment.
@@ -93,7 +93,7 @@
     "to": ["foo@example.com"],
      "subject":"Alert-Report-Test",
      "body":{
-      "template":"/Templates/Emails/hello.md",
+      "template":"/Templates/Email/hello.md",
       "params":{
          "name":"Iris"
       }
@@ -107,7 +107,6 @@
             "format":"html"
         }
       ]
-   }
 }
 ```
 
