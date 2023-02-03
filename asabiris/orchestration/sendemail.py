@@ -80,15 +80,15 @@ class SendEmailOrchestrator(object):
 					# get pdf from html if present.
 					fmt = a.get('format', 'html')
 					if fmt == 'pdf':
-						result = self.HtmlToPdfService.format(jinja_output)
+						result = self.HtmlToPdfService.format(jinja_output).read()
 						content_type = "application/pdf"
 					elif fmt == 'html':
-						result = jinja_output
+						result = jinja_output.encode("utf-8")
 						content_type = "text/html"
 					else:
 						raise ValueError("Invalid/unknown format '{}'".format(fmt))
 
-					atts.append((result.read(), content_type, file_name))
+					atts.append((result, content_type, file_name))
 					continue
 
 				# If there is `base64` field, then the content of the attachment is provided in the body in base64

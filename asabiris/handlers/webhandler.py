@@ -67,7 +67,7 @@ class WebHandler(object):
 				"Name": "Michael Corleone"
 				},
 			"format": "pdf",
-			"filename": "dd-mm--yy.pdf"
+			"filename": "Alert.pdf"
 			}]
 		}
 
