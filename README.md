@@ -60,7 +60,7 @@ https://teskalabs.github.io/asab-iris/
 
 **Templates used for emailing must be stored under**
 ```
-/Templates/Emails/
+/Templates/Email/
 ```
 
 **Templates used by Slack must be stored under**

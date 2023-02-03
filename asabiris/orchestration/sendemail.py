@@ -88,7 +88,7 @@ class SendEmailOrchestrator(object):
 					else:
 						raise ValueError("Invalid/unknown format '{}'".format(fmt))
 
-					atts.append((result, content_type, file_name))
+					atts.append((result.read(), content_type, file_name))
 					continue
 
 				# If there is `base64` field, then the content of the attachment is provided in the body in base64
