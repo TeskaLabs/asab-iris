@@ -5,7 +5,7 @@
 1) Configure proper SMTP server for a test
 2) Replace `foo@example.com` by the valid email address that you have access into
 
-## TSM001: Send an email using Markdown template
+## TSM001: Send an email using Markdown template(Subject should be taken from md file)
 
 `PUT /send_mail`
 
@@ -57,7 +57,7 @@
 }
 ```
 
-## TSM004: Try to send an email with template as body and attachment.
+## TSM004: Try to send an email with template as body and attachment(Subject should be taken from md file).
 
 `PUT /send_mail`
 
