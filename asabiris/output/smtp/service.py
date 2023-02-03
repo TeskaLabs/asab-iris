@@ -103,7 +103,7 @@ class EmailOutputService(asab.Service, OutputABC):
 		for content, content_type, file_name in attachments:
 			maintype, subtype = content_type.split('/', 1)
 			msg.add_attachment(
-				content,
+				content.read(),
 				maintype=maintype,
 				subtype=subtype,
 				filename=file_name
