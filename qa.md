@@ -39,7 +39,7 @@
 ```
 
 
-## TSM003: Send an email to multiple To, CC and BCC.
+## TSM003: Email with multiple To, CC and BCC with html as template.
 
 `PUT /send_mail`
 
@@ -57,14 +57,13 @@
 }
 ```
 
-## TSM004: Try to send an email with template as body and attachment(Subject should be taken from md file).
+## TSM004: Try to send an email with template as body and attachment(Subject should be taken from md body).
 
 `PUT /send_mail`
 
 ```
 {
     "to": ["foo@example.com"],
-     "subject":"Alert-Report-Test",
      "body":{
       "template":"/Templates/Email/hello.md",
       "params":{
@@ -83,6 +82,35 @@
    }
 
 ```
+
+
+
+## TSM005: Try to send an email with template as body and attachment.
+
+`PUT /send_mail`
+
+```
+{
+    "to": ["foo@example.com"],
+     "subject":"Alert-Report-Test",
+     "body":{
+      "template":"/Templates/Email/hello.html",
+      "params":{
+         "name":"Iris"
+      }
+   },
+    "attachments":[
+        {
+            "template":"/Templates/Email/hello.md",
+            "params":{
+                "name":"Iris"
+            },       
+            "format":"pdf"
+        }
+      ]
+}
+```
+
 
 ## TSM005: Try to send an email with template as body and attachment.
 
@@ -119,7 +147,7 @@
     "to": ["foo@example.com"],
      "subject":"Alert-Report-Test",
      "body":{
-      "template":"/Templates/Emails/hello.md",
+      "template":"/Templates/Email/hello.md",
       "params":{
          "name":"Iris"
       }
@@ -136,7 +164,7 @@
 }
 ```
 
-## TSM007: Try to send an email with template as body and a missing html attachment(Subject from body).
+## TSM007: Try to send an email with template as body and a missing html attachment.
     
 
 `PUT /send_mail`
@@ -144,13 +172,22 @@
 ```
 {
     "to": ["foo@example.com"],
-     "subject":"Alert-Report-Test",
+    "subject":"Alert-Report-Test",
      "body":{
-      "template":"/Templates/Emails/hello.html",
+      "template":"/Templates/Email/hello.md",
       "params":{
          "name":"Iris"
       }
-   }
+   },
+    "attachments":[
+        {
+            "template":"/Templates/MISSING.html",
+            "params":{
+                "name":"Iris"
+            },       
+            "format":"pdf"
+        }
+      ]
 }
 ```
 
