@@ -304,6 +304,14 @@ EXPECTED RESPONSE:
 
 ```
 {}
+
+EXPECTED RESPONSE:
+
+{
+    "result": "NOT-FOUND",
+    "message": "Template must be stored in /Templates/General directory",
+    "uuid": "5854edc5-fbc9-47a2-b0e9-beac86f276ad"
+}
 ```
 
 ## TSM016: Try to render HTML using missing template
@@ -313,6 +321,14 @@ EXPECTED RESPONSE:
 ```
 
 {}
+
+EXPECTED RESPONSE:
+
+{
+    "result": "NOT-FOUND",
+    "message": "Template must be stored in /Templates/General directory",
+    "uuid": "5854edc5-fbc9-47a2-b0e9-beac86f276ad"
+}
 
 ```
 
@@ -345,5 +361,13 @@ EXPECTED RESPONSE:
          "event":"Iris-Event"
       }
    }
+}
+
+EXPECTED RESPONSE:
+
+{
+    "result": "NOT-FOUND",
+    "message": "Template must be stored in /Templates/Slack directory",
+    "uuid": "10b5773e-941a-42c9-a75a-6f56c442681d"
 }
 ```
