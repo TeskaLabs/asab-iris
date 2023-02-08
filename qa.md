@@ -162,6 +162,14 @@
         }
       ]
 }
+
+EXPECTED RESPONSE:
+
+{
+    "result": "NOT-FOUND",
+    "message": "Template must be stored in /Templates/Email directory",
+    "uuid": "1bf2e011-aafd-4fb3-b6e6-0a857b45cabb"
+}
 ```
 
 ## TSM007: Try to send an email with template as body and a missing html attachment.
@@ -203,6 +211,14 @@
         "template": "/Templates/MISSING.html"
     }
 }
+
+EXPECTED RESPONSE:
+
+{
+    "result": "NOT-FOUND",
+    "message": "Template must be stored in /Templates/Email directory",
+    "uuid": "cea95028-156e-4094-8ae1-993d2a0ad066"
+}
 ```
 
 ## TSM009: Try to send an email with no template
@@ -215,6 +231,13 @@
     "body": {
     }
 }
+
+EXPECTED RESPONSE:
+{
+    "result": "ERROR",
+    "message": "400: data.body must contain ['template'] properties",
+    "uuid": "0cda7e20-046c-498c-bbea-9361e2b4dd11"
+}
 ```
 
 ## TSM010: Try to send an email with base64 attachment.
@@ -225,7 +248,7 @@
 {
     "to": ["foo@example.com"],
     "body": {
-        "template": "/Templates/Emails/hello.html"
+        "template": "/Templates/Email/hello.html"
     },
     "attachments": [{
         "base64": "TixOLEEsQSxBLE4sTkI=",
