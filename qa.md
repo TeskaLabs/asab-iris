@@ -228,12 +228,7 @@
         "template": "/Templates/Emails/hello.html"
     },
     "attachments": [{
-        "base64": "Sm9obixEb2UsMTIwIGplZmZlcnNvbiBzdC4sUml2ZXJzaWRlLCBOSiwgMDgwNzUKSmFjayxNY0dp
-                    bm5pcywyMjAgaG9ibyBBdi4sUGhpbGEsIFBBLDA5MTE5CiJKb2huICIiRGEgTWFuIiIiLFJlcGlj
-                    aSwxMjAgSmVmZmVyc29uIFN0LixSaXZlcnNpZGUsIE5KLDA4MDc1ClN0ZXBoZW4sVHlsZXIsIjc0
-                    NTIgVGVycmFjZSAiIkF0IHRoZSBQbGF6YSIiIHJvYWQiLFNvbWVUb3duLFNELCA5MTIzNAosQmxh
-                    bmttYW4sLFNvbWVUb3duLCBTRCwgMDAyOTgKIkpvYW4gIiJ0aGUgYm9uZSIiLCBBbm5lIixKZXQs
-                    Ijl0aCwgYXQgVGVycmFjZSBwbGMiLERlc2VydCBDaXR5LENPLDAwMTIz",
+        "base64": "TixOLEEsQSxBLE4sTkI=",
         "content-type": "text/csv",
         "filename": "c7fbbb3d716d4d7c95d3b887b288ed62.csv"
     }]
