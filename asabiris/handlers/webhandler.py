@@ -26,7 +26,7 @@ class WebHandler(object):
 
 		web_app = app.WebContainer.WebApp
 		web_app.router.add_put(r"/send_email", self.send_email)
-		web_app.router.add_put(r"/send_mail", self.send_email)  # This one is for backward compatiblity
+		web_app.router.add_put(r"/send_mail", self.send_email)  # This one is for backward compatibility
 		web_app.router.add_put(r"/render", self.render)
 		web_app.router.add_put(r"/send_slack", self.send_alert)
 
@@ -55,24 +55,24 @@ class WebHandler(object):
 			"subject": "Lufthansa Hiest",
 			"from": "Jimmy.Conway@Goodfellas.com",
 			"body": {
-				"template": "test.md",
+				"template": "/Templates/Emails/test.md",
 				"params": {
 					"Name": "Toddy Siciro"
 			}
 		},
 		"attachments": [
 			{
-			"template": "test.md",
+			"template": "/Templates/Emails/hello.html",
 			"params": {
 				"Name": "Michael Corleone"
 				},
 			"format": "pdf",
-			"filename": "Made.pdf"
+			"filename": "Alert.pdf"
 			}]
 		}
 
 		```
-		Attached will be retrieved from request.conent when rendering the email is not required.
+		Attached will be retrieved from request.content when rendering the email is not required.
 
 		Example of the email body template:
 		```
@@ -93,7 +93,7 @@ class WebHandler(object):
 		"""
 
 		try:
-			await self.App.SendMailOrchestrator.send_mail(
+			await self.App.SendEmailOrchestrator.send_email(
 				email_to=json_data["to"],
 				body_template=json_data["body"]["template"],
 				email_cc=json_data.get("cc", []),  # Optional
@@ -103,7 +103,6 @@ class WebHandler(object):
 				body_params=json_data["body"].get("params", {}),  # Optional
 				attachments=json_data.get("attachments", []),  # Optional
 			)
-
 		except KeyError as e:
 			raise aiohttp.web.HTTPNotFound(text="{}".format(e))
 
@@ -128,7 +127,7 @@ class WebHandler(object):
 		{
 			"type": "slack",
 			"body": {
-				"template": "test.md",
+				"template": "/Templates/Slack/alert.md",
 				"params": {
 					"Name": "Toddy Siciro"
 			}
@@ -154,7 +153,7 @@ class WebHandler(object):
 		This endpoint renders request body into template based on the format specified.
 		Example:
 		```
-		localhost:8080/render?format=pdf&template=test.md
+		localhost:8080/render?format=pdf&template=/Templates/General/test.md
 
 		format: pdf/html
 
@@ -176,11 +175,12 @@ class WebHandler(object):
 		template_data = await request.json()
 
 		# Render a body
-		html = await self.render(template, template_data)
+		html = await self.App.RenderReportOrchestrator.render(template, template_data)
+
 		# get pdf from html if present.
 		if fmt == 'pdf':
 			content_type = "application/pdf"
-			pdf = self.App.HtmlToPdfService.format(html)
+			pdf = self.App.PdfFormatterService.format(html)
 		elif fmt == 'html':
 			content_type = "text/html"
 		else:

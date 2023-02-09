@@ -1,5 +1,4 @@
-Ooops. Something wrong happened.
-
+This is a sample message.
 
 {{ message }}  
 

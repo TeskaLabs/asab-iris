@@ -15,7 +15,7 @@ from .output.smtp import EmailOutputService
 from .output.slack import SlackOutputService
 
 # orchestrators.
-from .orchestration.sendmail import SendMailOrchestrator
+from .orchestration.sendemail import SendEmailOrchestrator
 from .orchestration.render import RenderReportOrchestrator
 
 from .handlers.kafkahandler import KafkaHandler
@@ -69,7 +69,7 @@ class IRISApplication(asab.Application):
 		self.SlackOutputService = SlackOutputService(self)
 
 		# Orchestrators
-		self.SendMailOrchestrator = SendMailOrchestrator(self)
+		self.SendEmailOrchestrator = SendEmailOrchestrator(self)
 		self.RenderReportOrchestrator = RenderReportOrchestrator(self)
 		self.SendSlackOrchestrator = SendSlackOrchestrator(self)
 

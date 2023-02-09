@@ -13,7 +13,7 @@ L = logging.getLogger(__name__)
 #
 
 
-class SendMailOrchestrator(object):
+class SendEmailOrchestrator(object):
 
 	def __init__(self, app):
 
@@ -25,7 +25,7 @@ class SendMailOrchestrator(object):
 		# output
 		self.SmtpService = app.get_service("SmtpService")
 
-	async def send_mail(
+	async def send_email(
 		self, *,
 		email_to,
 		email_from=None,
@@ -67,14 +67,11 @@ class SendMailOrchestrator(object):
 				# If content-type is application/octet-stream we assume there is additional attachments in request else we raise bad-request error.
 				template = a.get('template', None)
 
-				# - primarily use absolute path - starts with "/"
-				# - if absolute path is used, check it start with "/Templates"
-				# - if it is not absolute path, it is file name - assume it's a file in Templates folder
-
 				if template is not None:
 					params = a.get('params', {})
-
-					assert template.startswith("/Templates"), "Template must be stored in /Templates directory"
+					# templates must be stores in /Templates/Emails
+					if not template.startswith("/Templates/Email"):
+						raise ValueError("Template must be stored in /Templates/Email directory")
 
 					# get file-name of the attachment
 					file_name = self.get_file_name(a)
@@ -83,10 +80,10 @@ class SendMailOrchestrator(object):
 					# get pdf from html if present.
 					fmt = a.get('format', 'html')
 					if fmt == 'pdf':
-						result = self.HtmlToPdfService.format(jinja_output)
+						result = self.HtmlToPdfService.format(jinja_output).read()
 						content_type = "application/pdf"
 					elif fmt == 'html':
-						result = jinja_output
+						result = jinja_output.encode("utf-8")
 						content_type = "text/html"
 					else:
 						raise ValueError("Invalid/unknown format '{}'".format(fmt))
@@ -124,7 +121,9 @@ class SendMailOrchestrator(object):
 
 		jinja_output will be used for extracting subject.
 		"""
-		assert template.startswith("/Templates"), "Template must be stored in /Templates directory"
+		# templates must be stores in /Templates/Emails
+		if not template.startswith("/Templates/Email"):
+			raise ValueError("Template must be stored in /Templates/Email directory")
 
 		try:
 			jinja_output = await self.JinjaService.format(template, params)

@@ -33,7 +33,10 @@ class SendSlackOrchestrator(object):
 		# - primarily use absolute path - starts with "/"
 		# - if absolute path is used, check it start with "/Templates"
 		# - if it is not absolute path, it is file name - assume it's a file in Templates folder
-		assert body['template'].startswith("/Templates"), "Template must be stored in /Templates directory"
+
+		# templates must be stores in /Templates/Slack
+		if not body['template'].startswith("/Templates/Slack"):
+			raise ValueError("Template must be stored in /Templates/Slack directory")
 
 		body["params"] = body.get("params", {})
 		output = await self.JinjaService.format(body["template"], body["params"])
