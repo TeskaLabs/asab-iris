@@ -103,10 +103,6 @@ class WebHandler(object):
 				body_params=json_data["body"].get("params", {}),  # Optional
 				attachments=json_data.get("attachments", []),  # Optional
 			)
-
-		except ValueError as e:
-			raise aiohttp.web.HTTPNotFound(text="{}".format(e))
-
 		except KeyError as e:
 			raise aiohttp.web.HTTPNotFound(text="{}".format(e))
 
@@ -146,9 +142,6 @@ class WebHandler(object):
 		except jinja2.exceptions.UndefinedError as e:
 			raise aiohttp.web.HTTPBadRequest(text="Jinja2 error: {}".format(e))
 
-		except ValueError as e:
-			raise aiohttp.web.HTTPNotFound(text="{}".format(e))
-
 		# More specific exception handling goes here so that the service provides nice output
 
 		return asab.web.rest.json_response(request, {"result": "OK"})
@@ -182,10 +175,7 @@ class WebHandler(object):
 		template_data = await request.json()
 
 		# Render a body
-		try:
-			html = await self.App.RenderReportOrchestrator.render(template, template_data)
-		except ValueError as e:
-			raise aiohttp.web.HTTPNotFound(text="{}".format(e))
+		html = await self.App.RenderReportOrchestrator.render(template, template_data)
 
 		# get pdf from html if present.
 		if fmt == 'pdf':
