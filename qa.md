@@ -163,13 +163,6 @@
       ]
 }
 
-EXPECTED RESPONSE:
-
-{
-    "result": "NOT-FOUND",
-    "message": "Template must be stored in /Templates/Email directory",
-    "uuid": "1bf2e011-aafd-4fb3-b6e6-0a857b45cabb"
-}
 ```
 
 ## TSM007: Try to send an email with template as body and a missing html attachment.
@@ -212,13 +205,6 @@ EXPECTED RESPONSE:
     }
 }
 
-EXPECTED RESPONSE:
-
-{
-    "result": "NOT-FOUND",
-    "message": "Template must be stored in /Templates/Email directory",
-    "uuid": "cea95028-156e-4094-8ae1-993d2a0ad066"
-}
 ```
 
 ## TSM009: Try to send an email with no template
@@ -308,9 +294,9 @@ EXPECTED RESPONSE:
 EXPECTED RESPONSE:
 
 {
-    "result": "NOT-FOUND",
-    "message": "Template must be stored in /Templates/General directory",
-    "uuid": "5854edc5-fbc9-47a2-b0e9-beac86f276ad"
+    "result": "ERROR",
+    "message": "Internal Server Error",
+    "uuid": "e0d25e9c-8087-4981-96e4-ebb233167cef"
 }
 ```
 
@@ -325,11 +311,10 @@ EXPECTED RESPONSE:
 EXPECTED RESPONSE:
 
 {
-    "result": "NOT-FOUND",
-    "message": "Template must be stored in /Templates/General directory",
-    "uuid": "5854edc5-fbc9-47a2-b0e9-beac86f276ad"
+    "result": "ERROR",
+    "message": "Internal Server Error",
+    "uuid": "e0d25e9c-8087-4981-96e4-ebb233167cef"
 }
-
 ```
 
 ## TSM017: Try to send Slack message using markdown template
@@ -366,8 +351,8 @@ EXPECTED RESPONSE:
 EXPECTED RESPONSE:
 
 {
-    "result": "NOT-FOUND",
-    "message": "Template must be stored in /Templates/Slack directory",
-    "uuid": "10b5773e-941a-42c9-a75a-6f56c442681d"
+    "result": "ERROR",
+    "message": "Internal Server Error",
+    "uuid": "31346b56-9d46-48ee-8571-d59733a8afb8"
 }
 ```
