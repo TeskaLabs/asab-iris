@@ -1,6 +1,7 @@
 import os
 import logging
 
+from .. import exceptions
 from .. import utils
 
 #
@@ -27,7 +28,7 @@ class RenderReportOrchestrator(object):
 		# - if it is not absolute path, it is file name - assume it's a file in Templates folder
 		# templates must be stores in /Templates/General
 		if not template.startswith("/Templates/General"):
-			raise ValueError("Template must be stored in /Templates/General directory")
+			raise exceptions.InvalidPathError(path=template)
 
 		html = await self.JinjaService.format(template, params)
 		_, extension = os.path.splitext(template)

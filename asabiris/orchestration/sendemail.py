@@ -4,7 +4,7 @@ import datetime
 import logging
 
 from .. import utils
-
+from .. import exceptions
 #
 
 L = logging.getLogger(__name__)
@@ -71,7 +71,7 @@ class SendEmailOrchestrator(object):
 					params = a.get('params', {})
 					# templates must be stores in /Templates/Emails
 					if not template.startswith("/Templates/Email"):
-						raise ValueError("Template must be stored in /Templates/Email directory")
+						raise exceptions.InvalidPathError(path=template)
 
 					# get file-name of the attachment
 					file_name = self.get_file_name(a)
@@ -86,7 +86,7 @@ class SendEmailOrchestrator(object):
 						result = jinja_output.encode("utf-8")
 						content_type = "text/html"
 					else:
-						raise ValueError("Invalid/unknown format '{}'".format(fmt))
+						raise exceptions.InvalidPathError("Invalid/unknown format '{}'".format(fmt))
 
 					atts.append((result, content_type, file_name))
 					continue
@@ -123,7 +123,7 @@ class SendEmailOrchestrator(object):
 		"""
 		# templates must be stores in /Templates/Emails
 		if not template.startswith("/Templates/Email"):
-			raise ValueError("Template must be stored in /Templates/Email directory")
+			raise exceptions.InvalidPathError(path=template)
 
 		try:
 			jinja_output = await self.JinjaService.format(template, params)

@@ -1,6 +1,7 @@
 import logging
 import fastjsonschema
 
+from .. import exceptions
 from ..schemas import slack_schema
 
 L = logging.getLogger(__name__)
@@ -36,7 +37,7 @@ class SendSlackOrchestrator(object):
 
 		# templates must be stores in /Templates/Slack
 		if not body['template'].startswith("/Templates/Slack"):
-			raise ValueError("Template must be stored in /Templates/Slack directory")
+			raise exceptions.InvalidPathError(path=body['template'])
 
 		body["params"] = body.get("params", {})
 		output = await self.JinjaService.format(body["template"], body["params"])
