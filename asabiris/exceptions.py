@@ -5,7 +5,7 @@ class SMTPDeliverError(Exception):
 class InvalidPathError(Exception):
 	"""
 
-	Equivalent to HTTP 400 Forbidden.
+	Equivalent to HTTP 404 Forbidden.
 	"""
 
 	def __init__(self, message=None, *args, path=None):
