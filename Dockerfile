@@ -21,7 +21,7 @@ WORKDIR /opt/asab-iris
 COPY requirements.txt /opt/asab-iris
 
 # TODO: Install ASAB from pypy once it is released
-RUN pip3 install git+https://github.com/TeskaLabs/asab.git@v22.06-rc4
+RUN pip3 install git+https://github.com/TeskaLabs/asab.git
 RUN pip3 install -r requirements.txt
 RUN apk del .buildenv
 
