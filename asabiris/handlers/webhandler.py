@@ -146,7 +146,7 @@ class WebHandler(object):
 			raise aiohttp.web.HTTPBadRequest(text="Jinja2 error: {}".format(e))
 
 		except InvalidPathError as e:
-			raise aiohttp.web.BaseRequest(text="{}".format(e))
+			raise aiohttp.web.HTTPNotFound(text="{}".format(e))
 
 		# More specific exception handling goes here so that the service provides nice output
 
@@ -184,7 +184,7 @@ class WebHandler(object):
 		try:
 			html = await self.App.RenderReportOrchestrator.render(template, template_data)
 		except InvalidPathError as e:
-			raise aiohttp.web.BaseRequest(text="{}".format(e))
+			raise aiohttp.web.HTTPNotFound(text="{}".format(e))
 
 		# get pdf from html if present.
 		if fmt == 'pdf':
