@@ -2,10 +2,10 @@ class SMTPDeliverError(Exception):
 	pass
 
 
-class InvalidPathError(Exception):
+class PathError(Exception):
 	"""
 
-	Equivalent to HTTP 404 Forbidden.
+	Equivalent to HTTP 404 Not-Found.
 	"""
 
 	def __init__(self, message=None, *args, path=None):
@@ -17,3 +17,21 @@ class InvalidPathError(Exception):
 			super().__init__(message, *args)
 		else:
 			super().__init__(message, *args)
+
+
+class FormatError(Exception):
+	"""
+
+	Equivalent to HTTP 400 Bad-request.
+	"""
+
+	def __init__(self, message=None, *args, format=None):
+		self.Format = format
+		if message is not None:
+			super().__init__(message, *args)
+		elif format is not None:
+			message = "Unsupported template format {!r}.".format(format)
+			super().__init__(message, *args)
+		else:
+			super().__init__(message, *args)
+

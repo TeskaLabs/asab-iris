@@ -1,7 +1,7 @@
 import os
 import logging
 
-from .. import exceptions
+from .. exceptions import PathError, FormatError
 from .. import utils
 
 #
@@ -28,7 +28,7 @@ class RenderReportOrchestrator(object):
 		# - if it is not absolute path, it is file name - assume it's a file in Templates folder
 		# templates must be stores in /Templates/General
 		if not template.startswith("/Templates/General"):
-			raise exceptions.InvalidPathError(path=template)
+			raise PathError(path=template)
 
 		html = await self.JinjaService.format(template, params)
 		_, extension = os.path.splitext(template)
@@ -43,4 +43,4 @@ class RenderReportOrchestrator(object):
 
 			return html
 
-		raise RuntimeError("Failed to render templates. Reason: Unknown extention '{}'".format(extension))
+		raise FormatError(format=extension)
