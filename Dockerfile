@@ -19,6 +19,7 @@ RUN apk add --no-cache --virtual .buildenv python3-dev gcc musl-dev git libgit2-
 RUN mkdir -p /opt/asab-iris
 WORKDIR /opt/asab-iris
 COPY requirements.txt /opt/asab-iris
+COPY library /opt/asab-iris/library
 
 # TODO: Install ASAB from pypy once it is released
 RUN pip3 install git+https://github.com/TeskaLabs/asab.git
