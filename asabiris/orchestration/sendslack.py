@@ -36,7 +36,7 @@ class SendSlackOrchestrator(object):
 		# - if it is not absolute path, it is file name - assume it's a file in Templates folder
 
 		# templates must be stores in /Templates/Slack
-		if not body['template'].startswith("/Templates/Slack"):
+		if not body['template'].startswith("/Templates/Slack/"):
 			raise PathError(path=body['template'])
 
 		body["params"] = body.get("params", {})

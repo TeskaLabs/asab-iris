@@ -70,7 +70,7 @@ class SendEmailOrchestrator(object):
 				if template is not None:
 					params = a.get('params', {})
 					# templates must be stores in /Templates/Emails
-					if not template.startswith("/Templates/Email"):
+					if not template.startswith("/Templates/Email/"):
 						raise PathError(path=template)
 
 					# get file-name of the attachment
@@ -122,7 +122,7 @@ class SendEmailOrchestrator(object):
 		jinja_output will be used for extracting subject.
 		"""
 		# templates must be stores in /Templates/Emails
-		if not template.startswith("/Templates/Email"):
+		if not template.startswith("/Templates/Email/"):
 			raise PathError(path=template)
 
 		try:
