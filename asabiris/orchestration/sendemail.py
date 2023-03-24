@@ -4,7 +4,7 @@ import datetime
 import logging
 
 from .. import utils
-
+from .. exceptions import PathError, FormatError
 #
 
 L = logging.getLogger(__name__)
@@ -70,8 +70,8 @@ class SendEmailOrchestrator(object):
 				if template is not None:
 					params = a.get('params', {})
 					# templates must be stores in /Templates/Emails
-					if not template.startswith("/Templates/Email"):
-						raise ValueError("Template must be stored in /Templates/Email directory")
+					if not template.startswith("/Templates/Email/"):
+						raise PathError(path=template)
 
 					# get file-name of the attachment
 					file_name = self.get_file_name(a)
@@ -86,7 +86,7 @@ class SendEmailOrchestrator(object):
 						result = jinja_output.encode("utf-8")
 						content_type = "text/html"
 					else:
-						raise ValueError("Invalid/unknown format '{}'".format(fmt))
+						raise FormatError(format=fmt)
 
 					atts.append((result, content_type, file_name))
 					continue
@@ -122,8 +122,8 @@ class SendEmailOrchestrator(object):
 		jinja_output will be used for extracting subject.
 		"""
 		# templates must be stores in /Templates/Emails
-		if not template.startswith("/Templates/Email"):
-			raise ValueError("Template must be stored in /Templates/Email directory")
+		if not template.startswith("/Templates/Email/"):
+			raise PathError(path=template)
 
 		try:
 			jinja_output = await self.JinjaService.format(template, params)
@@ -144,7 +144,7 @@ class SendEmailOrchestrator(object):
 			return html_output, subject
 
 		else:
-			raise RuntimeError("Failed to render templates. Reason: Unknown extention '{}'".format(extension))
+			raise FormatError(format=extension)
 
 	def get_file_name(self, attachment):
 		"""

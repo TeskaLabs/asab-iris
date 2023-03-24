@@ -10,7 +10,7 @@ import jinja2
 from ..schemas.emailschema import email_schema
 from ..schemas.slackschema import slack_schema
 
-from ..exceptions import SMTPDeliverError
+from ..exceptions import SMTPDeliverError, PathError, FormatError
 
 #
 
@@ -112,6 +112,12 @@ class WebHandler(object):
 		except SMTPDeliverError:
 			raise aiohttp.web.HTTPServiceUnavailable(text="SMTP error")
 
+		except PathError as e:
+			raise aiohttp.web.HTTPNotFound(text="{}".format(e))
+
+		except FormatError as e:
+			raise aiohttp.web.HTTPBadRequest(text="{}".format(e))
+
 		# More specific exception handling goes here so that the service provides nice output
 		return asab.web.rest.json_response(request, {"result": "OK"})
 
@@ -141,6 +147,12 @@ class WebHandler(object):
 
 		except jinja2.exceptions.UndefinedError as e:
 			raise aiohttp.web.HTTPBadRequest(text="Jinja2 error: {}".format(e))
+
+		except PathError as e:
+			raise aiohttp.web.HTTPNotFound(text="{}".format(e))
+
+		except FormatError as e:
+			raise aiohttp.web.HTTPBadRequest(text="{}".format(e))
 
 		# More specific exception handling goes here so that the service provides nice output
 
@@ -175,7 +187,10 @@ class WebHandler(object):
 		template_data = await request.json()
 
 		# Render a body
-		html = await self.App.RenderReportOrchestrator.render(template, template_data)
+		try:
+			html = await self.App.RenderReportOrchestrator.render(template, template_data)
+		except PathError as e:
+			raise aiohttp.web.HTTPNotFound(text="{}".format(e))
 
 		# get pdf from html if present.
 		if fmt == 'pdf':
@@ -184,7 +199,7 @@ class WebHandler(object):
 		elif fmt == 'html':
 			content_type = "text/html"
 		else:
-			raise ValueError("Invalid/unknown format: '{}'".format(fmt))
+			raise aiohttp.web.HTTPBadRequest(text="Invalid/unknown conversion format: '{}'".format(fmt))
 
 		return aiohttp.web.Response(
 			content_type=content_type,

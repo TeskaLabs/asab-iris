@@ -85,7 +85,7 @@
 
 
 
-## TSM005: Try to send an email with template as body and attachment.
+## TSM005: Try to send an email with template as body and attachment.(Format=pdf)
 
 `PUT /send_mail`
 
@@ -112,7 +112,7 @@
 ```
 
 
-## TSM005: Try to send an email with template as body and attachment.
+## TSM006: Try to send an email with template as body and attachment.(Format=html)
 
 `PUT /send_mail`
 
@@ -138,7 +138,7 @@
 }
 ```
 
-## TSM006: Try to send an email with template as body and a missing html attachment.
+## TSM007: Try to send an email with template as body and a missing html attachment.
 
 `PUT /send_mail`
 
@@ -165,7 +165,7 @@
 
 ```
 
-## TSM007: Try to send an email with template as body and a missing html attachment.
+## TSM008: Try to send an email with template as body and a missing html attachment.
     
 
 `PUT /send_mail`
@@ -193,7 +193,7 @@
 ```
 
 
-## TSM008: Try to send an email with missing template
+## TSM009: Try to send an email with missing template
 
 `PUT /send_mail`
 
@@ -207,7 +207,7 @@
 
 ```
 
-## TSM009: Try to send an email with no template
+## TSM0010: Try to send an email with no template
 
 `PUT /send_mail`
 
@@ -226,7 +226,7 @@ EXPECTED RESPONSE:
 }
 ```
 
-## TSM010: Try to send an email with base64 attachment.
+## TSM011: Try to send an email with base64 attachment.
 
 `PUT /send_mail`
 
@@ -244,7 +244,7 @@ EXPECTED RESPONSE:
 }
 ```
 
-## TSM011: Try to render PDF report using html template
+## TSM012: Try to render PDF report using html template
 
 `PUT /render?format=html&template=/Templates/General/hello.html`
 
@@ -254,7 +254,7 @@ EXPECTED RESPONSE:
 }
 ```
 
-## TSM012: Try to render PDF report using html template
+## TSM013: Try to render PDF report using html template
 
 `PUT /render?format=pdf&template=/Templates/General/hello.html`
 
@@ -264,7 +264,7 @@ EXPECTED RESPONSE:
 }
 ```
 
-## TSM013: Try to render PDF report using markdown template
+## TSM014: Try to render PDF report using markdown template
 
 `PUT /render?format=pdf&template=/Templates/General/hello.md`
 
@@ -274,7 +274,7 @@ EXPECTED RESPONSE:
 }
 ```
 
-## TSM014: Try to render PDF report using html template
+## TSM015: Try to render PDF report using html template
 
 `PUT /render?format=html&template=/Templates/General/hello.md`
 
@@ -284,7 +284,7 @@ EXPECTED RESPONSE:
 }
 ```
 
-## TSM015: Try to render PDF using missing template
+## TSM016: Try to render PDF using missing template
 
 `PUT /render?format=pdf&template=/Templates/MISSING.html`
 
@@ -300,7 +300,7 @@ EXPECTED RESPONSE:
 }
 ```
 
-## TSM016: Try to render HTML using missing template
+## TSM017: Try to render HTML using missing template
 
 `PUT /render?format=html&template=/Templates/MISSING.html`
 
@@ -317,7 +317,7 @@ EXPECTED RESPONSE:
 }
 ```
 
-## TSM017: Try to send Slack message using markdown template
+## TSM018: Try to send Slack message using markdown template
 
 `PUT /send_slack`
 
@@ -333,7 +333,7 @@ EXPECTED RESPONSE:
 }
 ```
 
-## TSM018: Try to send Slack message using missing template
+## TSM019: Try to send Slack message using missing template
 
 `PUT /send_slack`
 
