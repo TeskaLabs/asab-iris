@@ -163,6 +163,13 @@
       ]
 }
 
+EXPECTED RESPONSE:
+
+{
+    "result": "NOT-FOUND",
+    "message": "Invalid path '/Templates/MISSING.html'.",
+    "uuid": "c941fe16-470e-42d2-958c-c9fb09ac8e7d"
+}
 ```
 
 ## TSM008: Try to send an email with template as body and a missing html attachment.
@@ -190,10 +197,52 @@
         }
       ]
 }
+
+EXPECTED RESPONSE:
+
+{
+    "result": "NOT-FOUND",
+    "message": "Invalid path '/Templates/MISSING.html'.",
+    "uuid": "c941fe16-470e-42d2-958c-c9fb09ac8e7d"
+}
 ```
 
+## TSM009: Try to send an email with template as body and a missing html attachment.
+    
 
-## TSM009: Try to send an email with missing template
+`PUT /send_mail`
+
+```
+{
+    "to": ["foo@example.com"],
+    "subject":"Alert-Report-Test",
+     "body":{
+      "template":"/Templates/Email/hello.md",
+      "params":{
+         "name":"Iris"
+      }
+   },
+    "attachments":[
+        {
+            "template":"/Templates/MISSING.html",
+            "params":{
+                "name":"Iris"
+            },       
+            "format":"docx"
+        }
+      ]
+}
+
+EXPECTED RESPONSE:
+
+{
+    "result": "ERROR",
+    "message": "Invalid/unknown conversion format: 'docx'",
+    "uuid": "8c417770-d931-4397-985b-1e8a5710d1c6"
+}
+```
+
+## TSM010: Try to send an email with missing template
 
 `PUT /send_mail`
 
@@ -205,9 +254,17 @@
     }
 }
 
+EXPECTED RESPONSE:
+
+{
+    "result": "NOT-FOUND",
+    "message": "Invalid path '/Templates/MISSING.html'.",
+    "uuid": "c941fe16-470e-42d2-958c-c9fb09ac8e7d"
+}
+
 ```
 
-## TSM0010: Try to send an email with no template
+## TSM0011: Try to send an email with no template
 
 `PUT /send_mail`
 
@@ -226,7 +283,7 @@ EXPECTED RESPONSE:
 }
 ```
 
-## TSM011: Try to send an email with base64 attachment.
+## TSM012: Try to send an email with base64 attachment.
 
 `PUT /send_mail`
 
@@ -244,7 +301,7 @@ EXPECTED RESPONSE:
 }
 ```
 
-## TSM012: Try to render PDF report using html template
+## TSM013: Try to render PDF report using html template
 
 `PUT /render?format=html&template=/Templates/General/hello.html`
 
@@ -254,7 +311,7 @@ EXPECTED RESPONSE:
 }
 ```
 
-## TSM013: Try to render PDF report using html template
+## TSM014: Try to render PDF report using html template
 
 `PUT /render?format=pdf&template=/Templates/General/hello.html`
 
@@ -264,7 +321,7 @@ EXPECTED RESPONSE:
 }
 ```
 
-## TSM014: Try to render PDF report using markdown template
+## TSM015: Try to render PDF report using markdown template
 
 `PUT /render?format=pdf&template=/Templates/General/hello.md`
 
@@ -274,7 +331,7 @@ EXPECTED RESPONSE:
 }
 ```
 
-## TSM015: Try to render PDF report using html template
+## TSM016: Try to render PDF report using html template
 
 `PUT /render?format=html&template=/Templates/General/hello.md`
 
@@ -284,7 +341,7 @@ EXPECTED RESPONSE:
 }
 ```
 
-## TSM016: Try to render PDF using missing template
+## TSM017: Try to render PDF using missing template
 
 `PUT /render?format=pdf&template=/Templates/MISSING.html`
 
@@ -294,13 +351,13 @@ EXPECTED RESPONSE:
 EXPECTED RESPONSE:
 
 {
-    "result": "ERROR",
-    "message": "Internal Server Error",
-    "uuid": "e0d25e9c-8087-4981-96e4-ebb233167cef"
+    "result": "NOT-FOUND",
+    "message": "Invalid path '/Templates/MISSING.html'.",
+    "uuid": "c941fe16-470e-42d2-958c-c9fb09ac8e7d"
 }
 ```
 
-## TSM017: Try to render HTML using missing template
+## TSM018: Try to render HTML using missing template
 
 `PUT /render?format=html&template=/Templates/MISSING.html`
 
@@ -311,13 +368,30 @@ EXPECTED RESPONSE:
 EXPECTED RESPONSE:
 
 {
-    "result": "ERROR",
-    "message": "Internal Server Error",
-    "uuid": "e0d25e9c-8087-4981-96e4-ebb233167cef"
+    "result": "NOT-FOUND",
+    "message": "Invalid path '/Templates/MISSING.html'.",
+    "uuid": "c941fe16-470e-42d2-958c-c9fb09ac8e7d"
 }
 ```
 
-## TSM018: Try to send Slack message using markdown template
+## TSM019: Try to render HTML using missing template
+
+`PUT /render?format=docx&template=/Templates/MISSING.html`
+
+```
+
+{}
+
+EXPECTED RESPONSE:
+
+{
+    "result": "ERROR",
+    "message": "Invalid/unknown conversion format: 'docx'",
+    "uuid": "8c417770-d931-4397-985b-1e8a5710d1c6"
+}
+```
+
+## TSM020: Try to send Slack message using markdown template
 
 `PUT /send_slack`
 
@@ -333,14 +407,14 @@ EXPECTED RESPONSE:
 }
 ```
 
-## TSM019: Try to send Slack message using missing template
+## TSM021: Try to send Slack message using missing template
 
 `PUT /send_slack`
 
 ```
 {
    "body":{
-      "template":"/Templats/MISSING.md",
+      "template":"/Templates/MISSING.md",
       "params":{
          "message":"I am testing a template",
          "event":"Iris-Event"
@@ -351,8 +425,8 @@ EXPECTED RESPONSE:
 EXPECTED RESPONSE:
 
 {
-    "result": "ERROR",
-    "message": "Internal Server Error",
-    "uuid": "31346b56-9d46-48ee-8571-d59733a8afb8"
+    "result": "NOT-FOUND",
+    "message": "Invalid path '/Templates/MISSING.md'.",
+    "uuid": "c941fe16-470e-42d2-958c-c9fb09ac8e7d"
 }
 ```
