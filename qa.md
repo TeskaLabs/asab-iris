@@ -85,7 +85,7 @@
 
 
 
-## TSM005: Try to send an email with template as body and attachment.(Format=pdf)
+## TSM005: Try to send an email with '.html' template as body and attachment.(Format=pdf)
 
 `PUT /send_mail`
 
@@ -112,7 +112,7 @@
 ```
 
 
-## TSM006: Try to send an email with template as body and attachment.(Format=html)
+## TSM006: Try to send an email with '.md' template as body and attachment.(Format=html)
 
 `PUT /send_mail`
 
