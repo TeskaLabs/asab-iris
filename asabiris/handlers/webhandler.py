@@ -28,12 +28,9 @@ class WebHandler(object):
 		web_app.router.add_put(r"/send_email", self.send_email)
 		web_app.router.add_put(r"/send_mail", self.send_email)  # This one is for backward compatibility
 		web_app.router.add_put(r"/render", self.render)
-<<<<<<< HEAD:asabiris/orchestration/webhandler.py
 		web_app.router.add_put(r"/send_sms", self.send_sms)
-=======
 		web_app.router.add_put(r"/send_slack", self.send_alert)
 
->>>>>>> main:asabiris/handlers/webhandler.py
 
 	@asab.web.rest.json_schema_handler(email_schema)
 	async def send_email(self, request, *, json_data):
