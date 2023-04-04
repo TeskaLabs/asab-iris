@@ -11,6 +11,7 @@ from ...output_abc import OutputABC
 
 L = logging.getLogger(__name__)
 
+
 #
 
 
@@ -43,7 +44,6 @@ class SMSOutputService(asab.Service, OutputABC):
 		self.Password = asab.Config.get("password")
 		self.TimestampFormat = asab.Config.get("timestamp_format")
 		self.URL = asab.Config.get("url")
-
 
 	async def send(self, *, phone, message_body):
 		if phone is None or phone == "":
