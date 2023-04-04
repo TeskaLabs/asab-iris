@@ -209,23 +209,17 @@ class WebHandler(object):
 
 	async def send_sms(self, request, *, json_data):
 		"""
-		This endpoint renders request body into template based on the format specified.
+		This endpoint sens SMS to phone number specified in the body.
 		Example:
 		```
-		localhost:8080/render?format=pdf&template=test.md
+		localhost:8080/send_sms
 
-		format: pdf/html
-
-		template : Location of template in the library (e.g. on the filesystem)
 		```
 		body example:
 		```
 		{
-			"order_id":123,
-			"order_creation_date":"2020-01-01 14:14:52",
-			"company_name":"Test Company",
-			"city":"Mumbai",
-			"state":"MH"
+			"phone":777888999,
+			"message_body":"Test Company"
 		}
 		```
 		"""
