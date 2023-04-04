@@ -1,7 +1,5 @@
-import os
 import logging
 
-from .. import utils
 
 #
 
@@ -22,5 +20,4 @@ class SMSOrchestrator(object):
 		This method renders templates based on the depending on the
 		extension of template. Returns the html/pdf.
 		"""
-		html = await self.SMSOutput.send(sms_dict)
-
+		return await self.SMSOutput.send(sms_dict)
