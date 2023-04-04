@@ -44,8 +44,31 @@ https://teskalabs.github.io/asab-iris/
  * HTTP REST API to get the report
  * Templates are in the ASAB library
 
+### Send slack Alerts
+
+ * Consume the messages from Kafka topic.
+ * With the help of info from messages , get a template from ASAB library.
+ * HTTP REST API to send the alert messages using rendered template.
+
+
 
 ## Architecture
 
 ![](./docs/asab-iris-architecture.drawio.svg)
 
+**WARNING: Templates used for email or Slack must be stored in Templates dir in filesystem or Templates node in zookeeper**
+
+**Templates used for emailing must be stored under**
+```
+/Templates/Email/
+```
+
+**Templates used by Slack must be stored under**
+```
+/Templates/Slack/
+```
+
+**Templates used for other purpose must be stored under**
+```
+/Templates/General/
+```

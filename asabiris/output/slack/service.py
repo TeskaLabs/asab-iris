@@ -2,7 +2,6 @@ import configparser
 import logging
 
 import aiohttp
-import fastjsonschema
 
 import asab
 
@@ -14,20 +13,9 @@ L = logging.getLogger(__name__)
 
 #
 
-ValidationSchemaSlack = fastjsonschema.compile({
-	"type": "object",
-	"properties": {
-		"type": {"type": "string"},
-		"template": {"type": "string"},
-		"alert": {"type": "object"},
-		"event": {"type": "object"}
-	},
-	"required": ["type", "template", "alert", "event"],
-})
-
 
 class SlackOutputService(asab.Service, OutputABC):
-	def __init__(self, app, service_name="KafkaOutputService"):
+	def __init__(self, app, service_name="SlackOutputService"):
 		super().__init__(app, service_name)
 		# If there is slack configuration section, but no webhook_url, exception is raised.
 		try:

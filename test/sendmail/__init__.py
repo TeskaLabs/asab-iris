@@ -1,6 +1,6 @@
 from ..basetestcase import TestCase
 
-from asabiris.orchestration.sendmail import SendMailOrchestrator
+from asabiris.orchestration.sendemail import SendEmailOrchestrator
 from asabiris.formatter.jinja import JinjaFormatterService
 from asabiris.formatter.markdown import MarkdownFormatterService
 from asabiris.formatter.pdf import PdfFormatterService
@@ -13,10 +13,10 @@ class TestSendMail(TestCase):
 		self.App.PdfFormatterService = PdfFormatterService(self.App)
 		self.App.JinjaPrintService = JinjaFormatterService(self.App)
 
-		orch = SendMailOrchestrator(self.App)
+		orch = SendEmailOrchestrator(self.App)
 
 		self.App.Loop.run_until_complete(
-			orch.send_mail(
+			orch.send_email(
 				email_to="support@teskalabs.com",
 				email_cc=["john@teskalabs.com", "bar@teskalabs.com"],
 				body_template="alert.md",

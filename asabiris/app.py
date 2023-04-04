@@ -16,13 +16,13 @@ from .output.slack import SlackOutputService
 from .output.sms import SMSOutputService
 
 # orchestrators.
-from .orchestration.sendmail import SendMailOrchestrator
+from .orchestration.sendemail import SendEmailOrchestrator
 from .orchestration.render import RenderReportOrchestrator
 from .orchestration.sendsms import SMSOrchestrator
 
-from .orchestration.kafkahandler import KafkaHandler
-from .orchestration.webhandler import WebHandler
-
+from .handlers.kafkahandler import KafkaHandler
+from .handlers.webhandler import WebHandler
+from .orchestration.sendslack import SendSlackOrchestrator
 
 L = logging.getLogger(__name__)
 
@@ -72,9 +72,12 @@ class IRISApplication(asab.Application):
 		self.SMSOutputService = SMSOutputService(self)
 
 		# Orchestrators
-		self.SendMailOrchestrator = SendMailOrchestrator(self)
+		self.SendEmailOrchestrator = SendEmailOrchestrator(self)
 		self.RenderReportOrchestrator = RenderReportOrchestrator(self)
+
 		self.SMSOrchestrator = SMSOrchestrator(self)
+		self.SendSlackOrchestrator = SendSlackOrchestrator(self)
+
 		self.WebHandler = WebHandler(self)
 
 		# Apache Kafka API is conditional

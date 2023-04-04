@@ -7,8 +7,10 @@ import aiohttp.payload_streamer
 
 import jinja2
 
-from .emailschema import email_schema
-from ..exceptions import SMTPDeliverError
+from ..schemas.emailschema import email_schema
+from ..schemas.slackschema import slack_schema
+
+from ..exceptions import SMTPDeliverError, PathError, FormatError
 
 #
 
@@ -23,12 +25,18 @@ class WebHandler(object):
 		self.App = app
 
 		web_app = app.WebContainer.WebApp
-		web_app.router.add_put(r"/send_mail", self.send_mail)
+		web_app.router.add_put(r"/send_email", self.send_email)
+		web_app.router.add_put(r"/send_mail", self.send_email)  # This one is for backward compatibility
 		web_app.router.add_put(r"/render", self.render)
+<<<<<<< HEAD:asabiris/orchestration/webhandler.py
 		web_app.router.add_put(r"/send_sms", self.send_sms)
+=======
+		web_app.router.add_put(r"/send_slack", self.send_alert)
+
+>>>>>>> main:asabiris/handlers/webhandler.py
 
 	@asab.web.rest.json_schema_handler(email_schema)
-	async def send_mail(self, request, *, json_data):
+	async def send_email(self, request, *, json_data):
 		"""
 		This endpoint is for sending emails.
 		```
@@ -51,24 +59,24 @@ class WebHandler(object):
 			"subject": "Lufthansa Hiest",
 			"from": "Jimmy.Conway@Goodfellas.com",
 			"body": {
-				"template": "test.md",
+				"template": "/Templates/Emails/test.md",
 				"params": {
 					"Name": "Toddy Siciro"
 			}
 		},
 		"attachments": [
 			{
-			"template": "test.md",
+			"template": "/Templates/Emails/hello.html",
 			"params": {
 				"Name": "Michael Corleone"
 				},
 			"format": "pdf",
-			"filename": "Made.pdf"
+			"filename": "Alert.pdf"
 			}]
 		}
 
 		```
-		Attached will be retrieved from request.conent when rendering the email is not required.
+		Attached will be retrieved from request.content when rendering the email is not required.
 
 		Example of the email body template:
 		```
@@ -89,7 +97,7 @@ class WebHandler(object):
 		"""
 
 		try:
-			await self.App.SendMailOrchestrator.send_mail(
+			await self.App.SendEmailOrchestrator.send_email(
 				email_to=json_data["to"],
 				body_template=json_data["body"]["template"],
 				email_cc=json_data.get("cc", []),  # Optional
@@ -99,7 +107,6 @@ class WebHandler(object):
 				body_params=json_data["body"].get("params", {}),  # Optional
 				attachments=json_data.get("attachments", []),  # Optional
 			)
-
 		except KeyError as e:
 			raise aiohttp.web.HTTPNotFound(text="{}".format(e))
 
@@ -108,6 +115,48 @@ class WebHandler(object):
 
 		except SMTPDeliverError:
 			raise aiohttp.web.HTTPServiceUnavailable(text="SMTP error")
+
+		except PathError as e:
+			raise aiohttp.web.HTTPNotFound(text="{}".format(e))
+
+		except FormatError as e:
+			raise aiohttp.web.HTTPBadRequest(text="{}".format(e))
+
+		# More specific exception handling goes here so that the service provides nice output
+		return asab.web.rest.json_response(request, {"result": "OK"})
+
+	@asab.web.rest.json_schema_handler(slack_schema)
+	async def send_alert(self, request, *, json_data):
+		"""
+		This endpoint is for sending slack-notification.
+		```
+		```
+		Example body:
+
+		```
+		{
+			"type": "slack",
+			"body": {
+				"template": "/Templates/Slack/alert.md",
+				"params": {
+					"Name": "Toddy Siciro"
+			}
+		},
+		---
+		tags: ['Send alerts']
+		"""
+
+		try:
+			await self.App.SendSlackOrchestrator.send_to_slack(json_data)
+
+		except jinja2.exceptions.UndefinedError as e:
+			raise aiohttp.web.HTTPBadRequest(text="Jinja2 error: {}".format(e))
+
+		except PathError as e:
+			raise aiohttp.web.HTTPNotFound(text="{}".format(e))
+
+		except FormatError as e:
+			raise aiohttp.web.HTTPBadRequest(text="{}".format(e))
 
 		# More specific exception handling goes here so that the service provides nice output
 
@@ -120,7 +169,7 @@ class WebHandler(object):
 		This endpoint renders request body into template based on the format specified.
 		Example:
 		```
-		localhost:8080/render?format=pdf&template=test.md
+		localhost:8080/render?format=pdf&template=/Templates/General/test.md
 
 		format: pdf/html
 
@@ -142,15 +191,19 @@ class WebHandler(object):
 		template_data = await request.json()
 
 		# Render a body
-		html = await self.render(template, template_data)
+		try:
+			html = await self.App.RenderReportOrchestrator.render(template, template_data)
+		except PathError as e:
+			raise aiohttp.web.HTTPNotFound(text="{}".format(e))
+
 		# get pdf from html if present.
 		if fmt == 'pdf':
 			content_type = "application/pdf"
-			pdf = self.App.HtmlToPdfService.format(html)
+			pdf = self.App.PdfFormatterService.format(html)
 		elif fmt == 'html':
 			content_type = "text/html"
 		else:
-			raise ValueError("Invalid/unknown format: '{}'".format(fmt))
+			raise aiohttp.web.HTTPBadRequest(text="Invalid/unknown conversion format: '{}'".format(fmt))
 
 		return aiohttp.web.Response(
 			content_type=content_type,

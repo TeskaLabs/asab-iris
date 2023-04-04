@@ -4,15 +4,16 @@ import datetime
 import logging
 
 from .. import utils
-
+from .. exceptions import PathError, FormatError
 #
 
 L = logging.getLogger(__name__)
 
+
 #
 
 
-class SendMailOrchestrator(object):
+class SendEmailOrchestrator(object):
 
 	def __init__(self, app):
 
@@ -24,8 +25,7 @@ class SendMailOrchestrator(object):
 		# output
 		self.SmtpService = app.get_service("SmtpService")
 
-
-	async def send_mail(
+	async def send_email(
 		self, *,
 		email_to,
 		email_from=None,
@@ -66,8 +66,12 @@ class SendMailOrchestrator(object):
 				# If there are 'template' we render 'template's' else we throw a sweet warning.
 				# If content-type is application/octet-stream we assume there is additional attachments in request else we raise bad-request error.
 				template = a.get('template', None)
+
 				if template is not None:
 					params = a.get('params', {})
+					# templates must be stores in /Templates/Emails
+					if not template.startswith("/Templates/Email/"):
+						raise PathError(path=template)
 
 					# get file-name of the attachment
 					file_name = self.get_file_name(a)
@@ -76,13 +80,13 @@ class SendMailOrchestrator(object):
 					# get pdf from html if present.
 					fmt = a.get('format', 'html')
 					if fmt == 'pdf':
-						result = self.HtmlToPdfService.format(jinja_output)
+						result = self.HtmlToPdfService.format(jinja_output).read()
 						content_type = "application/pdf"
 					elif fmt == 'html':
-						result = jinja_output
+						result = jinja_output.encode("utf-8")
 						content_type = "text/html"
 					else:
-						raise ValueError("Invalid/unknown format '{}'".format(fmt))
+						raise FormatError(format=fmt)
 
 					atts.append((result, content_type, file_name))
 					continue
@@ -98,7 +102,6 @@ class SendMailOrchestrator(object):
 
 				L.warning("Unknown/invalid attachment.")
 
-
 		await self.SmtpService.send(
 			email_from=email_from,
 			email_to=email_to,
@@ -109,7 +112,6 @@ class SendMailOrchestrator(object):
 			attachments=atts
 		)
 
-
 	async def render(self, template, params):
 		"""
 		This method renders templates based on the depending on the
@@ -119,6 +121,10 @@ class SendMailOrchestrator(object):
 
 		jinja_output will be used for extracting subject.
 		"""
+		# templates must be stores in /Templates/Emails
+		if not template.startswith("/Templates/Email/"):
+			raise PathError(path=template)
+
 		try:
 			jinja_output = await self.JinjaService.format(template, params)
 		except KeyError:
@@ -138,8 +144,7 @@ class SendMailOrchestrator(object):
 			return html_output, subject
 
 		else:
-			raise RuntimeError("Failed to render templates. Reason: Unknown extention '{}'".format(extension))
-
+			raise FormatError(format=extension)
 
 	def get_file_name(self, attachment):
 		"""
