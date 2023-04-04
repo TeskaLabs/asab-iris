@@ -218,9 +218,6 @@ class WebHandler(object):
 
 			Returns:
 				A JSON response with a "result" key set to "OK" and a "data" key containing the result of the SMSOutputService.
-
-			Raises:
-				Any exceptions that could be raised by the SMSOutputService.:
 		```
 		localhost:8080/send_sms
 
