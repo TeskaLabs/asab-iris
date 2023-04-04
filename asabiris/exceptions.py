@@ -34,3 +34,20 @@ class FormatError(Exception):
 			super().__init__(message, *args)
 		else:
 			super().__init__(message, *args)
+
+
+class SMSDeliveryError(Exception):
+	"""
+
+	Equivalent to HTTP 400 Bad-request.
+	"""
+
+	def __init__(self, message=None, *args, phone_number=None):
+		self.PhoneNumber = phone_number
+		if message is not None:
+			super().__init__(message, *args)
+		elif format is not None:
+			message = "SMS delivery failed to number {!r}.".format(phone_number)
+			super().__init__(message, *args)
+		else:
+			super().__init__(message, *args)
