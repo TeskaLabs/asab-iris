@@ -74,7 +74,7 @@ class SMSOutputService(asab.Service, OutputABC):
 			url_params["auth"] = auth
 
 			async with aiohttp.ClientSession() as session:
-				async with session.get(self.URL, params=url_params) as resp:
+				async with session.post(self.URL, params=url_params) as resp:
 					if resp.status != 200:
 						L.error("SMSBrana.cz responsed with {}".format(resp), await resp.text())
 						raise RuntimeError("SMS delivery failed.")
