@@ -13,10 +13,12 @@ from .formatter.pdf import PdfFormatterService
 # output
 from .output.smtp import EmailOutputService
 from .output.slack import SlackOutputService
+from .output.sms import SMSOutputService
 
 # orchestrators.
 from .orchestration.sendmail import SendMailOrchestrator
 from .orchestration.render import RenderReportOrchestrator
+from .orchestration.sendsms import SMSOrchestrator
 
 from .orchestration.kafkahandler import KafkaHandler
 from .orchestration.webhandler import WebHandler
@@ -67,11 +69,12 @@ class IRISApplication(asab.Application):
 		# output services
 		self.EmailOutputService = EmailOutputService(self)
 		self.SlackOutputService = SlackOutputService(self)
+		self.SMSOutputService = SMSOutputService(self)
 
 		# Orchestrators
 		self.SendMailOrchestrator = SendMailOrchestrator(self)
 		self.RenderReportOrchestrator = RenderReportOrchestrator(self)
-
+		self.SMSOrchestrator = SMSOrchestrator(self)
 		self.WebHandler = WebHandler(self)
 
 		# Apache Kafka API is conditional

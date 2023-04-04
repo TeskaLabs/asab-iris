@@ -25,7 +25,7 @@ class WebHandler(object):
 		web_app = app.WebContainer.WebApp
 		web_app.router.add_put(r"/send_mail", self.send_mail)
 		web_app.router.add_put(r"/render", self.render)
-
+		web_app.router.add_put(r"/send_sms", self.send_sms)
 
 	@asab.web.rest.json_schema_handler(email_schema)
 	async def send_mail(self, request, *, json_data):
@@ -156,6 +156,38 @@ class WebHandler(object):
 			content_type=content_type,
 			body=html if content_type == "text/html" else file_sender(pdf)
 		)
+
+	async def send_sms(self, request, *, json_data):
+		"""
+		This endpoint renders request body into template based on the format specified.
+		Example:
+		```
+		localhost:8080/render?format=pdf&template=test.md
+
+		format: pdf/html
+
+		template : Location of template in the library (e.g. on the filesystem)
+		```
+		body example:
+		```
+		{
+			"order_id":123,
+			"order_creation_date":"2020-01-01 14:14:52",
+			"company_name":"Test Company",
+			"city":"Mumbai",
+			"state":"MH"
+		}
+		```
+		"""
+		# Render a body
+		result = await self.App.SMSOutputService(json_data)
+		# get pdf from html if present.
+		response = {
+			"result": "OK",
+			"data": result
+		}
+		return asab.web.rest.json_response(request, response)
+
 
 
 @aiohttp.payload_streamer.streamer

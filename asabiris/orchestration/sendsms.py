@@ -10,7 +10,7 @@ L = logging.getLogger(__name__)
 #
 
 
-class RenderReportOrchestrator(object):
+class SMSOrchestrator(object):
 
 	def __init__(self, app):
 		# formatters
