@@ -208,9 +208,19 @@ class WebHandler(object):
 		)
 
 	async def send_sms(self, request, *, json_data):
-		"""
-		This endpoint sens SMS to phone number specified in the body.
-		Example:
+		"""Send an SMS message to the phone number specified in the request body.
+
+			Args:
+				request: The HTTP request object.
+				json_data: A dictionary containing the following keys:
+					- phone (int): The phone number to send the SMS message to.
+					- message_body (str): The content of the SMS message.
+
+			Returns:
+				A JSON response with a "result" key set to "OK" and a "data" key containing the result of the SMSOutputService.
+
+			Raises:
+				Any exceptions that could be raised by the SMSOutputService.:
 		```
 		localhost:8080/send_sms
 
