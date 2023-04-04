@@ -31,8 +31,8 @@ class SMSOutputService(asab.Service, OutputABC):
 	Channel = "sms"
 
 	ConfigDefaults = {  # If True, messages are not sent, but rather printed to the log
-		"login": "michalsubrt_h1",
-		"password": "ac439908",
+		"login": "",
+		"password": "",
 		"url": "https://api.smsbrana.cz/smsconnect/http.php",
 		# smsbrana provides a backup server: https://api-backup.smsbrana.cz/smsconnect/http.php
 		"timestamp_format": "%Y%m%dT%H%M%S",  # Use STARTTLS protocol
@@ -45,15 +45,15 @@ class SMSOutputService(asab.Service, OutputABC):
 		self.TimestampFormat = asab.Config.get("timestamp_format")
 		self.URL = asab.Config.get("url")
 
-	async def send(self, sms_dict):
-		if sms_dict['phone'] is None or sms_dict['phone'] == "":
+	async def send(self, sms_data):
+		if sms_data['phone'] is None or sms_data['phone'] == "":
 			L.error("Empty or no phone number specified.")
 			raise RuntimeError("Empty or no phone number specified.")
 
-		if isinstance(sms_dict['message_body'], str):
-			message_list = [sms_dict['message_body']]
+		if isinstance(sms_data['message_body'], str):
+			message_list = [sms_data['message_body']]
 		else:
-			message_list = sms_dict['message_body']
+			message_list = sms_data['message_body']
 
 		for text in message_list:
 			url_params = {
@@ -62,7 +62,7 @@ class SMSOutputService(asab.Service, OutputABC):
 				"time": None,
 				"salt": None,
 				"auth": None,
-				"number": sms_dict['phone'],
+				"number": sms_data['phone'],
 				"message": text
 			}
 
