@@ -11,7 +11,7 @@ L = logging.getLogger(__name__)
 class SMSOrchestrator(object):
 
 	def __init__(self, app):
-		# formatters
+		# Output service
 		self.SMSOutput = app.get_service("SMSOutputService")
 
 	async def send_sms(self, sms_dict):
