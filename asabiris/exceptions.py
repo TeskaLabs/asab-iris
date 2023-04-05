@@ -4,6 +4,7 @@ class SMTPDeliverError(Exception):
 
 class PathError(Exception):
 	"""
+	Exception raised when an invalid path is provided.
 
 	Equivalent to HTTP 404 Not-Found.
 	"""
@@ -21,6 +22,7 @@ class PathError(Exception):
 
 class FormatError(Exception):
 	"""
+	Exception raised when an unsupported format is encountered.
 
 	Equivalent to HTTP 400 Bad-request.
 	"""
@@ -38,8 +40,9 @@ class FormatError(Exception):
 
 class SMSDeliveryError(Exception):
 	"""
+		Exception raised when there is an error delivering an SMS message.
 
-	Equivalent to HTTP 400 Bad-request.
+		Equivalent to HTTP 400 Bad-request.
 	"""
 
 	def __init__(self, message=None, *args, phone_number=None):
