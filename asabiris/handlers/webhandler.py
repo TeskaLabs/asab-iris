@@ -10,7 +10,7 @@ import jinja2
 from ..schemas.emailschema import email_schema
 from ..schemas.slackschema import slack_schema
 
-from ..exceptions import SMTPDeliverError, PathError, FormatError
+from ..exceptions import SMTPDeliverError, PathError, FormatError, SMSDeliveryError
 
 #
 
@@ -231,7 +231,11 @@ class WebHandler(object):
 		```
 		"""
 		# Render a body
-		result = await self.App.SMSOutputService(json_data)
+		try:
+			result = await self.App.SMSOutputService(json_data)
+		except SMSDeliveryError as e:
+			raise aiohttp.web.HTTPBadRequest(text="{}".format(e))
+
 		# get pdf from html if present.
 		response = {
 			"result": "OK",

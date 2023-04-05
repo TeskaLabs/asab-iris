@@ -6,7 +6,7 @@ import asab
 import passlib.hash
 
 from ...output_abc import OutputABC
-
+from ...exceptions import SMSDeliveryError
 #
 
 L = logging.getLogger(__name__)
@@ -77,12 +77,12 @@ class SMSOutputService(asab.Service, OutputABC):
 				async with session.get(self.URL, params=url_params) as resp:
 					if resp.status != 200:
 						L.error("SMSBrana.cz responsed with {}".format(resp), await resp.text())
-						raise RuntimeError("SMS delivery failed.")
+						raise SMSDeliveryError(phone_number=sms_data['phone'])
 					response_body = await resp.text()
 
 			if "<err>0</err>" not in response_body:
 				L.error("SMS delivery failed. SMSBrana.cz response: {}".format(response_body))
-				raise RuntimeError("SMS delivery failed.")
+				raise SMSDeliveryError(phone_number=sms_data['phone'])
 			else:
 				L.log(asab.LOG_NOTICE, "SMS sent")
 		return True
