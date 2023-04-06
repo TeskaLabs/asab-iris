@@ -1,38 +1,54 @@
 import configparser
 import logging
+from io import BytesIO
 
-import aiohttp
+from slack_sdk import WebClient
+from slack_sdk.errors import SlackApiError
 
 import asab
 
 from ...output_abc import OutputABC
 
-#
 
 L = logging.getLogger(__name__)
 
-#
-
 
 class SlackOutputService(asab.Service, OutputABC):
-	def __init__(self, app, service_name="SlackOutputService"):
-		super().__init__(app, service_name)
-		# If there is slack configuration section, but no webhook_url, exception is raised.
-		try:
-			self.SlackWebhookUrl = asab.Config.get("slack", "webhook_url")
-		except configparser.NoOptionError as e:
-			L.error("Please provide webhook_url in slack configuration section.")
-			raise e
-		except configparser.NoSectionError:
-			self.SlackWebhookUrl = None
+    def __init__(self, app, service_name="SlackOutputService"):
+        super().__init__(app, service_name)
 
-	async def send(self, body):
-		if self.SlackWebhookUrl is None:
-			return
-		async with aiohttp.ClientSession() as session:
-			async with session.post(self.SlackWebhookUrl, json={"text": body}) as resp:
-				if resp.status != 200:
-					L.warning(
-						"Sending alert to Slack was NOT successful. Response status: {}, response: {}".format(
-							resp.status,
-							await resp.text()))
+        try:
+            self.SlackWebhookUrl = asab.Config.get("slack", "webhook_url")
+            self.Client = WebClient(token=self.SlackWebhookUrl)
+            self.Channel = "iris"
+        except configparser.NoOptionError as e:
+            L.error("Please provide webhook_url in slack configuration section.")
+            raise e
+        except configparser.NoSectionError:
+            self.SlackWebhookUrl = None
+
+    async def send(self, body, atts):
+
+        if self.SlackWebhookUrl is None:
+            return
+
+        try:
+            response = self.Client.chat_postMessage(
+                channel=self.Channel,
+                text=body
+            )
+            print("Message sent: ", response["ts"])
+
+            for attachment in atts:
+                file_content = attachment[0].encode('utf-8')
+                file_obj = BytesIO(file_content)
+                response = self.Client.files_upload(
+                    channels=self.Channel,
+                    file=file_obj,
+                    filetype=attachment[1],
+                    filename=attachment[2],
+                    title=attachment[2]
+                )
+        except SlackApiError as e:
+            L.error("Error sending message: {}".format(e))
+            raise SlackApiError("Error sending message: {}".format(e))
