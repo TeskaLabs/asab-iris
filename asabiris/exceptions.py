@@ -34,4 +34,3 @@ class FormatError(Exception):
 			super().__init__(message, *args)
 		else:
 			super().__init__(message, *args)
-

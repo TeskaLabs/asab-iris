@@ -1,11 +1,8 @@
 import datetime
 import logging
 import fastjsonschema
-import json
-import os
 import base64
 
-from .. import utils
 from .. exceptions import PathError, FormatError
 from ..schemas import slack_schema
 
@@ -62,10 +59,10 @@ class SendSlackOrchestrator(object):
 
 				# get file-name of the attachment
 				file_name = self.get_file_name(a)
-				jinja_output, result = await self.render(template, params)
+				jinja_output = await self.render(template, params)
 
 				# get pdf from html if present.
-				fmt = a.get('format', 'html')
+				fmt = a.get('format', 'pdf')
 				if fmt == 'pdf':
 					result = self.HtmlToPdfService.format(jinja_output)
 					content_type = "application/pdf"
@@ -111,20 +108,8 @@ class SendSlackOrchestrator(object):
 			L.warning("Failed to load or render a template (missing?)", struct_data={'template': template})
 			raise
 
-		_, extension = os.path.splitext(template)
+		return jinja_output
 
-		if extension == '.html':
-			return utils.find_subject_in_html(jinja_output)
-
-		elif extension == '.md':
-			jinja_output, subject = utils.find_subject_in_md(jinja_output)
-			html_output = self.MarkdownToHTMLService.format(jinja_output)
-			if not html_output.startswith("<!DOCTYPE html>"):
-				html_output = utils.normalize_body(html_output)
-			return html_output, subject
-
-		else:
-			raise FormatError(format=extension)
 	def get_file_name(self, attachment):
 		"""
 		This method returns a file-name if provided in the attachment-dict.
