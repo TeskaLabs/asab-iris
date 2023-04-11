@@ -51,8 +51,6 @@ class EmailOutputService(asab.Service, OutputABC):
 			self.User = None
 			self.Password = None
 
-		aiosmtplib.SMTP_MAX_COMMAND_LINE_SIZE = 25600
-		aiosmtplib.SMTP_MAX_LINE_LENGTH = 25600
 
 	async def send(
 		self, *,
