@@ -1,6 +1,10 @@
 class SMTPDeliverError(Exception):
 	pass
 
+class MessageSizeError(Exception):
+	pass
+
+
 
 class PathError(Exception):
 	"""

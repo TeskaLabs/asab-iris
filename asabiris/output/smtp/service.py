@@ -6,7 +6,7 @@ import asab
 import aiosmtplib
 
 from ...output_abc import OutputABC
-from ...exceptions import SMTPDeliverError
+from ...exceptions import SMTPDeliverError, MessageSizeError
 
 #
 
@@ -132,7 +132,7 @@ class EmailOutputService(asab.Service, OutputABC):
 			error_message = str(e)
 			if "Message size exceeds fixed limit" in error_message:
 				L.error("Message size exceeds fixed limit")
-				raise SMTPDeliverError("Message size exceeds fixed limit")
+				raise MessageSizeError("Message size exceeds fixed limit")
 			else:
 				L.error("An SMTP error occurred: {}; check credentials".format(e), struct_data={"host": self.Host})
 				raise SMTPDeliverError("SMTP delivery failed")

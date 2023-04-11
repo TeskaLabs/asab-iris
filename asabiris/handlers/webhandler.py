@@ -10,7 +10,7 @@ import jinja2
 from ..schemas.emailschema import email_schema
 from ..schemas.slackschema import slack_schema
 
-from ..exceptions import SMTPDeliverError, PathError, FormatError
+from ..exceptions import SMTPDeliverError, MessageSizeError, PathError, FormatError
 
 #
 
@@ -111,6 +111,9 @@ class WebHandler(object):
 
 		except SMTPDeliverError:
 			raise aiohttp.web.HTTPServiceUnavailable(text="SMTP error")
+
+		except MessageSizeError as e:
+			raise aiohttp.web.HTTPInternalServerError(text="SMTP error: {}".format(e))
 
 		except PathError as e:
 			raise aiohttp.web.HTTPNotFound(text="{}".format(e))
