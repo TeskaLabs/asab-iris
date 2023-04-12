@@ -4,7 +4,7 @@ from io import BytesIO
 
 from slack_sdk import WebClient
 from slack_sdk.errors import SlackApiError
-
+from typing import List, Tuple
 import asab
 
 from ...output_abc import OutputABC
@@ -27,7 +27,19 @@ class SlackOutputService(asab.Service, OutputABC):
         except configparser.NoSectionError:
             self.SlackWebhookUrl = None
 
-    async def send(self, body, atts):
+    async def send(self, body: str, atts: List[Tuple[bytes, str, str]]) -> None:
+        """
+        Sends a message to a Slack channel with optional attachments.
+
+        :param body: The main text of the message to send.
+        :type body: str
+        :param atts: A list of tuples, where each tuple represents an attachment to send. The first item in the tuple is the
+                    attachment's binary data, the second is the attachment's file type, and the third is the attachment's
+                    file name.
+        :type atts: List[Tuple[bytes, str, str]]
+        :return: None
+        :raises SlackApiError: If there was an error sending the message.
+        """
 
         if self.SlackWebhookUrl is None:
             return
