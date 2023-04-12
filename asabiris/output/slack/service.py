@@ -64,5 +64,5 @@ class SlackOutputService(asab.Service, OutputABC):
             else:
                 L.info("Sending slack message without attachment")
         except SlackApiError as e:
-            L.error("Error sending message: {}".format(e))
+            L.error("Failed to send message: Reason {}".format(e))
             raise SlackApiError("Error sending message: {}".format(e))
