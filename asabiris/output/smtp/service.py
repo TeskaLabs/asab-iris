@@ -6,7 +6,7 @@ import asab
 import aiosmtplib
 
 from ...output_abc import OutputABC
-from ...exceptions import SMTPDeliverError, MessageSizeError
+from ...exceptions import SMTPDeliverError
 
 #
 
@@ -126,18 +126,19 @@ class EmailOutputService(asab.Service, OutputABC):
 		except aiosmtplib.errors.SMTPConnectError as e:
 			L.error("Connection failed: {}".format(e), struct_data={"host": self.Host, "port": self.Port})
 			raise SMTPDeliverError("SMTP delivery failed")
+
+		except aiosmtplib.errors.SMTPAuthenticationError as e:
+			L.exception("Generic error: {}".format(e), struct_data={"host": self.Host})
+			raise SMTPDeliverError("SMTP delivery failed")
+
 		except aiosmtplib.errors.SMTPResponseException as e:
-			error_message = str(e)
-			if "Message size exceeds fixed limit" in error_message:
-				L.error("Message size exceeds fixed limit")
-				raise MessageSizeError("Message size exceeds fixed limit")
-			else:
-				L.error("An SMTP error occurred: {}; check credentials".format(e), struct_data={"host": self.Host})
-				raise SMTPDeliverError("SMTP delivery failed")
+			L.error("SMTP Error", struct_data={"message": e.message, "code": e.code, "host": self.Host})
+			raise SMTPDeliverError("SMTP delivery failed")
 
 		except aiosmtplib.errors.SMTPServerDisconnected as e:
 			L.error("Server disconnected: {}; check the SMTP credentials".format(e), struct_data={"host": self.Host})
 			raise SMTPDeliverError("SMTP delivery failed")
+
 		except Exception as e:
 			L.error("Generic error: {}; check credentials".format(e), struct_data={"host": self.Host})
 			raise SMTPDeliverError("SMTP delivery failed")
