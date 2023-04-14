@@ -69,7 +69,7 @@ class SendEmailOrchestrator(object):
 
 				if template is not None:
 					params = a.get('params', {})
-					# templates must be stores in /Templates/Slack
+					# templates must be stores in /Templates/Email
 					if not template.startswith("/Templates/Email/"):
 						raise PathError(path=template)
 
