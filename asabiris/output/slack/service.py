@@ -20,7 +20,7 @@ class SlackOutputService(asab.Service, OutputABC):
         try:
             self.SlackWebhookUrl = asab.Config.get("slack", "webhook_url")
             self.Client = WebClient(token=self.SlackWebhookUrl)
-            self.Channel = "iris"
+            self.Channel = asab.Config.get("slack_channel", None)
         except configparser.NoOptionError as e:
             L.error("Please provide webhook_url in slack configuration section.")
             raise e
@@ -40,6 +40,8 @@ class SlackOutputService(asab.Service, OutputABC):
         :return: None
         :raises SlackApiError: If there was an error sending the message.
         """
+        if self.Channel is None:
+            L.error("Cannot send message to slack. Reason: Missing slack channel")
 
         if self.SlackWebhookUrl is None:
             return
