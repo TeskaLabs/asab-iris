@@ -20,7 +20,6 @@ class SlackOutputService(asab.Service, OutputABC):
             self.SlackWebhookUrl = asab.Config.get("slack", "webhook_url")
             self.Client = WebClient(token=self.SlackWebhookUrl)
             self.Channel = asab.Config.get("slack", "slack_channel")
-
         except configparser.NoOptionError as e:
             L.error("Please provide webhook_url in slack configuration section.")
             raise e
