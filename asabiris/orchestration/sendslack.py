@@ -1,6 +1,7 @@
 import datetime
 import logging
 import fastjsonschema
+import os
 import base64
 
 from .. exceptions import PathError, FormatError
@@ -61,18 +62,10 @@ class SendSlackOrchestrator(object):
 				file_name = self.get_file_name(a)
 				jinja_output = await self.render(template, params)
 
-				# get pdf from html if present.
-				fmt = a.get('format', 'pdf')
-				if fmt == 'pdf':
-					result = self.HtmlToPdfService.format(jinja_output)
-					content_type = "application/pdf"
-				elif fmt == 'html':
-					result = jinja_output
-					content_type = "text/html"
-				else:
-					raise FormatError(format=fmt)
+				_, node_extension = os.path.splitext(template)
+				content_type = self.get_content_type(node_extension)
 
-				atts.append((result, content_type, file_name))
+				atts.append((jinja_output, content_type, file_name))
 				continue
 
 			# If there is `base64` field, then the content of the attachment is provided in the body in base64
@@ -121,3 +114,31 @@ class SendSlackOrchestrator(object):
 			return "att-" + now + "." + attachment.get('format')
 		else:
 			return attachment.get('filename')
+
+	def get_content_type(self, file_extension):
+		"""
+		Get content type based on file extension.
+
+		Args:
+			file_extension (str): File extension.
+
+		Returns:
+			str: Content type.
+		"""
+
+		content_type_mapping = {
+			".html": "text/html",
+			".css": "text/css",
+			".js": "application/javascript",
+			".jpg": "image/jpeg",
+			".png": "image/png",
+			".pdf": "application/pdf",
+			".csv": "text/csv",
+			".doc": "application/msword",
+			".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+			".md": "text/markdown"
+			# Add more file extensions and content types as needed
+		}
+
+		return content_type_mapping.get(file_extension, "application/octet-stream")
+
