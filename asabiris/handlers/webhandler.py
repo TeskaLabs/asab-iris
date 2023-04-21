@@ -109,7 +109,7 @@ class WebHandler(object):
 		except jinja2.exceptions.UndefinedError as e:
 			raise aiohttp.web.HTTPBadRequest(text="Jinja2 error: {}".format(e))
 
-		except SMTPDeliverError as e:
+		except SMTPDeliverError:
 			raise aiohttp.web.HTTPServiceUnavailable(text="SMTP error")
 
 		except PathError as e:
