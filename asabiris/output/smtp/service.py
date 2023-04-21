@@ -51,6 +51,7 @@ class EmailOutputService(asab.Service, OutputABC):
 			self.User = None
 			self.Password = None
 
+
 	async def send(
 		self, *,
 		email_to,
@@ -125,9 +126,19 @@ class EmailOutputService(asab.Service, OutputABC):
 		except aiosmtplib.errors.SMTPConnectError as e:
 			L.error("Connection failed: {}".format(e), struct_data={"host": self.Host, "port": self.Port})
 			raise SMTPDeliverError("SMTP delivery failed")
+
+		except aiosmtplib.errors.SMTPAuthenticationError as e:
+			L.exception("Generic error: {}".format(e), struct_data={"host": self.Host})
+			raise SMTPDeliverError("SMTP delivery failed")
+
+		except aiosmtplib.errors.SMTPResponseException as e:
+			L.error("SMTP Error", struct_data={"message": e.message, "code": e.code, "host": self.Host})
+			raise SMTPDeliverError("SMTP delivery failed")
+
 		except aiosmtplib.errors.SMTPServerDisconnected as e:
 			L.error("Server disconnected: {}; check the SMTP credentials".format(e), struct_data={"host": self.Host})
 			raise SMTPDeliverError("SMTP delivery failed")
+
 		except Exception as e:
 			L.error("Generic error: {}; check credentials".format(e), struct_data={"host": self.Host})
 			raise SMTPDeliverError("SMTP delivery failed")
