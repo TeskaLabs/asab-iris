@@ -1,5 +1,6 @@
 import datetime
 import logging
+import mimetypes
 import fastjsonschema
 import os
 import base64
@@ -120,23 +121,10 @@ class SendSlackOrchestrator(object):
 		Get content type based on file extension.
 
 		Args:
-			file_extension (str): File extension.
+		    file_extension (str): File extension.
 
 		Returns:
-			str: Content type.
+		    str: Content type.
 		"""
-
-		content_type_mapping = {
-			".html": "text/html",
-			".css": "text/css",
-			".js": "application/javascript",
-			".jpg": "image/jpeg",
-			".png": "image/png",
-			".pdf": "application/pdf",
-			".csv": "text/csv",
-			".doc": "application/msword",
-			".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-			".md": "text/markdown"
-		}
-
-		return content_type_mapping.get(file_extension, "application/octet-stream")
+		content_type = mimetypes.guess_type('dummy' + file_extension)[0]
+		return content_type or 'application/octet-stream'
