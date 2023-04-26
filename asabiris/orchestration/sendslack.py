@@ -137,7 +137,6 @@ class SendSlackOrchestrator(object):
 			".doc": "application/msword",
 			".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
 			".md": "text/markdown"
-			# Add more file extensions and content types as needed
 		}
 
 		return content_type_mapping.get(file_extension, "application/octet-stream")
