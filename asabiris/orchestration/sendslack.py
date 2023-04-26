@@ -121,10 +121,10 @@ class SendSlackOrchestrator(object):
 		Get content type based on file extension.
 
 		Args:
-		    file_extension (str): File extension.
+			file_extension (str): File extension.
 
 		Returns:
-		    str: Content type.
+			str: Content type.
 		"""
 		content_type = mimetypes.guess_type('dummy' + file_extension)[0]
 		return content_type or 'application/octet-stream'
