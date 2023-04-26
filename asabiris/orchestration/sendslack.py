@@ -4,7 +4,7 @@ import fastjsonschema
 import os
 import base64
 
-from .. exceptions import PathError, FormatError
+from .. exceptions import PathError
 from ..schemas import slack_schema
 
 L = logging.getLogger(__name__)
@@ -141,4 +141,3 @@ class SendSlackOrchestrator(object):
 		}
 
 		return content_type_mapping.get(file_extension, "application/octet-stream")
-

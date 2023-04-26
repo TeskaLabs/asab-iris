@@ -60,7 +60,7 @@ class SlackOutputService(asab.Service, OutputABC):
                         filename=attachment[2],
                         title=attachment[2]
                     )
-                #post message
+                # post message
                 self.Client.chat_postMessage(
                     channel=self.Channel,
                     text=body,
