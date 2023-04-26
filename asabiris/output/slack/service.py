@@ -48,18 +48,27 @@ class SlackOutputService(asab.Service, OutputABC):
         try:
             if len(atts) != 0:
                 for attachment in atts:
-                    file_content = attachment[0].encode('utf-8')
+                    if not isinstance(attachment[0], bytes):
+                        file_content = attachment[0].encode('utf-8')
+                    else:
+                        file_content = attachment[0]
                     file_obj = BytesIO(file_content)
                     self.Client.files_upload(
                         channels=self.Channel,
                         file=file_obj,
-                        initial_comment=body,
                         filetype=attachment[1],
                         filename=attachment[2],
                         title=attachment[2]
                     )
+                #post message
+                self.Client.chat_postMessage(
+                    channel=self.Channel,
+                    text=body,
+                )
+
             else:
                 L.info("Sending slack message without attachment")
+
         except SlackApiError as e:
             L.error("Failed to send message: Reason {}".format(e))
             raise SlackApiError("Error sending message: {}".format(e))
