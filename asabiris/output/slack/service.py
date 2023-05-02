@@ -37,38 +37,33 @@ class SlackOutputService(asab.Service, OutputABC):
                     file name.
         :type atts: List[Tuple[bytes, str, str]]
         :return: None
+        :raises ValueError: If Slack channel is missing.
         :raises SlackApiError: If there was an error sending the message.
         """
         if self.Channel is None:
-            L.error("Cannot send message to slack. Reason: Missing slack channel")
+            raise ValueError("Cannot send message to Slack. Reason: Missing Slack channel")
 
-        if self.SlackWebhookUrl is None:
+        if not self.SlackWebhookUrl:
             return
 
         try:
-            if len(atts) != 0:
+            if len(atts) == 0:
+                self.Client.chat_postMessage(
+                    channel=self.Channel,
+                    text=body
+                )
+            else:
+            # Prepare and send attachments
                 for attachment in atts:
-                    if not isinstance(attachment[0], bytes):
-                        file_content = attachment[0].encode('utf-8')
-                    else:
-                        file_content = attachment[0]
+                    file_content = attachment[0].encode('utf-8') if not isinstance(attachment[0], bytes) else attachment[0]
                     file_obj = BytesIO(file_content)
                     self.Client.files_upload(
                         channels=self.Channel,
                         file=file_obj,
                         filetype=attachment[1],
                         filename=attachment[2],
-                        title=attachment[2]
+                        title=attachment[2],
+                        initial_comment=body
                     )
-                # post message
-                self.Client.chat_postMessage(
-                    channel=self.Channel,
-                    text=body,
-                )
-
-            else:
-                L.info("Sending slack message without attachment")
-
         except SlackApiError as e:
-            L.error("Failed to send message: Reason {}".format(e))
-            raise SlackApiError("Error sending message: {}".format(e))
+            raise SlackApiError(f"Failed to send message: {e}")
