@@ -54,16 +54,24 @@ class SlackOutputService(asab.Service, OutputABC):
                 )
             else:
             # Prepare and send attachments
-                for attachment in atts:
+            # Loop through each attachment and upload it
+                for i, attachment in enumerate(atts):
                     file_content = attachment[0].encode('utf-8') if not isinstance(attachment[0], bytes) else attachment[0]
                     file_obj = BytesIO(file_content)
+                    if i == 0:
+                        # For the last iteration, set initial comment to body
+                        initial_comment = body
+                    else:
+                        # For other iterations, set initial comment to None
+                        initial_comment = None
+
                     self.Client.files_upload(
                         channels=self.Channel,
                         file=file_obj,
                         filetype=attachment[1],
                         filename=attachment[2],
                         title=attachment[2],
-                        initial_comment=body
+                        initial_comment=initial_comment
                     )
         except SlackApiError as e:
             raise SlackApiError(f"Failed to send message: {e}")
