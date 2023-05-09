@@ -53,8 +53,6 @@ class SlackOutputService(asab.Service, OutputABC):
                     text=body
                 )
             else:
-            # Prepare and send attachments
-            # Loop through each attachment and upload it
                 for i, attachment in enumerate(atts):
                     file_content = attachment[0].encode('utf-8') if not isinstance(attachment[0], bytes) else attachment[0]
                     file_obj = BytesIO(file_content)
