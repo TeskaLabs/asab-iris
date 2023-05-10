@@ -1,3 +1,4 @@
+import json
 import logging
 
 import asab.web.rest
@@ -29,7 +30,7 @@ class WebHandler(object):
 		web_app.router.add_put(r"/send_mail", self.send_email)  # This one is for backward compatibility
 		web_app.router.add_put(r"/render", self.render)
 		web_app.router.add_put(r"/send_slack", self.send_alert)
-		web_app.router.add_put(r"/send_teams", self.send_alert)
+		web_app.router.add_put(r"/send_teams", self.send_teams)
 
 
 	@asab.web.rest.json_schema_handler(email_schema)
@@ -160,7 +161,7 @@ class WebHandler(object):
 		return asab.web.rest.json_response(request, {"result": "OK"})
 
 
-	async def send_alert(self, request, *, json_data):
+	async def send_teams(self, request):
 		"""
 		This endpoint is for sending slack-notification.
 		```
@@ -179,9 +180,11 @@ class WebHandler(object):
 		---
 		tags: ['Send alerts']
 		"""
+		data = await request.text()
+		json_data = json.loads(data)
 
 		try:
-			await self.App.SendSlackOrchestrator.send_to_slack(json_data)
+			await self.App.SendMSTeamsOrchestrator.send_to_teams(json_data)
 
 		except jinja2.exceptions.UndefinedError as e:
 			raise aiohttp.web.HTTPBadRequest(text="Jinja2 error: {}".format(e))

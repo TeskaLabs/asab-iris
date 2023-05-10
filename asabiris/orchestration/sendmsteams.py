@@ -20,7 +20,6 @@ class SendMSTeamsOrchestrator(object):
 		self.JinjaService = app.get_service("JinjaService")
 		# output
 		self.MSTeamsOutputService = app.get_service("MSTeamsOutputService")
-		# location of slack templates
 
 	async def send_to_teams(self, msg):
 
@@ -30,11 +29,15 @@ class SendMSTeamsOrchestrator(object):
 		# - if absolute path is used, check it start with "/Templates"
 		# - if it is not absolute path, it is file name - assume it's a file in Templates folder
 
-		# templates must be stores in /Templates/Slack
-		if not body['template'].startswith("/Templates/Slack/"):
+		output_teams = {}
+		# templates must be stores in /Templates/MSteams
+		if not body['template'].startswith("/Templates/MSTeams/"):
 			raise PathError(path=body['template'])
 
 		body["params"] = body.get("params", {})
 		output = await self.JinjaService.format(body["template"], body["params"])
+		output_teams["@type"] = msg["@type"]
+		output_teams["@context"] = msg["@context"]
+		output_teams['text'] = output
 
-		await self.MSTeamsOutputService.send(output)
+		await self.MSTeamsOutputService.send(output_teams)
