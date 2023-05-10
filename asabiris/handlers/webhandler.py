@@ -169,14 +169,17 @@ class WebHandler(object):
 		Example body:
 
 		```
-		{
-			"type": "slack",
-			"body": {
-				"template": "/Templates/Slack/alert.md",
-				"params": {
-					"Name": "Toddy Siciro"
+			{
+				"@type": "MessageCard",
+				"@context": "http://schema.org/extensions",
+				"body": {
+					"template": "/Templates/MSTeams/alert.md",
+					"params": {
+						"message": "I am testing a template",
+						"event": "Iris-Event"
+					}
+				}
 			}
-		},
 		---
 		tags: ['Send alerts']
 		"""
