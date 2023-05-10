@@ -181,7 +181,7 @@ class WebHandler(object):
 				}
 			}
 		---
-		tags: ['Send alerts']
+		tags: ['Send teams']
 		"""
 		data = await request.text()
 		json_data = json.loads(data)
