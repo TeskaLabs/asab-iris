@@ -13,10 +13,12 @@ from .formatter.pdf import PdfFormatterService
 # output
 from .output.smtp import EmailOutputService
 from .output.slack import SlackOutputService
+from .output.msteams import MSTeamsOutputService
 
 # orchestrators.
 from .orchestration.sendemail import SendEmailOrchestrator
 from .orchestration.render import RenderReportOrchestrator
+from .orchestration.sendmsteams import SendMSTeamsOrchestrator
 
 from .handlers.kafkahandler import KafkaHandler
 from .handlers.webhandler import WebHandler
@@ -67,11 +69,13 @@ class IRISApplication(asab.Application):
 		# output services
 		self.EmailOutputService = EmailOutputService(self)
 		self.SlackOutputService = SlackOutputService(self)
+		self.MSTeamsOutputService = MSTeamsOutputService(self)
 
 		# Orchestrators
 		self.SendEmailOrchestrator = SendEmailOrchestrator(self)
 		self.RenderReportOrchestrator = RenderReportOrchestrator(self)
 		self.SendSlackOrchestrator = SendSlackOrchestrator(self)
+		self.SendMSTeamsOrchestrator = SendMSTeamsOrchestrator(self)
 
 		self.WebHandler = WebHandler(self)
 

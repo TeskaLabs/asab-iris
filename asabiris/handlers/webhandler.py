@@ -29,6 +29,7 @@ class WebHandler(object):
 		web_app.router.add_put(r"/send_mail", self.send_email)  # This one is for backward compatibility
 		web_app.router.add_put(r"/render", self.render)
 		web_app.router.add_put(r"/send_slack", self.send_alert)
+		web_app.router.add_put(r"/send_teams", self.send_alert)
 
 
 	@asab.web.rest.json_schema_handler(email_schema)
@@ -122,6 +123,43 @@ class WebHandler(object):
 		return asab.web.rest.json_response(request, {"result": "OK"})
 
 	@asab.web.rest.json_schema_handler(slack_schema)
+	async def send_alert(self, request, *, json_data):
+		"""
+		This endpoint is for sending slack-notification.
+		```
+		```
+		Example body:
+
+		```
+		{
+			"type": "slack",
+			"body": {
+				"template": "/Templates/Slack/alert.md",
+				"params": {
+					"Name": "Toddy Siciro"
+			}
+		},
+		---
+		tags: ['Send alerts']
+		"""
+
+		try:
+			await self.App.SendSlackOrchestrator.send_to_slack(json_data)
+
+		except jinja2.exceptions.UndefinedError as e:
+			raise aiohttp.web.HTTPBadRequest(text="Jinja2 error: {}".format(e))
+
+		except PathError as e:
+			raise aiohttp.web.HTTPNotFound(text="{}".format(e))
+
+		except FormatError as e:
+			raise aiohttp.web.HTTPBadRequest(text="{}".format(e))
+
+		# More specific exception handling goes here so that the service provides nice output
+
+		return asab.web.rest.json_response(request, {"result": "OK"})
+
+
 	async def send_alert(self, request, *, json_data):
 		"""
 		This endpoint is for sending slack-notification.
