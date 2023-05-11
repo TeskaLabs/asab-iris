@@ -30,7 +30,6 @@ class MSTeamsOutputService(asab.Service, OutputABC):
 			return
 		async with aiohttp.ClientSession() as session:
 			async with session.post(self.TeamsWebhookUrl, json=payload) as resp:
-				print(resp)
 				if resp.status == 200:
 					return True
 				else:
