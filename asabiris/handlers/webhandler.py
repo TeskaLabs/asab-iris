@@ -169,19 +169,19 @@ class WebHandler(object):
 		Example body:
 
 		```
-			{
-				"@type": "MessageCard",
-				"@context": "http://schema.org/extensions",
+				{
+				"title": "Testing iris",
 				"body": {
 					"template": "/Templates/MSTeams/alert.md",
 					"params": {
-						"message": "I am testing a template",
-						"event": "Iris-Event"
-					}
+					"message": "I am testing a template",
+					"event": "Iris-Event"
 				}
 			}
+		}
+
 		---
-		tags: ['Send teams']
+		tags: ['Send Teams']
 		"""
 		data = await request.text()
 		json_data = json.loads(data)
