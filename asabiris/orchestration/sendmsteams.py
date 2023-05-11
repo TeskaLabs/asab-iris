@@ -1,10 +1,16 @@
 import logging
+import fastjsonschema
 from ..exceptions import PathError
+
+from ..schemas import slack_schema
 
 L = logging.getLogger(__name__)
 
 
 class SendMSTeamsOrchestrator(object):
+
+	ValidationSchemaSlack = fastjsonschema.compile(slack_schema)
+
 	"""
 	A class for sending messages to MS Teams.
 
@@ -33,6 +39,12 @@ class SendMSTeamsOrchestrator(object):
 		Returns:
 			None
 		"""
+		try:
+			SendMSTeamsOrchestrator.ValidationSchemaSlack(msg)
+		except fastjsonschema.exceptions.JsonSchemaException as e:
+			L.warning("Invalid notification format: {}".format(e))
+			return
+
 
 		body = msg['body']
 		if not body['template'].startswith("/Templates/MSTeams/"):

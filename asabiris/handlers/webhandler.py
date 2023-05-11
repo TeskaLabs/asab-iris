@@ -10,6 +10,7 @@ import jinja2
 
 from ..schemas.emailschema import email_schema
 from ..schemas.slackschema import slack_schema
+from ..schemas.teamsschema import teams_schema
 
 from ..exceptions import SMTPDeliverError, PathError, FormatError
 
@@ -160,8 +161,8 @@ class WebHandler(object):
 
 		return asab.web.rest.json_response(request, {"result": "OK"})
 
-
-	async def send_teams(self, request):
+	@asab.web.rest.json_schema_handler(teams_schema)
+	async def send_teams(self, request, *, json_data):
 		"""
 		This endpoint is for sending slack-notification.
 		```
@@ -183,8 +184,6 @@ class WebHandler(object):
 		---
 		tags: ['Send Teams']
 		"""
-		data = await request.text()
-		json_data = json.loads(data)
 
 		try:
 			await self.App.SendMSTeamsOrchestrator.send_to_teams(json_data)
