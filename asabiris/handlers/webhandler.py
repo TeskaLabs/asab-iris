@@ -30,7 +30,7 @@ class WebHandler(object):
 		web_app.router.add_put(r"/send_mail", self.send_email)  # This one is for backward compatibility
 		web_app.router.add_put(r"/render", self.render)
 		web_app.router.add_put(r"/send_slack", self.send_alert)
-		web_app.router.add_put(r"/send_teams", self.send_teams)
+		web_app.router.add_put(r"/send_msteams", self.send_msteams)
 
 
 	@asab.web.rest.json_schema_handler(email_schema)
@@ -161,7 +161,7 @@ class WebHandler(object):
 		return asab.web.rest.json_response(request, {"result": "OK"})
 
 	@asab.web.rest.json_schema_handler(teams_schema)
-	async def send_teams(self, request, *, json_data):
+	async def send_msteams(self, request, *, json_data):
 		"""
 		This endpoint is for sending slack-notification.
 		```
@@ -181,11 +181,11 @@ class WebHandler(object):
 		}
 
 		---
-		tags: ['Send Teams']
+		tags: ['Send MS Teams']
 		"""
 
 		try:
-			await self.App.SendMSTeamsOrchestrator.send_to_teams(json_data)
+			await self.App.SendMSTeamsOrchestrator.send_to_msteams(json_data)
 
 		except jinja2.exceptions.UndefinedError as e:
 			raise aiohttp.web.HTTPBadRequest(text="Jinja2 error: {}".format(e))

@@ -9,7 +9,7 @@ L = logging.getLogger(__name__)
 
 class SendMSTeamsOrchestrator(object):
 
-	ValidationSchemaSlack = fastjsonschema.compile(slack_schema)
+	ValidationSchemaMSTeams = fastjsonschema.compile(slack_schema)
 
 	"""
 	A class for sending messages to MS Teams.
@@ -26,7 +26,7 @@ class SendMSTeamsOrchestrator(object):
 		self.JinjaService = app.get_service("JinjaService")
 		self.MSTeamsOutputService = app.get_service("MSTeamsOutputService")
 
-	async def send_to_teams(self, msg):
+	async def send_to_msteams(self, msg):
 		"""
 		Sends a message to MS Teams.
 
@@ -40,7 +40,7 @@ class SendMSTeamsOrchestrator(object):
 			None
 		"""
 		try:
-			SendMSTeamsOrchestrator.ValidationSchemaSlack(msg)
+			SendMSTeamsOrchestrator.ValidationSchemaMSTeams(msg)
 		except fastjsonschema.exceptions.JsonSchemaException as e:
 			L.warning("Invalid notification format: {}".format(e))
 			return
