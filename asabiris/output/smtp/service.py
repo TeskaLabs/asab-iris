@@ -97,11 +97,9 @@ class EmailOutputService(asab.Service, OutputABC):
 			msg['Subject'] = self.Subject
 
 		if email_from is not None and len(email_from) > 0:
-			msg['From'] = sender = email_from
+			msg['From'] = sender = self.format_sender_info(email_from)
 		else:
-			msg['From'] = sender = self.Sender
-
-		msg['From'] = self.format_sender_info(msg['From'])
+			msg['From'] = sender = self.format_sender_info(self.Sender)
 
 		# Add attachments
 		for content, content_type, file_name in attachments:
