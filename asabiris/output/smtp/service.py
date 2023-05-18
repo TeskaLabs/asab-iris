@@ -160,18 +160,22 @@ class EmailOutputService(asab.Service, OutputABC):
 		"""
 
 		# Split the email_info string into sender's name and email address
-		matches = re.split(r'<|>', email_info)
+		match = re.match(r"<([^<>]*)>\s*([^<>]*)", email_info)
+		if match:
+			senders_name = match.group(1).strip()
+			senders_email = match.group(2).strip()
+			return f"{senders_name} <{senders_email}>"
 
-		if len(matches) > 1:
-			senders_name = matches[0].strip()
-			senders_email = matches[1].strip()
-		else:
-			senders_name = ''
-			senders_email = email_info.strip()
+		if re.match(r".*<.*>.*", email_info):
+			return email_info
 
-		if senders_name:
-			# Format the sender's name and email address
-			formatted_sender = f"{senders_name} <{senders_email}>"
-			return formatted_sender
+		if email_info.startswith("<") and email_info.endswith(">"):
+			return email_info[1:-1].strip()
+
+		senders = re.split(r'<|>', email_info)
+		if len(senders) > 1:
+			senders_name = senders[0].strip()
+			senders_email = senders[1].strip()
+			return f"{senders_name} <{senders_email}>"
 		else:
-			return senders_email
+			return senders[0].strip()
