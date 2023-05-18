@@ -68,6 +68,11 @@ https://teskalabs.github.io/asab-iris/
 /Templates/Slack/
 ```
 
+**Templates used for MSTeams must be stored under**
+```
+/Templates/MSTeams/
+```
+
 **Templates used for other purpose must be stored under**
 ```
 /Templates/General/
