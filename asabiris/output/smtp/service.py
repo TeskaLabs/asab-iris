@@ -149,6 +149,16 @@ class EmailOutputService(asab.Service, OutputABC):
 		L.log(asab.LOG_NOTICE, "Email sent", struct_data={'result': result[1], "host": self.Host})
 
 	def format_sender_info(self, email_info):
+		"""
+		Formats the sender's name and email address from the given email_info string.
+
+		Args:
+		    email_info (str): The email_info string containing the sender's name and email address.
+
+		Returns:
+		    str: The formatted sender's name and email address, or the email address alone if the sender's name is empty.
+		"""
+
 		# Split the email_info string into sender's name and email address
 		matches = re.split(r'<|>', email_info)
 
