@@ -1,6 +1,7 @@
 import email
 import email.message
 import logging
+import re
 
 import asab
 import aiosmtplib
@@ -100,6 +101,8 @@ class EmailOutputService(asab.Service, OutputABC):
 		else:
 			msg['From'] = sender = self.Sender
 
+		msg['From'] = self.format_sender_info(msg['From'])
+
 		# Add attachments
 		for content, content_type, file_name in attachments:
 			maintype, subtype = content_type.split('/', 1)
@@ -144,3 +147,21 @@ class EmailOutputService(asab.Service, OutputABC):
 			raise SMTPDeliverError("SMTP delivery failed")
 
 		L.log(asab.LOG_NOTICE, "Email sent", struct_data={'result': result[1], "host": self.Host})
+
+	def format_sender_info(self, email_info):
+		# Split the email_info string into sender's name and email address
+		matches = re.split(r'<|>', email_info)
+
+		if len(matches) > 1:
+			senders_name = matches[0].strip()
+			senders_email = matches[1].strip()
+		else:
+			senders_name = ''
+			senders_email = email_info.strip()
+
+		if senders_name:
+			# Format the sender's name and email address
+			formatted_sender = f"{senders_name} <{senders_email}>"
+			return formatted_sender
+		else:
+			return senders_email
