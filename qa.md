@@ -430,3 +430,19 @@ EXPECTED RESPONSE:
     "uuid": "c941fe16-470e-42d2-958c-c9fb09ac8e7d"
 }
 ```
+
+## TSM020: Try to send Slack message using markdown template
+
+`PUT /send_msteams`
+
+```
+{
+   "body":{
+      "template":"/Templates/MSTeams/alert.md",
+      "params":{
+         "message":"I am testing a template",
+         "event":"Iris-Event"
+      }
+   }
+}
+```
