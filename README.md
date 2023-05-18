@@ -77,3 +77,14 @@ https://teskalabs.github.io/asab-iris/
 ```
 /Templates/General/
 ```
+
+## Creating an Incoming Webhook for Outlook
+
+- Open your Outlook account and navigate to the "Settings" menu.
+- In the Settings menu, search for "Webhooks" or "Connectors" and select the appropriate option.
+- Click on the "Add" or "Create Webhook" button to start creating a new webhook.
+- Provide a name for your webhook to identify it later. For example, "GitHub Webhook."
+- Configure the webhook URL by specifying the endpoint where you want to receive the messages and files. Make sure it's a valid URL and accessible by the webhook.
+- Select the desired events or triggers that should activate the webhook. In this case, you'll want to select events related to messages and file uploads.
+- Customize any additional settings or parameters according to your requirements. This may include specifying the format of the payload, authentication methods, etc.
+- Save the webhook configuration.
