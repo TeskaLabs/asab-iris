@@ -165,8 +165,8 @@ class EmailOutputService(asab.Service, OutputABC):
 			'John Doe <johndoe@example.com>'
 			>>> format_sender_info("John Doe <johndoe@example.com>")
 			'John Doe <johndoe@example.com>'
-			>>> format_sender_info("example@example.com")
-			'example@example.com'
+			>>> format_sender_info("johndoe@example.com")
+			'johndoe@example.com'
 		"""
 		match = re.match(r"<([^<>]*)>\s*([^<>]*)", email_info)
 		if match:
