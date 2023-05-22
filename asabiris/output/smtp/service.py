@@ -169,7 +169,7 @@ class EmailOutputService(asab.Service, OutputABC):
 		if match:
 			senders_name = match.group(1).strip()
 			senders_email = match.group(2).strip()
-			formatted_sender = f"{senders_name} <{senders_email}>"
+			formatted_sender =  "{} <{}>".format(senders_name, senders_email)
 			return formatted_sender, senders_email
 
 		if re.match(r".*<.*>.*", email_info):
@@ -189,4 +189,4 @@ class EmailOutputService(asab.Service, OutputABC):
 			return formatted_sender, senders_email
 		else:
 			email_address = senders[0].strip()
-			return None, email_address
+			return email_address, email_address
