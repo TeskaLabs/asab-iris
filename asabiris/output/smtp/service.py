@@ -146,7 +146,6 @@ class EmailOutputService(asab.Service, OutputABC):
 
 		L.log(asab.LOG_NOTICE, "Email sent", struct_data={'result': result[1], "host": self.Host})
 
-
 	def format_sender_info(self, email_info):
 		"""
 		Formats the sender's name and email address from the given email_info string.
@@ -155,33 +154,39 @@ class EmailOutputService(asab.Service, OutputABC):
 			email_info (str): The email_info string containing the sender's name and email address.
 
 		Returns:
-			str: The formatted sender's name and email address, or the email address alone if the sender's name is empty
-				or if the input is already in the format "<example@gmail.com>".
+			tuple: A tuple containing the formatted sender's name and email address, and the email address alone
+				   if the sender's name is empty or if the input is already in the format "<example@gmail.com>".
 
 		Examples:
 			>>> format_sender_info("<John Doe> johndoe@example.com")
-			'John Doe <johndoe@example.com>'
+			('John Doe <johndoe@example.com>', 'johndoe@example.com')
 			>>> format_sender_info("John Doe <johndoe@example.com>")
-			'John Doe <johndoe@example.com>'
+			('John Doe <johndoe@example.com>', 'johndoe@example.com')
 			>>> format_sender_info("johndoe@example.com")
-			'johndoe@example.com'
+			('johndoe@example.com', 'johndoe@example.com')
 		"""
 		match = re.match(r"<([^<>]*)>\s*([^<>]*)", email_info)
 		if match:
 			senders_name = match.group(1).strip()
 			senders_email = match.group(2).strip()
-			return f"{senders_name} <{senders_email}>"
+			formatted_sender = f"{senders_name} <{senders_email}>"
+			return formatted_sender, senders_email
 
 		if re.match(r".*<.*>.*", email_info):
-			return email_info
+			senders = re.split(r'<|>', email_info)
+			senders_email = senders[1].strip()
+			return email_info, senders_email
 
 		if email_info.startswith("<") and email_info.endswith(">"):
-			return email_info[1:-1].strip()
+			email_address = email_info[1:-1].strip()
+			return email_address, email_address
 
 		senders = re.split(r'<|>', email_info)
 		if len(senders) > 1:
 			senders_name = senders[0].strip()
 			senders_email = senders[1].strip()
-			return f"{senders_name} <{senders_email}>"
+			formatted_sender = f"{senders_name} <{senders_email}>"
+			return formatted_sender, senders_email
 		else:
-			return senders[0].strip()
+			email_address = senders[0].strip()
+			return None, email_address
