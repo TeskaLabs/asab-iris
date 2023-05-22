@@ -52,6 +52,10 @@ class EmailOutputService(asab.Service, OutputABC):
 			self.User = None
 			self.Password = None
 
+		# Compiled regular expressions as class variables
+		self.SenderNameEmailRegex = re.compile(r"<([^<>]*)>\s*([^<>]*)")
+		self.AngelBracketRegex = re.compile(r".*<.*>.*")
+
 
 	async def send(
 		self, *,
@@ -165,28 +169,36 @@ class EmailOutputService(asab.Service, OutputABC):
 			>>> format_sender_info("johndoe@example.com")
 			('johndoe@example.com', 'johndoe@example.com')
 		"""
-		match = re.match(r"<([^<>]*)>\s*([^<>]*)", email_info)
+		match = self.SenderNameEmailRegex.match(email_info)
 		if match:
+			# Case: "<John Doe> johndoe@example.com"
+			# Extract sender's name and email address using regex match groups
 			senders_name = match.group(1).strip()
 			senders_email = match.group(2).strip()
-			formatted_sender =  "{} <{}>".format(senders_name, senders_email)
+			formatted_sender = "{} <{}>".format(senders_name, senders_email)
 			return formatted_sender, senders_email
 
-		if re.match(r".*<.*>.*", email_info):
+		if self.AngelBracketRegex.match(email_info):
+			# Case: "John Doe <johndoe@example.com>"
+			# Split the string using '<' and '>' as delimiters
 			senders = re.split(r'<|>', email_info)
 			senders_email = senders[1].strip()
 			return email_info, senders_email
 
 		if email_info.startswith("<") and email_info.endswith(">"):
+			# Case: "<johndoe@example.com>"
+			# Remove the enclosing '<' and '>' characters
 			email_address = email_info[1:-1].strip()
 			return email_address, email_address
 
 		senders = re.split(r'<|>', email_info)
 		if len(senders) > 1:
+			# Case: "John Doe <johndoe@example.com>"
 			senders_name = senders[0].strip()
 			senders_email = senders[1].strip()
-			formatted_sender = f"{senders_name} <{senders_email}>"
+			formatted_sender = "{} <{}>".format(senders_name, senders_email)
 			return formatted_sender, senders_email
 		else:
+			# Case: "johndoe@example.com"
 			email_address = senders[0].strip()
 			return email_address, email_address
