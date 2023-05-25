@@ -10,7 +10,7 @@ import jinja2
 from ..schemas.emailschema import email_schema
 from ..schemas.slackschema import slack_schema
 
-from ..exceptions import SMTPDeliverError, PathError, FormatError
+from ..exceptions import SMTPDeliverError, PathError, FormatError, SMSDeliveryError
 
 #
 
@@ -28,6 +28,7 @@ class WebHandler(object):
 		web_app.router.add_put(r"/send_email", self.send_email)
 		web_app.router.add_put(r"/send_mail", self.send_email)  # This one is for backward compatibility
 		web_app.router.add_put(r"/render", self.render)
+		web_app.router.add_put(r"/send_sms", self.send_sms)
 		web_app.router.add_put(r"/send_slack", self.send_alert)
 
 
@@ -205,6 +206,43 @@ class WebHandler(object):
 			content_type=content_type,
 			body=html if content_type == "text/html" else file_sender(pdf)
 		)
+
+	async def send_sms(self, request, *, json_data):
+		"""Send an SMS message to the phone number specified in the request body.
+
+			Args:
+				request: The HTTP request object.
+				json_data: A dictionary containing the following keys:
+					- phone (int): The phone number to send the SMS message to.
+					- message_body (str): The content of the SMS message.
+
+			Returns:
+				A JSON response with a "result" key set to "OK" and a "data" key containing the result of the SMSOutputService.
+		```
+		localhost:8080/send_sms
+
+		```
+		body example:
+		```
+		{
+			"phone":777888999,
+			"message_body":"Test Company"
+		}
+		```
+		"""
+		# Render a body
+		try:
+			result = await self.App.SMSOutputService(json_data)
+		except SMSDeliveryError as e:
+			raise aiohttp.web.HTTPBadRequest(text="{}".format(e))
+
+		# get pdf from html if present.
+		response = {
+			"result": "OK",
+			"data": result
+		}
+		return asab.web.rest.json_response(request, response)
+
 
 
 @aiohttp.payload_streamer.streamer

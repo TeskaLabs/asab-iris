@@ -4,6 +4,7 @@ class SMTPDeliverError(Exception):
 
 class PathError(Exception):
 	"""
+	Exception raised when an invalid path is provided.
 
 	Equivalent to HTTP 404 Not-Found.
 	"""
@@ -21,6 +22,7 @@ class PathError(Exception):
 
 class FormatError(Exception):
 	"""
+	Exception raised when an unsupported format is encountered.
 
 	Equivalent to HTTP 400 Bad-request.
 	"""
@@ -31,6 +33,24 @@ class FormatError(Exception):
 			super().__init__(message, *args)
 		elif format is not None:
 			message = "Unsupported template format {!r}.".format(format)
+			super().__init__(message, *args)
+		else:
+			super().__init__(message, *args)
+
+
+class SMSDeliveryError(Exception):
+	"""
+		Exception raised when there is an error delivering an SMS message.
+
+		Equivalent to HTTP 400 Bad-request.
+	"""
+
+	def __init__(self, message=None, *args, phone_number=None):
+		self.PhoneNumber = phone_number
+		if message is not None:
+			super().__init__(message, *args)
+		elif format is not None:
+			message = "SMS delivery failed to number {!r}.".format(phone_number)
 			super().__init__(message, *args)
 		else:
 			super().__init__(message, *args)
