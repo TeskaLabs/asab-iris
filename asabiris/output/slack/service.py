@@ -12,14 +12,20 @@ from ...output_abc import OutputABC
 
 L = logging.getLogger(__name__)
 
+asab.Config.add_defaults(
+	{
+		'slack': {
+			"channel": "general",
+		}
+	})
 
 class SlackOutputService(asab.Service, OutputABC):
     def __init__(self, app, service_name="SlackOutputService"):
         super().__init__(app, service_name)
         try:
-            self.SlackWebhookUrl = asab.Config.get("slack", "webhook_url")
+            self.SlackWebhookUrl = asab.Config.get("slack", "token")
             self.Client = WebClient(token=self.SlackWebhookUrl)
-            self.Channel = asab.Config.get("slack", "slack_channel")
+            self.Channel = asab.Config.get("slack", "channel")
         except configparser.NoOptionError as e:
             L.error("Please provide webhook_url in slack configuration section.")
             raise e
