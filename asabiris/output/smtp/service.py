@@ -88,12 +88,21 @@ class EmailOutputService(asab.Service, OutputABC):
 		msg.set_content(body, subtype='html')
 
 		if email_to is not None:
-			assert (isinstance(email_to, list))
-			msg['To'] = ', '.join(email_to)
+			assert isinstance(email_to, list)
+			formatted_email_to = []
+			for email_address in email_to:
+				formatted_sender, sender_email = self.format_sender_info(email_address)
+				formatted_email_to.append(sender_email)
+			msg['To'] = ', '.join(formatted_email_to)
 
-		if len(email_cc) != 0:
-			assert (isinstance(email_cc, list))
-			msg['Cc'] = ', '.join(email_cc)
+		if email_cc is not None:
+			assert isinstance(email_to, list)
+			formatted_email_cc = []
+			for email_address in email_cc:
+				formatted_sender, sender_email = self.format_sender_info(email_address)
+				formatted_email_cc.append(sender_email)
+			msg['Cc'] = ', '.join(formatted_email_cc)
+
 
 		if email_subject is not None and len(email_subject) > 0:
 			msg['Subject'] = email_subject
@@ -101,9 +110,11 @@ class EmailOutputService(asab.Service, OutputABC):
 			msg['Subject'] = self.Subject
 
 		if email_from is not None and len(email_from) > 0:
-			msg['From'] = sender = self.format_sender_info(email_from)
+			formatted_sender, _ = self.format_sender_info(email_from)
+			msg['From'] = sender = formatted_sender
 		else:
-			msg['From'] = sender = self.format_sender_info(self.Sender)
+			formatted_sender, _ = self.format_sender_info(self.Sender)
+			msg['From'] = sender = formatted_sender
 
 		# Add attachments
 		for content, content_type, file_name in attachments:
