@@ -24,6 +24,7 @@
       - pip install requests
       - pip install temp
       - pip install aiokafka
+      - pip install slack-sdk
       - python3 -m unittest test
 
 
@@ -48,6 +49,7 @@
       - pip install aiohttp
       - pip install temp
       - pip install aiokafka
+      - pip install slack-sdk
       - python3 -m unittest test
 
   test py39:
@@ -71,6 +73,7 @@
       - pip install -U git+https://github.com/TeskaLabs/asab
       - pip install temp
       - pip install aiokafka
+      - pip install slack-sdk
       - python3 -m unittest test
 
   test flake:
@@ -90,6 +93,7 @@
       - pip install aiohttp
       - pip install temp
       - pip install aiokafka
+      - pip install slack-sdk
       - pip install -U git+https://github.com/TeskaLabs/asab
       - python3 -m flake8 asabiris
 
