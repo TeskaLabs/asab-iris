@@ -9,6 +9,7 @@ import jinja2
 
 from ..schemas.emailschema import email_schema
 from ..schemas.slackschema import slack_schema
+from ..schemas.teamsschema import teams_schema
 
 from ..exceptions import SMTPDeliverError, PathError, FormatError
 
@@ -29,6 +30,7 @@ class WebHandler(object):
 		web_app.router.add_put(r"/send_mail", self.send_email)  # This one is for backward compatibility
 		web_app.router.add_put(r"/render", self.render)
 		web_app.router.add_put(r"/send_slack", self.send_alert)
+		web_app.router.add_put(r"/send_msteams", self.send_msteams)
 
 
 	@asab.web.rest.json_schema_handler(email_schema)
@@ -144,6 +146,46 @@ class WebHandler(object):
 
 		try:
 			await self.App.SendSlackOrchestrator.send_to_slack(json_data)
+
+		except jinja2.exceptions.UndefinedError as e:
+			raise aiohttp.web.HTTPBadRequest(text="Jinja2 error: {}".format(e))
+
+		except PathError as e:
+			raise aiohttp.web.HTTPNotFound(text="{}".format(e))
+
+		except FormatError as e:
+			raise aiohttp.web.HTTPBadRequest(text="{}".format(e))
+
+		# More specific exception handling goes here so that the service provides nice output
+
+		return asab.web.rest.json_response(request, {"result": "OK"})
+
+	@asab.web.rest.json_schema_handler(teams_schema)
+	async def send_msteams(self, request, *, json_data):
+		"""
+		This endpoint is for sending slack-notification.
+		```
+		```
+		Example body:
+
+		```
+				{
+				"title": "Testing iris",
+				"body": {
+					"template": "/Templates/MSTeams/alert.md",
+					"params": {
+					"message": "I am testing a template",
+					"event": "Iris-Event"
+				}
+			}
+		}
+
+		---
+		tags: ['Send MS Teams']
+		"""
+
+		try:
+			await self.App.SendMSTeamsOrchestrator.send_to_msteams(json_data)
 
 		except jinja2.exceptions.UndefinedError as e:
 			raise aiohttp.web.HTTPBadRequest(text="Jinja2 error: {}".format(e))

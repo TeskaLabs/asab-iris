@@ -431,6 +431,7 @@ EXPECTED RESPONSE:
 }
 ```
 
+
 ## TSM022: Try to send Slack with attachment
 
 `PUT /send_slack`
@@ -452,9 +453,27 @@ EXPECTED RESPONSE:
       }
    ]
 }
+
 EXPECTED RESPONSE:
 
 {
     "result": "OK"
 }
 ```
+
+
+## TSM023: Try to send MS Teams using markdown template
+
+ `PUT /send_msteams`
+
+ ```
+ {
+    "body":{
+       "template":"/Templates/MSTeams/alert.md",
+       "params":{
+          "message":"I am testing a template",
+          "event":"Iris-Event"
+       }
+    }
+ }
+ ```
