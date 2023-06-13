@@ -8,8 +8,8 @@ class PathError(Exception):
 	"""
 
 	def __init__(self, message=None, *args, use_case=None, invalid_path=None):
-		self.use_case = use_case
-		self.invalid_path = invalid_path
+		self.UseCase = use_case
+		self.InvalidPath = invalid_path
 
 		if message is not None:
 			super().__init__(message, *args)
