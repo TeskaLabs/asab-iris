@@ -4,16 +4,17 @@ class SMTPDeliverError(Exception):
 
 class PathError(Exception):
 	"""
-
 	Equivalent to HTTP 404 Not-Found.
 	"""
 
-	def __init__(self, message=None, *args, path=None):
-		self.Path = path
+	def __init__(self, message=None, *args, use_case=None, invalid_path=None):
+		self.use_case = use_case
+		self.invalid_path = invalid_path
+
 		if message is not None:
 			super().__init__(message, *args)
-		elif path is not None:
-			message = "Invalid path {!r}.".format(path)
+		elif invalid_path is not None:
+			message = "Invalid path '{}'. Expected path to start with '/Templates/{}/'.".format(invalid_path, use_case)
 			super().__init__(message, *args)
 		else:
 			super().__init__(message, *args)
