@@ -44,7 +44,7 @@ class SendSlackOrchestrator(object):
 
 		# templates must be stores in /Templates/Slack
 		if not body['template'].startswith("/Templates/Slack/"):
-			raise PathError(path=body['template'])
+			raise PathError(use_case='Slack', invalid_path=body['template'])
 
 		atts = []
 

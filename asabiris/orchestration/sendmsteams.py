@@ -48,7 +48,7 @@ class SendMSTeamsOrchestrator(object):
 
 		body = msg['body']
 		if not body['template'].startswith("/Templates/MSTeams/"):
-			raise PathError(path=body['template'])
+			raise PathError(use_case='MSTeams', invalid_path=body['template'])
 
 		body["params"] = body.get("params", {})
 		output = await self.JinjaService.format(body["template"], body["params"])

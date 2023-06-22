@@ -71,7 +71,7 @@ class SendEmailOrchestrator(object):
 					params = a.get('params', {})
 					# templates must be stores in /Templates/Email
 					if not template.startswith("/Templates/Email/"):
-						raise PathError(path=template)
+						raise PathError(use_case='Email', invalid_path=template)
 
 					# get file-name of the attachment
 					file_name = self.get_file_name(a)
@@ -123,7 +123,7 @@ class SendEmailOrchestrator(object):
 		"""
 		# templates must be stores in /Templates/Emails
 		if not template.startswith("/Templates/Email/"):
-			raise PathError(path=template)
+			raise PathError(use_case='Email', invalid_path=template)
 
 		try:
 			jinja_output = await self.JinjaService.format(template, params)
