@@ -201,8 +201,8 @@ class WebHandler(object):
 		return asab.web.rest.json_response(request, {"result": "OK"})
 
 
-	# TODO: JSON schema
-	async def render(self, request):
+	@asab.web.rest.json_schema_handler({"type": "object"})
+	async def render(self, request, *, json_data):
 		"""
 		This endpoint renders request body into template based on the format specified.
 		Example:
@@ -223,6 +223,8 @@ class WebHandler(object):
 			"state":"MH"
 		}
 		```
+		---
+		parameters: [{"name": "format", "in": "query", "description": "Format of the document"}, {"name": "template", "in": "query", "description": "Reference to the template"}]
 		"""
 		fmt = request.query.get("format", "html")
 		template = request.query.get("template", None)
