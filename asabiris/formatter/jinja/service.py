@@ -36,22 +36,22 @@ def create_nested_dict_from_dots_in_keys(data):
 
 	:param data: The input dictionary that may contain keys with dots in them, indicating nested levels
 	of dictionaries
-	:return: A nested dictionary where keys containing dots (".") have been split into sub-dictionaries.
+	:return: a nested dictionary where keys containing dots (".") have been split into sub-dictionaries.
 	"""
-	nested_dict = {}  # Initialize an empty nested dictionary
-	stack = [(nested_dict, key, value) for key, value in data.items()]  # Create a stack of (dictionary, key, value) tuples
+	nested_dict = {}
+	stack = [(nested_dict, data)]
 
 	while stack:
-		current_dict, key, value = stack.pop()  # Pop the top (dictionary, key, value) tuple from the stack
+		current_dict, current_data = stack.pop()
+		for key, value in current_data.items():
+			if isinstance(value, dict):
+				stack.append((current_dict.setdefault(key, {}), value))
+			elif '.' in key:
+				parts = key.split('.')
+				for part in parts[:-1]:
+					current_dict = current_dict.setdefault(part, {})
+				current_dict[parts[-1]] = value
+			else:
+				current_dict[key] = value
 
-		if '.' in key:  # If the key contains a dot, indicating nested levels
-			parts = key.split('.')  # Split the key into parts using dot as the separator
-
-			# Traverse the nested levels of dictionaries
-			for part in parts[:-1]:
-				current_dict = current_dict.setdefault(part, {})  # Create or get the nested dictionary
-			current_dict[parts[-1]] = value  # Assign the value to the final nested level
-		else:
-			current_dict[key] = value  # If no dot in the key, assign the value directly to the current dictionary
-
-	return nested_dict  # Return the resulting nested dictionary
+	return nested_dict
