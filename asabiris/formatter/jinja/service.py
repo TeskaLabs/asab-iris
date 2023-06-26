@@ -33,6 +33,23 @@ class JinjaFormatterService(asab.Service, FormatterABC):
 		"""
 		This function creates a nested dictionary from a dictionary with keys containing dots.
 
+		Example:
+		--------
+		Input:
+		data = {
+			"name": "Alice",
+			"age": 25,
+			"address.city": "London",
+		}
+
+		nested_dict = {
+			"name": "Alice",
+			"age": 25,
+			"address": {
+				"city": "London",
+			},
+		}
+
 		:param data: The input dictionary that may contain keys with dots in them, indicating nested levels
 		of dictionaries
 		:return: A nested dictionary where keys containing dots (".") have been split into sub-dictionaries.
