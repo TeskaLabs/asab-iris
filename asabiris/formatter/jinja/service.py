@@ -24,9 +24,6 @@ class JinjaFormatterService(asab.Service, FormatterABC):
 		except configparser.NoSectionError:
 			self.Variables = None
 
-		if self.Variables is not None:
-			# Create a dictionary from the list of tuples
-			self.Variables = {key: value for key, value in self.Variables}
 
 	async def format(self, template_path, template_params):
 		jinja_variables = collections.ChainMap(self.Variables, template_params)
