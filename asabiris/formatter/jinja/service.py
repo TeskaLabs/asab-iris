@@ -35,34 +35,28 @@ class JinjaFormatterService(asab.Service, FormatterABC):
 
 		:param data: The input dictionary that may contain keys with dots in them, indicating nested levels
 		of dictionaries
-		:return: a nested dictionary where keys containing dots (".") have been split into sub-dictionaries.
+		:return: A nested dictionary where keys containing dots (".") have been split into sub-dictionaries.
 		"""
-		"""
-		This function creates a nested dictionary from a dictionary with keys containing dots.
-
-		:param data: The input dictionary that may contain keys with dots in them, indicating nested levels
-		of dictionaries
-		:return: a nested dictionary where keys containing dots (".") have been split into sub-dictionaries.
-		"""
-		nested_dict = {}
-		stack = [(nested_dict, data)]
+		nested_dict = {}  # Create an empty nested dictionary
+		stack = [(nested_dict, data)]  # Initialize a stack with the root dictionary and the input data
 
 		while stack:
-			current_dict, current_data = stack.pop()
+			current_dict, current_data = stack.pop()  # Get the current dictionary and data from the stack
 
 			for key, value in current_data.items():
 				if isinstance(value, dict):
-					current_dict[key] = {}
-					stack.append((current_dict[key], value))
+					current_dict[key] = {}  # Create a new empty sub-dictionary
+					stack.append(
+						(current_dict[key], value))  # Push the sub-dictionary and its corresponding data to the stack
 				elif '.' in key:
 					parts = key.split('.')
 					temp_dict = current_dict
 					for part in parts[:-1]:
 						if part not in temp_dict:
-							temp_dict[part] = {}
-						temp_dict = temp_dict[part]
-					temp_dict[parts[-1]] = value
+							temp_dict[part] = {}  # Create a new empty sub-dictionary
+						temp_dict = temp_dict[part]  # Move to the next level of nesting
+					temp_dict[parts[-1]] = value  # Assign the value to the final key in the nested structure
 				else:
-					current_dict[key] = value
+					current_dict[key] = value  # Assign the value directly to the current dictionary
 
 		return nested_dict
