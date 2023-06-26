@@ -20,7 +20,7 @@ class JinjaFormatterService(asab.Service, FormatterABC):
 	def __init__(self, app, service_name="JinjaService"):
 		super().__init__(app, service_name)
 		try:
-			self.Variables = asab.Config.items("variables")
+			self.Variables = {option: asab.Config.get('variables', option) for option in asab.Config.options('variables')}
 		except configparser.NoSectionError:
 			self.Variables = None
 
