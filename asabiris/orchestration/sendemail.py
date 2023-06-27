@@ -53,7 +53,7 @@ class SendEmailOrchestrator(object):
 		# Render a body
 		body_html, email_subject_body = await self.render(body_template, body_params)
 
-		if email_subject is None:
+		if email_subject is None or email_subject == '':
 			email_subject = email_subject_body
 
 		atts = []
