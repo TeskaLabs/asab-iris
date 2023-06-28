@@ -1,6 +1,7 @@
 import email
 import email.message
 import logging
+import re
 
 import asab
 import aiosmtplib
@@ -51,6 +52,10 @@ class EmailOutputService(asab.Service, OutputABC):
 			self.User = None
 			self.Password = None
 
+		# Compiled regular expressions as class variables
+		self.SenderNameEmailRegex = re.compile(r"<([^<>]*)>\s*([^<>]*)")
+		self.AngelBracketRegex = re.compile(r".*<.*>.*")
+
 
 	async def send(
 		self, *,
@@ -83,12 +88,21 @@ class EmailOutputService(asab.Service, OutputABC):
 		msg.set_content(body, subtype='html')
 
 		if email_to is not None:
-			assert (isinstance(email_to, list))
-			msg['To'] = ', '.join(email_to)
+			assert isinstance(email_to, list)
+			formatted_email_to = []
+			for email_address in email_to:
+				formatted_sender, sender_email = self.format_sender_info(email_address)
+				formatted_email_to.append(sender_email)
+			msg['To'] = ', '.join(formatted_email_to)
 
-		if len(email_cc) != 0:
-			assert (isinstance(email_cc, list))
-			msg['Cc'] = ', '.join(email_cc)
+		if email_cc is not None:
+			assert isinstance(email_to, list)
+			formatted_email_cc = []
+			for email_address in email_cc:
+				formatted_sender, sender_email = self.format_sender_info(email_address)
+				formatted_email_cc.append(sender_email)
+			msg['Cc'] = ', '.join(formatted_email_cc)
+
 
 		if email_subject is not None and len(email_subject) > 0:
 			msg['Subject'] = email_subject
@@ -96,9 +110,11 @@ class EmailOutputService(asab.Service, OutputABC):
 			msg['Subject'] = self.Subject
 
 		if email_from is not None and len(email_from) > 0:
-			msg['From'] = sender = email_from
+			formatted_sender, _ = self.format_sender_info(email_from)
+			msg['From'] = sender = formatted_sender
 		else:
-			msg['From'] = sender = self.Sender
+			formatted_sender, _ = self.format_sender_info(self.Sender)
+			msg['From'] = sender = formatted_sender
 
 		# Add attachments
 		for content, content_type, file_name in attachments:
@@ -144,3 +160,56 @@ class EmailOutputService(asab.Service, OutputABC):
 			raise SMTPDeliverError("SMTP delivery failed")
 
 		L.log(asab.LOG_NOTICE, "Email sent", struct_data={'result': result[1], "host": self.Host})
+
+	def format_sender_info(self, email_info):
+		"""
+		Formats the sender's name and email address from the given email_info string.
+
+		Args:
+			email_info (str): The email_info string containing the sender's name and email address.
+
+		Returns:
+			tuple: A tuple containing the formatted sender's name and email address, and the email address alone
+				   if the sender's name is empty or if the input is already in the format "<example@gmail.com>".
+
+		Examples:
+			>>> format_sender_info("<John Doe> johndoe@example.com")
+			('John Doe <johndoe@example.com>', 'johndoe@example.com')
+			>>> format_sender_info("John Doe <johndoe@example.com>")
+			('John Doe <johndoe@example.com>', 'johndoe@example.com')
+			>>> format_sender_info("johndoe@example.com")
+			('johndoe@example.com', 'johndoe@example.com')
+		"""
+		match = self.SenderNameEmailRegex.match(email_info)
+		if match:
+			# Case: "<John Doe> johndoe@example.com"
+			# Extract sender's name and email address using regex match groups
+			senders_name = match.group(1).strip()
+			senders_email = match.group(2).strip()
+			formatted_sender = "{} <{}>".format(senders_name, senders_email)
+			return formatted_sender, senders_email
+
+		if self.AngelBracketRegex.match(email_info):
+			# Case: "John Doe <johndoe@example.com>"
+			# Split the string using '<' and '>' as delimiters
+			senders = re.split(r'<|>', email_info)
+			senders_email = senders[1].strip()
+			return email_info, senders_email
+
+		if email_info.startswith("<") and email_info.endswith(">"):
+			# Case: "<johndoe@example.com>"
+			# Remove the enclosing '<' and '>' characters
+			email_address = email_info[1:-1].strip()
+			return email_address, email_address
+
+		senders = re.split(r'<|>', email_info)
+		if len(senders) > 1:
+			# Case: "John Doe <johndoe@example.com>"
+			senders_name = senders[0].strip()
+			senders_email = senders[1].strip()
+			formatted_sender = "{} <{}>".format(senders_name, senders_email)
+			return formatted_sender, senders_email
+		else:
+			# Case: "johndoe@example.com"
+			email_address = senders[0].strip()
+			return email_address, email_address
