@@ -30,7 +30,7 @@ class JinjaFormatterService(asab.Service, FormatterABC):
 
 		template_io = await self.App.LibraryService.read(template_path)
 		if template_io is None:
-			raise ("Template '{}' not found".format(template_path))
+			raise KeyError("Template '{}' not found".format(template_path))
 
 		template = jinja2.Template(template_io.read().decode('utf-8'))
 
