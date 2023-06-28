@@ -170,7 +170,7 @@ class EmailOutputService(asab.Service, OutputABC):
 
 		Returns:
 			tuple: A tuple containing the formatted sender's name and email address, and the email address alone
-				   if the sender's name is empty or if the input is already in the format "<example@gmail.com>".
+				if the sender's name is empty or if the input is already in the format "<example@gmail.com>".
 
 		Examples:
 			>>> format_sender_info("<John Doe> johndoe@example.com")
