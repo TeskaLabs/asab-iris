@@ -26,7 +26,11 @@ class JinjaFormatterService(asab.Service, FormatterABC):
 
 
 	async def format(self, template_path, template_params):
-		jinja_variables = collections.ChainMap(self.Variables, template_params)
+		if self.Variables is not None:
+			jinja_variables = collections.ChainMap(self.Variables, template_params)
+		else:
+			jinja_variables = template_params.copy()
+
 		template_io = await self.App.LibraryService.read(template_path)
 		if template_io is None:
 			raise KeyError("Template '{}' not found".format(template_path))
