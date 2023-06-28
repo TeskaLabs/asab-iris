@@ -29,7 +29,7 @@ class JinjaFormatterService(asab.Service, FormatterABC):
 		template_params = self.create_nested_dict_from_dots_in_keys(template_params)
 		return template.render(**template_params)
 
-	def create_nested_dict_from_dots_in_keys(self, data):
+	def create_nested_dict_from_dots_in_keys_old(self, data):
 		"""
 		This function creates a nested dictionary from a dictionary with keys containing dots.
 
@@ -54,26 +54,39 @@ class JinjaFormatterService(asab.Service, FormatterABC):
 		of dictionaries
 		:return: A nested dictionary where keys containing dots (".") have been split into sub-dictionaries.
 		"""
-		nested_dict = {}  # Create an empty nested dictionary
-		stack = [(nested_dict, data)]  # Initialize a stack with the root dictionary and the input data
+		nested_dict = {}
+		stack = [(nested_dict, data)]
 
 		while stack:
-			current_dict, current_data = stack.pop()  # Get the current dictionary and data from the stack
+			current_dict, current_data = stack.pop()
 
 			for key, value in current_data.items():
-				if isinstance(value, dict):
-					current_dict[key] = {}  # Create a new empty sub-dictionary
-					stack.append(
-						(current_dict[key], value))  # Push the sub-dictionary and its corresponding data to the stack
-				elif '.' in key:
+				if '.' in key:
 					parts = key.split('.')
-					temp_dict = current_dict
-					for part in parts[:-1]:
-						if part not in temp_dict:
-							temp_dict[part] = {}  # Create a new empty sub-dictionary
-						temp_dict = temp_dict[part]  # Move to the next level of nesting
-					temp_dict[parts[-1]] = value  # Assign the value to the final key in the nested structure
+					for i, part in enumerate(parts[:-1]):
+						# Check if the current part of the key exists in the current dictionary
+						# If not or if the existing value is not a dictionary, create a new dictionary at that key
+						if part not in current_dict or not isinstance(current_dict[part], dict):
+							current_dict[part] = {}
+						current_dict = current_dict[part]
+
+					# Handle the last part of the key separately
+					last_part = parts[-1]
+					if last_part not in current_dict or not isinstance(current_dict[last_part], dict):
+						current_dict[last_part] = {}
+					current_dict = current_dict[last_part]
+
+					# Append the current dictionary and the last part of the key with its value as a new item to the stack
+					stack.append((current_dict, {last_part: value}))
+				elif isinstance(value, dict):
+					# If the value is a dictionary, check if the key exists in the current dictionary
+					# If not or if the existing value is not a dictionary, create a new dictionary at that key
+					if key not in current_dict or not isinstance(current_dict[key], dict):
+						current_dict[key] = {}
+					# Append the current dictionary and the value as a new item to the stack
+					stack.append((current_dict[key], value))
 				else:
-					current_dict[key] = value  # Assign the value directly to the current dictionary
+					# If the value is not a dictionary, simply assign it to the current key in the current dictionary
+					current_dict[key] = value
 
 		return nested_dict
