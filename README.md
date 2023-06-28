@@ -137,3 +137,29 @@ https://teskalabs.github.io/asab-iris/
 ### Step 5: Verify the App's Presence
 1. Look for the app's name or icon in the channel member list.
 2. If the app is successfully added, it should appear as a member of the channel.
+
+
+**Example configuration.**
+
+```
+[library]
+providers=./library
+
+[web]
+listen=:8080
+
+[smtp]
+host=smtp.example.com
+user=admin
+password=password
+from=info@example.com
+ssl=no
+starttls=yes
+subject=Mail from ASAB Iris
+
+[slack]
+token=xoxb-111111111111-2222222222222-3333333333333voe
+channel=general
+
+[msteams]
+webhook_url=https://teskalabscom.webho
