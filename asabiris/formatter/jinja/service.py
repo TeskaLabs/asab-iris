@@ -29,64 +29,45 @@ class JinjaFormatterService(asab.Service, FormatterABC):
 		template_params = self.create_nested_dict_from_dots_in_keys(template_params)
 		return template.render(**template_params)
 
-	def create_nested_dict_from_dots_in_keys_old(self, data):
+	def create_nested_dict_from_dots_in_keys(self, data):
 		"""
-		This function creates a nested dictionary from a dictionary with keys containing dots.
+		Create a nested dictionary from a dictionary with keys containing dots.
+
+		This function takes an input dictionary `data` that may contain keys with dots, indicating nested levels of dictionaries.
+		It splits the keys containing dots and constructs a nested dictionary structure accordingly.
+
+		:param data: The input dictionary that may contain keys with dots in them.
+		:return: A nested dictionary where keys containing dots have been split into sub-dictionaries.
 
 		Example:
-		--------
-		Input:
-		data = {
-			"name": "Alice",
-			"age": 25,
-			"address.city": "London",
-		}
-
-		nested_dict = {
-			"name": "Alice",
-			"age": 25,
-			"address": {
-				"city": "London",
-			},
-		}
-
-		:param data: The input dictionary that may contain keys with dots in them, indicating nested levels
-		of dictionaries
-		:return: A nested dictionary where keys containing dots (".") have been split into sub-dictionaries.
+		input: {'alert.event.id': 1, 'alert2': {'event': {'id': 2}}}
+		output: {'alert': {'event': {'id': 1}}, 'alert2': {'event': {'id': 2}}}
 		"""
-		nested_dict = {}
-		stack = [(nested_dict, data)]
+		nested_dict = {}  # Initialize the nested dictionary
+		stack = [(nested_dict, data)]  # Use a stack to keep track of dictionaries and their corresponding data
+		keys_to_process = list(data.keys())  # Store the keys to process separately
 
 		while stack:
 			current_dict, current_data = stack.pop()
 
-			for key, value in current_data.items():
-				if '.' in key:
-					parts = key.split('.')
-					for i, part in enumerate(parts[:-1]):
-						# Check if the current part of the key exists in the current dictionary
-						# If not or if the existing value is not a dictionary, create a new dictionary at that key
-						if part not in current_dict or not isinstance(current_dict[part], dict):
-							current_dict[part] = {}
-						current_dict = current_dict[part]
+			for key in keys_to_process:
+				value = current_data[key]
 
-					# Handle the last part of the key separately
-					last_part = parts[-1]
-					if last_part not in current_dict or not isinstance(current_dict[last_part], dict):
-						current_dict[last_part] = {}
-					current_dict = current_dict[last_part]
+				parts = key.split('.')  # Split the key by dot ('.') delimiter
+				nested = current_dict
 
-					# Append the current dictionary and the last part of the key with its value as a new item to the stack
-					stack.append((current_dict, {last_part: value}))
-				elif isinstance(value, dict):
-					# If the value is a dictionary, check if the key exists in the current dictionary
-					# If not or if the existing value is not a dictionary, create a new dictionary at that key
-					if key not in current_dict or not isinstance(current_dict[key], dict):
-						current_dict[key] = {}
-					# Append the current dictionary and the value as a new item to the stack
-					stack.append((current_dict[key], value))
-				else:
-					# If the value is not a dictionary, simply assign it to the current key in the current dictionary
-					current_dict[key] = value
+				# Traverse the nested dictionary structure and create nested dictionaries as needed
+				for part in parts[:-1]:
+					if part not in nested:
+						nested[part] = {}
+					nested = nested[part]
+
+				nested[parts[-1]] = value  # Assign the value to the last part of the key in the nested dictionary
+
+				if isinstance(value, dict):
+					stack.append(
+						(nested[parts[-1]], value))  # Add nested dictionaries to the stack for further processing
+
+			keys_to_process.clear()  # Clear the processed keys
 
 		return nested_dict
