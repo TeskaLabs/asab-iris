@@ -16,10 +16,6 @@
 
 - Refactoring :Slack use case
 
-#### 29. 06. 2023
-
-- Refactoring :Slack use case
-
 
 
 ### Enhancements
