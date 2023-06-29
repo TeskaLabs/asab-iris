@@ -68,14 +68,18 @@ class IRISApplication(asab.Application):
 
 		# output services
 		self.EmailOutputService = EmailOutputService(self)
-		self.SlackOutputService = SlackOutputService(self)
-		self.MSTeamsOutputService = MSTeamsOutputService(self)
+
+		if 'slack' in asab.Config.sections():
+			self.SlackOutputService = SlackOutputService(self)
+			self.SendSlackOrchestrator = SendSlackOrchestrator(self)
+
+		if 'msteams' in asab.Config.sections():
+			self.MSTeamsOutputService = MSTeamsOutputService(self)
+			self.SendMSTeamsOrchestrator = SendMSTeamsOrchestrator(self)
 
 		# Orchestrators
 		self.SendEmailOrchestrator = SendEmailOrchestrator(self)
 		self.RenderReportOrchestrator = RenderReportOrchestrator(self)
-		self.SendSlackOrchestrator = SendSlackOrchestrator(self)
-		self.SendMSTeamsOrchestrator = SendMSTeamsOrchestrator(self)
 
 		self.WebHandler = WebHandler(self)
 
