@@ -22,7 +22,7 @@ class TestNestedDictWithDos(unittest.TestCase):
 	def test_nested_dict_01(self):
 		data = {'alert': {'event.other.id': '1234'}}
 		result = asabiris.utils.create_nested_dict_from_dots_in_keys(data)
-		expected = {'alert': {'event.other.id': '1234'}}
+		expected = {'alert': {'event': {'other': {'id': '1234'}}}}
 		self.assertDictEqual(result, expected)
 
 
@@ -34,6 +34,40 @@ class TestNestedDictWithDos(unittest.TestCase):
 
 
 	def test_nested_dict_03(self):
+		data = {'alert.event.id': 1, 'alert2': {'event': {'id': 2}}}
+		result = asabiris.utils.create_nested_dict_from_dots_in_keys(data)
+		expected = {'alert': {'event': {'id': 1}}, 'alert2': {'event': {'id': 2}}}
+		self.assertDictEqual(result, expected)
+
+
+	def test_nested_dict_04(self):
+		data = {
+			"alert": {
+				"event.id": 2
+			},
+			"happy.unicorn": {
+				"best.friend": "Rabbit"
+			}
+		}
+		result = asabiris.utils.create_nested_dict_from_dots_in_keys(data)
+		expected = {
+			'alert': {
+				'event': {
+					'id': 2
+				}
+			},
+			'happy': {
+				'unicorn': {
+					'best': {
+						'friend': 'Rabbit'
+					}
+				}
+			}
+		}
+		self.assertDictEqual(result, expected)
+
+
+	def test_nested_dict_05(self):
 		data = {
 			"name": "Alice",
 			"age": 25,
