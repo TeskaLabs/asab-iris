@@ -26,7 +26,7 @@ class JinjaFormatterService(asab.Service, FormatterABC):
 
 
 	async def format(self, template_path, template_params):
-		jinja_variables = collections.ChainMap(self.Variables, template_params)
+		jinja_variables = collections.ChainMap(template_params, self.Variables)
 
 		template_io = await self.App.LibraryService.read(template_path)
 		if template_io is None:
