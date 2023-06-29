@@ -96,3 +96,32 @@ class TestNestedDictWithDos(unittest.TestCase):
 			}
 		}
 		self.assertDictEqual(result, expected)
+
+	def test_nested_dict_06(self):
+		data = {
+			"happy.unicorn": {
+				"best.friends": {
+					"rabbit": "Joe",
+					"cat": "Ema",
+					"praying.mantis": "Sisi"
+				}
+			}
+		}
+		result = asabiris.utils.create_nested_dict_from_dots_in_keys(data)
+		expected = {
+			"happy": {
+				"unicorn": {
+					"best": {
+						"friends": {
+							"cat": "Ema",
+							"praying": {
+								"mantis": "Sisi"
+							},
+							"rabbit": "Joe"
+						}
+					}
+				}
+			}
+		}
+
+		self.assertDictEqual(result, expected)
