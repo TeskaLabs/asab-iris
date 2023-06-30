@@ -8,6 +8,10 @@
 
 - Feature: MS-Teams
 
+#### 12. 06. 2023 
+
+- Feature: Load Variables from Config
+
 
 ### Refactoring
 
