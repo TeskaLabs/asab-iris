@@ -16,6 +16,8 @@ RUN apk add --no-cache \
 
 RUN apk add --no-cache --virtual .buildenv python3-dev gcc musl-dev git libgit2-dev freetype-dev
 
+RUN pip3 install slack_sdk
+
 RUN mkdir -p /opt/asab-iris
 WORKDIR /opt/asab-iris
 COPY requirements.txt /opt/asab-iris
