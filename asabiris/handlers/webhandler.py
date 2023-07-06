@@ -157,7 +157,7 @@ class WebHandler(object):
 			raise aiohttp.web.HTTPBadRequest(text="{}".format(e))
 
 		except slack_sdk.errors.SlackApiError as e:
-			raise aiohttp.web.HTTPBadRequest(text="{}".format(e))
+			raise aiohttp.web.HTTPServiceUnavailable(text="{}".format(e))
 		# More specific exception handling goes here so that the service provides nice output
 
 		return asab.web.rest.json_response(request, {"result": "OK"})
