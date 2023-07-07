@@ -72,4 +72,4 @@ class SlackOutputService(asab.Service, OutputABC):
 						initial_comment=initial_comment
 					)
 		except SlackApiError as e:
-			raise SlackApiError("Failed to send message: {}".format(e))
+			raise SlackApiError("Error sending Slack message: " + e.response['error'], 401)
