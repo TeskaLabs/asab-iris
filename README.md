@@ -130,11 +130,11 @@ https://teskalabs.github.io/asab-iris/
 1. In the search bar, type the name of your app and press Enter.
 2. Locate your app in the search results and click on it to select it.
 
-### Step 4: Confirm the Addition
+### Step 4: Confirm the Addition.
 1. Review the app details and permissions to ensure it aligns with your requirements.
 2. Click on the "Add to Channel" or "Add" button to add the app to the channel.
 
-### Step 5: Verify the App's Presence
+### Step 5: Verify the App's Presence.
 1. Look for the app's name or icon in the channel member list.
 2. If the app is successfully added, it should appear as a member of the channel.
 
