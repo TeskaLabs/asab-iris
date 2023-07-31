@@ -30,6 +30,7 @@ L = logging.getLogger(__name__)
 
 asab.Config.add_defaults({
 	"web": {
+		"listen": 8896
 	},
 })
 
