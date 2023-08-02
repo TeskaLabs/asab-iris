@@ -4,6 +4,7 @@ import asab
 import asab.web.rest
 import asab.zookeeper
 import asab.library
+import asab.metrics
 
 # formatters
 from .formatter.jinja import JinjaFormatterService
@@ -29,6 +30,7 @@ L = logging.getLogger(__name__)
 
 asab.Config.add_defaults({
 	"web": {
+		"listen": 8896  # Well-known port of asab iris
 	},
 })
 
@@ -40,6 +42,7 @@ class IRISApplication(asab.Application):
 
 		self.add_module(asab.web.Module)
 		self.add_module(asab.zookeeper.Module)
+		self.add_module(asab.metrics.Module)
 
 		# Locate the web service
 		self.WebService = self.get_service("asab.WebService")
