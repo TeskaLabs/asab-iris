@@ -30,9 +30,11 @@ L = logging.getLogger(__name__)
 
 asab.Config.add_defaults({
 	"web": {
-		"listen": 8896  # Well-known port of asab iris
-	},
-})
+		"listen": 8896,
+		"body_max_size": 31457280
+	}
+}
+)
 
 
 class IRISApplication(asab.Application):
