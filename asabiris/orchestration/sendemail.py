@@ -2,6 +2,9 @@ import os
 import base64
 import datetime
 import logging
+import jinja2.exceptions
+import json
+import traceback
 
 from .. import utils
 from .. exceptions import PathError, FormatError
@@ -129,7 +132,24 @@ class SendEmailOrchestrator(object):
 			jinja_output = await self.JinjaService.format(template, params)
 		except KeyError:
 			L.warning("Failed to load or render a template (missing?)", struct_data={'template': template})
-			raise
+
+		except jinja2.exceptions.TemplateError as e:
+			# Failsafe mechanism
+			if self.app.config.get('JINJA_FAILSAFE_ENABLED', True):
+				error_message = "This error has been caused by an incorrect Jinja2 template."
+
+				# Capturing exception details
+				exception_details = {
+					"exception_type": type(e).__name__,
+					"exception_message": str(e),
+					"traceback": traceback.format_exc(),
+					"input_parameters": params
+				}
+
+				raw_dump = json.dumps(exception_details, indent=4)
+				jinja_exception_output = "{}\n\nException Details:\n{}".format(error_message, raw_dump)
+				subject = "Jinja2 Rendering Error"
+				return jinja_exception_output, subject
 
 		_, extension = os.path.splitext(template)
 
