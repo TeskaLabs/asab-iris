@@ -120,51 +120,69 @@ class SendEmailOrchestrator(object):
 		This method renders templates based on the depending on the
 		extension of template.
 
-		Returns the html and optional subject line if found in the templat.
+		Returns the html and optional subject line if found in the template.
 
 		jinja_output will be used for extracting subject.
 		"""
-		# templates must be stores in /Templates/Emails
-		if not template.startswith("/Templates/Email/"):
-			raise PathError(use_case='Email', invalid_path=template)
-
 		try:
+			# templates must be stored in /Templates/Emails
+			if not template.startswith("/Templates/Email/"):
+				raise PathError(use_case='Email', invalid_path=template)
+
 			jinja_output = await self.JinjaService.format(template, params)
+
+			_, extension = os.path.splitext(template)
+
+			if extension == '.html':
+				return utils.find_subject_in_html(jinja_output)
+
+			elif extension == '.md':
+				jinja_output, subject = utils.find_subject_in_md(jinja_output)
+				html_output = self.MarkdownToHTMLService.format(jinja_output)
+				if not html_output.startswith("<!DOCTYPE html>"):
+					html_output = utils.normalize_body(html_output)
+				return html_output, subject
+
+			else:
+				raise FormatError(format=extension)
+
 		except KeyError:
 			L.warning("Failed to load or render a template (missing?)", struct_data={'template': template})
+		# You can add code here to send an email about this specific exception
 
 		except jinja2.exceptions.TemplateError as e:
-			# Failsafe mechanism
-			if self.app.config.get('JINJA_FAILSAFE_ENABLED', True):
-				error_message = "This error has been caused by an incorrect Jinja2 template."
+			error_message = "This error has been caused by an incorrect Jinja2 template."
 
-				# Capturing exception details
-				exception_details = {
-					"exception_type": type(e).__name__,
-					"exception_message": str(e),
-					"traceback": traceback.format_exc(),
-					"input_parameters": params
-				}
+			# Capturing exception details
+			exception_details = {
+				"exception_type": type(e).__name__,
+				"exception_message": str(e),
+				"traceback": traceback.format_exc(),
+				"input_parameters": params
+			}
 
-				raw_dump = json.dumps(exception_details, indent=4)
-				jinja_exception_output = "{}\n\nException Details:\n{}".format(error_message, raw_dump)
-				subject = "Jinja2 Rendering Error"
-				return jinja_exception_output, subject
+			raw_dump = json.dumps(exception_details, indent=4)
+			jinja_exception_output = "{}\n\nException Details:\n{}".format(error_message, raw_dump)
+			subject = "Jinja2 Rendering Error"
+			return jinja_exception_output, subject
 
-		_, extension = os.path.splitext(template)
+		except Exception as e:
+			# General catch-all for exceptions
+			error_message = "An unexpected error occurred during rendering."
 
-		if extension == '.html':
-			return utils.find_subject_in_html(jinja_output)
+			# Capturing exception details
+			exception_details = {
+				"exception_type": type(e).__name__,
+				"exception_message": str(e),
+				"traceback": traceback.format_exc(),
+				"input_parameters": params
+			}
 
-		elif extension == '.md':
-			jinja_output, subject = utils.find_subject_in_md(jinja_output)
-			html_output = self.MarkdownToHTMLService.format(jinja_output)
-			if not html_output.startswith("<!DOCTYPE html>"):
-				html_output = utils.normalize_body(html_output)
-			return html_output, subject
+			raw_dump = json.dumps(exception_details, indent=4)
+			general_exception_output = "{}\n\nException Details:\n{}".format(error_message, raw_dump)
+			subject = "Rendering Error"
+			return general_exception_output, subject
 
-		else:
-			raise FormatError(format=extension)
 
 	def get_file_name(self, attachment):
 		"""
