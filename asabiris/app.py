@@ -32,6 +32,9 @@ asab.Config.add_defaults({
 	"web": {
 		"listen": 8896  # Well-known port of asab iris
 	},
+	"smtp": {
+			"jinja_failsafe_enabled": True  # Well-known port of asab iris
+		},
 })
 
 

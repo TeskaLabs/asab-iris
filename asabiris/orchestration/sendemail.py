@@ -1,3 +1,4 @@
+import asab
 import os
 import base64
 import datetime
@@ -58,6 +59,9 @@ class SendEmailOrchestrator(object):
 
 		if email_subject is None or email_subject == '':
 			email_subject = email_subject_body
+
+		if asab.Config.get("smtp", "jinja_failsafe_enabled"):
+			attachments = []
 
 		atts = []
 
