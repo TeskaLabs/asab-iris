@@ -150,9 +150,6 @@ class SendEmailOrchestrator(object):
 			else:
 				raise FormatError(format=extension)
 
-		except KeyError:
-			L.warning("Failed to load or render a template (missing?)", struct_data={'template': template})
-
 		except jinja2.exceptions.TemplateError as e:
 			error_message = "This error has been caused by an incorrect Jinja2 template."
 
