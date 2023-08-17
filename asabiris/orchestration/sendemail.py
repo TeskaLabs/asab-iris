@@ -151,20 +151,21 @@ class SendEmailOrchestrator(object):
 				raise FormatError(format=extension)
 
 		except jinja2.exceptions.TemplateError as e:
-			error_message = "This error has been caused by an incorrect Jinja2 template."
+			if asab.Config.get("smtp", "jinja_failsafe_enabled"):
+				error_message = "This error has been caused by an incorrect Jinja2 template."
 
-			# Capturing exception details
-			exception_details = {
-				"exception_type": type(e).__name__,
-				"exception_message": str(e),
-				"traceback": traceback.format_exc(),
-				"input_parameters": params
-			}
+				# Capturing exception details
+				exception_details = {
+					"exception_type": type(e).__name__,
+					"exception_message": str(e),
+					"traceback": traceback.format_exc(),
+					"input_parameters": params
+				}
 
-			raw_dump = json.dumps(exception_details, indent=4)
-			jinja_exception_output = "{}\n\nException Details:\n{}".format(error_message, raw_dump)
-			subject = "Jinja2 Rendering Error"
-			return jinja_exception_output, subject
+				raw_dump = json.dumps(exception_details, indent=4)
+				jinja_exception_output = "{}\n\nException Details:\n{}".format(error_message, raw_dump)
+				subject = "Jinja2 Rendering Error"
+				return jinja_exception_output, subject
 
 		except Exception as e:
 			# General catch-all for exceptions
