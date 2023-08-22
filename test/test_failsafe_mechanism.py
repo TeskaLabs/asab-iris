@@ -5,9 +5,11 @@ import asyncio
 import jinja2.exceptions
 from asabiris.orchestration.sendemail import SendEmailOrchestrator
 
+
 class AsyncMock(mock.Mock):
     async def __call__(self, *args, **kwargs):
         return super(AsyncMock, self).__call__(*args, **kwargs)
+
 
 class TestRenderMethod(unittest.TestCase):
 
