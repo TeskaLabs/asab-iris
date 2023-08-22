@@ -5,6 +5,7 @@ import configparser
 import collections
 import jinja2
 
+from ...exceptions import PathError
 from ...formater_abc import FormatterABC
 
 #
@@ -30,7 +31,7 @@ class JinjaFormatterService(asab.Service, FormatterABC):
 
 		template_io = await self.App.LibraryService.read(template_path)
 		if template_io is None:
-			raise KeyError("Template '{}' not found".format(template_path))
+			raise PathError("Template '{}' not found".format(template_path))
 
 		template = jinja2.Template(template_io.read().decode('utf-8'))
 
