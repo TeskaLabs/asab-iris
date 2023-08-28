@@ -1,7 +1,11 @@
+import asab
 import os
 import base64
 import datetime
 import logging
+import jinja2.exceptions
+import json
+import traceback
 
 from .. import utils
 from .. exceptions import PathError, FormatError
@@ -55,6 +59,9 @@ class SendEmailOrchestrator(object):
 
 		if email_subject is None or email_subject == '':
 			email_subject = email_subject_body
+
+		if asab.Config.get("jinja", "failsafe"):
+			attachments = []
 
 		atts = []
 
@@ -117,34 +124,98 @@ class SendEmailOrchestrator(object):
 		This method renders templates based on the depending on the
 		extension of template.
 
-		Returns the html and optional subject line if found in the templat.
+		Returns the html and optional subject line if found in the template.
 
 		jinja_output will be used for extracting subject.
 		"""
-		# templates must be stores in /Templates/Emails
-		if not template.startswith("/Templates/Email/"):
-			raise PathError(use_case='Email', invalid_path=template)
-
 		try:
+			# templates must be stored in /Templates/Emails
+			if not template.startswith("/Templates/Email/"):
+				raise PathError(use_case='Email', invalid_path=template)
+
 			jinja_output = await self.JinjaService.format(template, params)
-		except KeyError:
-			L.warning("Failed to load or render a template (missing?)", struct_data={'template': template})
-			raise
 
-		_, extension = os.path.splitext(template)
+			_, extension = os.path.splitext(template)
 
-		if extension == '.html':
-			return utils.find_subject_in_html(jinja_output)
+			if extension == '.html':
+				return utils.find_subject_in_html(jinja_output)
 
-		elif extension == '.md':
-			jinja_output, subject = utils.find_subject_in_md(jinja_output)
-			html_output = self.MarkdownToHTMLService.format(jinja_output)
-			if not html_output.startswith("<!DOCTYPE html>"):
-				html_output = utils.normalize_body(html_output)
-			return html_output, subject
+			elif extension == '.md':
+				jinja_output, subject = utils.find_subject_in_md(jinja_output)
+				html_output = self.MarkdownToHTMLService.format(jinja_output)
+				if not html_output.startswith("<!DOCTYPE html>"):
+					html_output = utils.normalize_body(html_output)
+				return html_output, subject
 
-		else:
-			raise FormatError(format=extension)
+			else:
+				raise FormatError(format=extension)
+
+		except jinja2.exceptions.TemplateError as e:
+			if asab.Config.get("jinja", "failsafe"):
+				error_message = "This error has been caused by an incorrect Jinja2 template."
+
+				# Capturing exception details
+				exception_details = {
+					"exception_type": type(e).__name__,
+					"exception_message": str(e),
+					"traceback": traceback.format_exc(),
+					"input_parameters": params
+				}
+
+				jinja_exception_output = (
+					"<pre style='font-family:monospace;'>"
+					"====== RENDERING ERROR ======\n"
+					"Message: {message}\n\n"
+					"Type: {type}\n\n"
+					"Details: {details}\n\n"
+					"Traceback:\n{trace}\n\n"
+					"Parameters: {params}"
+					"</pre>"
+				).format(
+					message=error_message,
+					type=exception_details["exception_type"],
+					details=exception_details["exception_message"],
+					trace=exception_details["traceback"].strip(),
+					params=json.dumps(exception_details["input_parameters"], indent=4) if exception_details[
+						"input_parameters"] else "None"
+				)
+
+				subject = "Jinja2 Rendering Error"
+				return jinja_exception_output, subject
+
+		except Exception as e:
+			# General catch-all for exceptions
+			error_message = "An unexpected error occurred during rendering."
+
+			# Capturing exception details
+			exception_details = {
+				"exception_type": type(e).__name__,
+				"exception_message": str(e),
+				"traceback": traceback.format_exc(),
+				"input_parameters": params
+			}
+
+			general_exception_output = (
+				"<pre style='font-family:monospace;'>"
+				"====== RENDERING ERROR ======\n"
+				"Message: {message}\n\n"
+				"Type: {type}\n\n"
+				"Details: {details}\n\n"
+				"Traceback:\n{trace}\n\n"
+				"Parameters: {params}"
+				"</pre>"
+			).format(
+				message=error_message,
+				type=exception_details["exception_type"],
+				details=exception_details["exception_message"],
+				trace=exception_details["traceback"].strip(),
+				params=json.dumps(exception_details["input_parameters"], indent=4) if exception_details[
+					"input_parameters"] else "None"
+			)
+
+			subject = "Rendering Error"
+			return general_exception_output, subject
+
 
 	def get_file_name(self, attachment):
 		"""
