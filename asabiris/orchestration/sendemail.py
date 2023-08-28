@@ -162,8 +162,24 @@ class SendEmailOrchestrator(object):
 					"input_parameters": params
 				}
 
-				raw_dump = json.dumps(exception_details, indent=4)
-				jinja_exception_output = "{}\n\nException Details:\n{}".format(error_message, raw_dump)
+				jinja_exception_output = (
+					"<pre style='font-family:monospace;'>"
+					"====== RENDERING ERROR ======\n"
+					"Message: {message}\n\n"
+					"Type: {type}\n\n"
+					"Details: {details}\n\n"
+					"Traceback:\n{trace}\n\n"
+					"Parameters: {params}"
+					"</pre>"
+				).format(
+					message=error_message,
+					type=exception_details["exception_type"],
+					details=exception_details["exception_message"],
+					trace=exception_details["traceback"].strip(),
+					params=json.dumps(exception_details["input_parameters"], indent=4) if exception_details[
+						"input_parameters"] else "None"
+				)
+
 				subject = "Jinja2 Rendering Error"
 				return jinja_exception_output, subject
 
@@ -179,8 +195,24 @@ class SendEmailOrchestrator(object):
 				"input_parameters": params
 			}
 
-			raw_dump = json.dumps(exception_details, indent=4)
-			general_exception_output = "{}\n\nException Details:\n{}".format(error_message, raw_dump)
+			general_exception_output = (
+				"<pre style='font-family:monospace;'>"
+				"====== RENDERING ERROR ======\n"
+				"Message: {message}\n\n"
+				"Type: {type}\n\n"
+				"Details: {details}\n\n"
+				"Traceback:\n{trace}\n\n"
+				"Parameters: {params}"
+				"</pre>"
+			).format(
+				message=error_message,
+				type=exception_details["exception_type"],
+				details=exception_details["exception_message"],
+				trace=exception_details["traceback"].strip(),
+				params=json.dumps(exception_details["input_parameters"], indent=4) if exception_details[
+					"input_parameters"] else "None"
+			)
+
 			subject = "Rendering Error"
 			return general_exception_output, subject
 
