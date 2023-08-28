@@ -60,7 +60,7 @@ class SendEmailOrchestrator(object):
 		if email_subject is None or email_subject == '':
 			email_subject = email_subject_body
 
-		if asab.Config.get("smtp", "jinja_failsafe_enabled"):
+		if asab.Config.get("jinja", "failsafe"):
 			attachments = []
 
 		atts = []
@@ -151,7 +151,7 @@ class SendEmailOrchestrator(object):
 				raise FormatError(format=extension)
 
 		except jinja2.exceptions.TemplateError as e:
-			if asab.Config.get("smtp", "jinja_failsafe_enabled"):
+			if asab.Config.get("jinja", "failsafe"):
 				error_message = "This error has been caused by an incorrect Jinja2 template."
 
 				# Capturing exception details
