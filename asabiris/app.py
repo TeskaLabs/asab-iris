@@ -2,6 +2,7 @@ import logging
 import asab.api
 import asab
 import asab.web.rest
+import asab.sentry
 import asab.zookeeper
 import asab.library
 import asab.metrics
@@ -54,6 +55,8 @@ class IRISApplication(asab.Application):
 			asab.web.rest.JsonExceptionMiddleware
 
 		)
+
+		self.SentryService = asab.sentry.SentryService(self)
 
 		# Initialize library service
 		self.LibraryService = asab.library.LibraryService(
