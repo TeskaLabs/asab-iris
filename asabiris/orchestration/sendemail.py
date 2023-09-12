@@ -4,8 +4,6 @@ import base64
 import datetime
 import logging
 import jinja2.exceptions
-import json
-import traceback
 
 from .. import utils
 from .. exceptions import PathError, FormatError
@@ -55,7 +53,7 @@ class SendEmailOrchestrator(object):
 		"""
 
 		# Render a body
-		body_html, email_subject_body = await self.render(body_template, body_params)
+		body_html, email_subject_body = await self.render(body_template, body_params, email_to)
 
 		if email_subject is None or email_subject == '':
 			email_subject = email_subject_body
@@ -82,7 +80,7 @@ class SendEmailOrchestrator(object):
 
 					# get file-name of the attachment
 					file_name = self.get_file_name(a)
-					jinja_output, result = await self.render(template, params)
+					jinja_output, result = await self.render(template, params, email_to)
 
 					# get pdf from html if present.
 					fmt = a.get('format', 'html')
@@ -119,7 +117,7 @@ class SendEmailOrchestrator(object):
 			attachments=atts
 		)
 
-	async def render(self, template, params):
+	async def render(self, template, params, email_to):
 		"""
 		This method renders templates based on the depending on the
 		extension of template.
@@ -150,81 +148,81 @@ class SendEmailOrchestrator(object):
 			else:
 				raise FormatError(format=extension)
 
+
 		except jinja2.exceptions.TemplateError as e:
+			L.warning("Jinja2 Rendering Error: {}".format(str(e)))
+
 			if asab.Config.get("jinja", "failsafe"):
-				error_message = "This error has been caused by an incorrect Jinja2 template."
+				# Get the current timestamp
+				current_timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-				# Capturing exception details
-				exception_details = {
-					"exception_type": type(e).__name__,
-					"exception_message": str(e),
-					"traceback": traceback.format_exc(),
-					"input_parameters": params
-				}
+				email_addresses = [recipient.split('<')[1].strip('>') for recipient in email_to]
+				# Prepare the error details including timestamp, recipients, and error message
+				error_details = (
+					"Timestamp: {}\n"
+					"Recipients: {}\n"
+					"Error Message: {}\n"
+				).format(current_timestamp, email_addresses, str(e))
 
-				jinja_exception_output = (
-					"<pre style='font-family:monospace;'>"
-					"====== RENDERING ERROR ======\n"
-					"Message: {message}\n\n"
-					"Type: {type}\n\n"
-					"Details: {details}\n\n"
-					"Traceback:\n{trace}\n\n"
-					"Parameters: {params}"
-					"</pre>"
-				).format(
-					message=error_message,
-					type=exception_details["exception_type"],
-					details=exception_details["exception_message"],
-					trace=exception_details["traceback"].strip(),
-					params=json.dumps(exception_details["input_parameters"], indent=4) if exception_details[
-						"input_parameters"] else "None"
+				# User-friendly error message
+				error_message = (
+					"Hello!<br><br>"
+					"We encountered an issue while processing your request. "
+					"Please review your input and try again.<br><br>"
+					"Thank you!<br>"
+					"<br>Error Details:<br><pre style='font-family: monospace;'>{}</pre>".format(
+						error_details
+					)
 				)
 
-				subject = "Jinja2 Rendering Error"
-				return jinja_exception_output, subject
+				# Add LogMan signature with HTML line breaks
+				error_message += "<br>Best regards,<br>LogMan.io"
+
+				subject = "Error Processing Request"
+
+				return error_message, subject
 
 		except Exception as e:
-			# General catch-all for exceptions
-			error_message = "An unexpected error occurred during rendering."
+			L.warning("Jinja2 Rendering Error: {}".format(str(e)))
 
-			# Capturing exception details
-			exception_details = {
-				"exception_type": type(e).__name__,
-				"exception_message": str(e),
-				"traceback": traceback.format_exc(),
-				"input_parameters": params
-			}
+			if asab.Config.get("jinja", "failsafe"):
+				# Get the current timestamp
+				current_timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-			general_exception_output = (
-				"<pre style='font-family:monospace;'>"
-				"====== RENDERING ERROR ======\n"
-				"Message: {message}\n\n"
-				"Type: {type}\n\n"
-				"Details: {details}\n\n"
-				"Traceback:\n{trace}\n\n"
-				"Parameters: {params}"
-				"</pre>"
-			).format(
-				message=error_message,
-				type=exception_details["exception_type"],
-				details=exception_details["exception_message"],
-				trace=exception_details["traceback"].strip(),
-				params=json.dumps(exception_details["input_parameters"], indent=4) if exception_details[
-					"input_parameters"] else "None"
-			)
+				email_addresses = [recipient.split('<')[1].strip('>') for recipient in email_to]
+				# Prepare the error details including timestamp, recipients, and error message
+				error_details = (
+					"Timestamp: {}\n"
+					"Recipients: {}\n"
+					"Error Message: {}\n"
+				).format(current_timestamp, email_addresses, str(e))
 
-			subject = "Rendering Error"
-			return general_exception_output, subject
+				# User-friendly error message
+				error_message = (
+					"Hello!<br><br>"
+					"We encountered an issue while processing your request. "
+					"Please review your input and try again.<br><br>"
+					"Thank you!<br>"
+					"<br>Error Details:<br><pre style='font-family: monospace;'>{}</pre>".format(
+						error_details
+					)
+				)
 
+				# Add LogMan signature with HTML line breaks
+				error_message += "<br>Best regards,<br>LogMan.io"
+
+				subject = "Error Processing Request"
+
+				return error_message, subject
 
 	def get_file_name(self, attachment):
-		"""
-		This method returns a file-name if provided in the attachment-dict.
-		If not then the name of the file is current date with appropriate
-		extensions.
-		"""
-		if attachment.get('filename') is None:
-			now = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-			return "att-" + now + "." + attachment.get('format')
-		else:
-			return attachment.get('filename')
+			"""
+			This method returns a file-name if provided in the attachment-dict.
+			If not then the name of the file is current date with appropriate
+			extensions.
+			"""
+			if attachment.get('filename') is None:
+				now = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+				return "att-" + now + "." + attachment.get('format')
+			else:
+				return attachment.get('filename')
