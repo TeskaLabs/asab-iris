@@ -38,6 +38,9 @@ class SendSlackOrchestrator(object):
 
 		body = msg['body']
 		attachments = msg.get("attachments", [])
+
+		# sertup render failed flag
+		render_failed = False
 		# if params no provided pass empty params
 		# - primarily use absolute path - starts with "/"
 		# - if absolute path is used, check it start with "/Templates"
@@ -56,14 +59,11 @@ class SendSlackOrchestrator(object):
 
 			if template is not None:
 				params = a.get('params', {})
-				# templates must be stores in /Templates/Slack
-				if not template.startswith("/Templates/Slack/"):
-					raise PathError(path=template)
 
 				render_failed = False
 				# get file-name of the attachment
 				file_name = self.get_file_name(a)
-				jinja_output, render_failed = await self.render(template, params)
+				jinja_output, render_failed = await self.render(template, params, render_failed)
 
 				# if rendering failure occured
 				if render_failed:
@@ -86,7 +86,7 @@ class SendSlackOrchestrator(object):
 				continue
 
 		body["params"] = body.get("params", {})
-		output = await self.render(body["template"], body["params"])
+		output, render_failed = await self.render(body["template"], body["params"], render_failed)
 		await self.SlackOutputService.send(output, atts)
 
 
@@ -122,17 +122,16 @@ class SendSlackOrchestrator(object):
 
 				# User-friendly error message
 				error_message = (
-					"Hello!<br><br>"
+					"Hello!\n\n"
 					"We encountered an issue while processing your request. "
-					"Please review your input and try again.<br><br>"
-					"Thank you!<br>"
-					"<br>Error Details:<br><pre style='font-family: monospace;'>{}</pre>".format(
+					"Please review your input and try again.\n\n"
+					"Thank you!\n"
+					"\nError Details:\n```\n{}\n```".format(
 						error_details
 					)
 				)
-
 				# Add LogMan signature with HTML line breaks
-				error_message += "<br>Best regards,<br>LogMan.io"
+				error_message += "\nBest regards,\nLogMan.io"
 
 				return error_message, render_failed
 
