@@ -143,7 +143,7 @@ class SendEmailOrchestrator(object):
 			_, extension = os.path.splitext(template)
 
 			if extension == '.html':
-				body, subject =  utils.find_subject_in_html(jinja_output)
+				body, subject = utils.find_subject_in_html(jinja_output)
 				return body, subject, render_failed
 
 			elif extension == '.md':
