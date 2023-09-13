@@ -52,13 +52,15 @@ class SendEmailOrchestrator(object):
 		:param attachments: a list of tuples, each tuple containing the filename and the file contents
 		"""
 
+		render_failed = False
+
 		# Render a body
-		body_html, email_subject_body = await self.render(body_template, body_params, email_to)
+		body_html, email_subject_body, render_failed = await self.render(body_template, body_params, email_to, render_failed)
 
 		if email_subject is None or email_subject == '':
 			email_subject = email_subject_body
 
-		if asab.Config.get("jinja", "failsafe"):
+		if render_failed("jinja", "failsafe"):
 			attachments = []
 
 		atts = []
@@ -80,7 +82,12 @@ class SendEmailOrchestrator(object):
 
 					# get file-name of the attachment
 					file_name = self.get_file_name(a)
-					jinja_output, result = await self.render(template, params, email_to)
+
+					jinja_output, result, render_failed = await self.render(template, params, email_to, render_failed)
+
+					if render_failed:
+						atts = []
+						break
 
 					# get pdf from html if present.
 					fmt = a.get('format', 'html')
@@ -117,7 +124,7 @@ class SendEmailOrchestrator(object):
 			attachments=atts
 		)
 
-	async def render(self, template, params, email_to):
+	async def render(self, template, params, email_to, render_failed):
 		"""
 		This method renders templates based on the depending on the
 		extension of template.
@@ -151,7 +158,8 @@ class SendEmailOrchestrator(object):
 
 		except jinja2.exceptions.TemplateError as e:
 			L.warning("Jinja2 Rendering Error: {}".format(str(e)))
-
+			# render failed
+			render_failed = True
 			if asab.Config.get("jinja", "failsafe"):
 				# Get the current timestamp
 				current_timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -180,11 +188,12 @@ class SendEmailOrchestrator(object):
 
 				subject = "Error Processing Request"
 
-				return error_message, subject
+				return error_message, subject, render_failed
 
 		except Exception as e:
 			L.warning("Jinja2 Rendering Error: {}".format(str(e)))
-
+			# rendering failed
+			render_failed = True
 			if asab.Config.get("jinja", "failsafe"):
 				# Get the current timestamp
 				current_timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -213,7 +222,7 @@ class SendEmailOrchestrator(object):
 
 				subject = "Error Processing Request"
 
-				return error_message, subject
+				return error_message, subject, render_failed
 
 	def get_file_name(self, attachment):
 			"""
