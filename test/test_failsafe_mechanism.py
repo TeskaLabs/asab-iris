@@ -48,19 +48,19 @@ class TestRenderMethod(unittest.TestCase):
 
     def test_render_html_template(self):
         # Test rendering of an HTML template
-        output, subject = self.loop.run_until_complete(self.orchestrator.render("/Templates/Email/sample.html", {}))
+        output, subject, _ = self.loop.run_until_complete(self.orchestrator.render("/Templates/Email/sample.html", {}, ["Tester@example.com"], False))
         self.assertEqual(output, "Mocked Jinja Output")
 
     def test_render_jinja_exception(self):
         # Test handling of Jinja2 exceptions
         self.mock_jinja_service.format.side_effect = jinja2.exceptions.TemplateError("Mocked Jinja Error")
-        output, subject = self.loop.run_until_complete(self.orchestrator.render("/Templates/Email/sample.html", {}))
-        self.assertIn("incorrect Jinja2 template", output)
+        output, subject, _ = self.loop.run_until_complete(self.orchestrator.render("/Templates/Email/sample.html", {}, ["Tester@example.com"], False))
+        self.assertIn("Error Details:", output)
 
     def test_render_md_template(self):
         # Test rendering of a Markdown template
         self.mock_markdown_to_html_service.format.return_value = "Mocked Jinja Output"
-        output, subject = self.loop.run_until_complete(self.orchestrator.render("/Templates/Email/sample.md", {}))
+        output, subject, _ = self.loop.run_until_complete(self.orchestrator.render("/Templates/Email/sample.md", {}, ["Tester@example.com"], False))
         self.assertEqual(self.strip_html_tags(output), "\nMocked Jinja Output")
 
 

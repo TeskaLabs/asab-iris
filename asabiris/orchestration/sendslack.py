@@ -1,3 +1,4 @@
+import asab
 import datetime
 import logging
 import mimetypes
@@ -59,9 +60,15 @@ class SendSlackOrchestrator(object):
 				if not template.startswith("/Templates/Slack/"):
 					raise PathError(path=template)
 
+				render_failed = False
 				# get file-name of the attachment
 				file_name = self.get_file_name(a)
-				jinja_output = await self.render(template, params)
+				jinja_output, render_failed = await self.render(template, params)
+
+				# if rendering failure occured
+				if render_failed:
+					atts = []
+					break
 
 				_, node_extension = os.path.splitext(template)
 				content_type = self.get_content_type(node_extension)
@@ -79,11 +86,11 @@ class SendSlackOrchestrator(object):
 				continue
 
 		body["params"] = body.get("params", {})
-		output = await self.JinjaService.format(body["template"], body["params"])
+		output = await self.render(body["template"], body["params"])
 		await self.SlackOutputService.send(output, atts)
 
 
-	async def render(self, template, params):
+	async def render(self, template, params, render_failed):
 		"""
 		This method renders templates based on the depending on the
 		extension of template.
@@ -98,11 +105,38 @@ class SendSlackOrchestrator(object):
 
 		try:
 			jinja_output = await self.JinjaService.format(template, params)
-		except KeyError:
-			L.warning("Failed to load or render a template (missing?)", struct_data={'template': template})
-			raise
+		except Exception as e:
+			L.warning("Jinja2 Rendering Error: {}".format(str(e)))
+			# rendering failed
+			render_failed = True
 
-		return jinja_output
+			if asab.Config.get("jinja", "failsafe"):
+				# Get the current timestamp
+				current_timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+				# Prepare the error details including timestamp, recipients, and error message
+				error_details = (
+					"Timestamp: {}\n"
+					"Error Message: {}\n"
+				).format(current_timestamp, str(e))
+
+				# User-friendly error message
+				error_message = (
+					"Hello!<br><br>"
+					"We encountered an issue while processing your request. "
+					"Please review your input and try again.<br><br>"
+					"Thank you!<br>"
+					"<br>Error Details:<br><pre style='font-family: monospace;'>{}</pre>".format(
+						error_details
+					)
+				)
+
+				# Add LogMan signature with HTML line breaks
+				error_message += "<br>Best regards,<br>LogMan.io"
+
+				return error_message, render_failed
+
+		return jinja_output, render_failed
 
 	def get_file_name(self, attachment):
 		"""

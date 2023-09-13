@@ -143,14 +143,15 @@ class SendEmailOrchestrator(object):
 			_, extension = os.path.splitext(template)
 
 			if extension == '.html':
-				return utils.find_subject_in_html(jinja_output)
+				body, subject =  utils.find_subject_in_html(jinja_output)
+				return body, subject, render_failed
 
 			elif extension == '.md':
 				jinja_output, subject = utils.find_subject_in_md(jinja_output)
 				html_output = self.MarkdownToHTMLService.format(jinja_output)
 				if not html_output.startswith("<!DOCTYPE html>"):
 					html_output = utils.normalize_body(html_output)
-				return html_output, subject
+				return html_output, subject, render_failed
 
 			else:
 				raise FormatError(format=extension)
@@ -164,7 +165,7 @@ class SendEmailOrchestrator(object):
 				# Get the current timestamp
 				current_timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-				email_addresses = [recipient.split('<')[1].strip('>') for recipient in email_to]
+				email_addresses = [recipient.split('<')[1].strip('>') if '<' in recipient else recipient for recipient in email_to]
 				# Prepare the error details including timestamp, recipients, and error message
 				error_details = (
 					"Timestamp: {}\n"
@@ -198,7 +199,8 @@ class SendEmailOrchestrator(object):
 				# Get the current timestamp
 				current_timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-				email_addresses = [recipient.split('<')[1].strip('>') for recipient in email_to]
+				email_addresses = [recipient.split('<')[1].strip('>') if '<' in recipient else recipient for recipient in email_to]
+
 				# Prepare the error details including timestamp, recipients, and error message
 				error_details = (
 					"Timestamp: {}\n"
