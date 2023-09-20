@@ -5,7 +5,7 @@ import logging
 import jinja2.exceptions
 import asab
 
-from typing import List, Tuple, Optional, Dict, Union
+from typing import List, Tuple, Dict, Union
 from .. import utils
 from ..exceptions import PathError, FormatError
 
@@ -40,10 +40,12 @@ class SendEmailOrchestrator:
                 raise PathError(use_case='Email', invalid_path=template)
             jinja_output = await self.services['JinjaService'].format(template, params)
             ext = os.path.splitext(template)[1]
+            if ext not in ['.html', '.md']:
+                raise FormatError(format=ext)
             return {
                 '.html': utils.find_subject_in_html,
                 '.md': lambda x: (self.services['MarkdownToHTMLService'].format(utils.find_subject_in_md(x)[0]), utils.find_subject_in_md(x)[1])
-            }.get(ext, lambda x: (x, ""))(jinja_output)
+            }[ext](jinja_output)
         except (jinja2.exceptions.TemplateError, Exception) as e:
             if asab.Config.get("jinja", "failsafe"):
                 error_message = (
@@ -57,11 +59,25 @@ class SendEmailOrchestrator:
             raise
 
     def _process_attachments(self, attachments: List[Dict], email_to: List[str]) -> List[Tuple[Union[str, bytes], str, str]]:
-        return [
-            (base64.b64decode(a['base64']), a.get('content-type', "application/octet-stream"), self._determine_file_name(a))
-            if 'base64' in a else (self._render_template(a['template'], a.get('params', {}), email_to)[0].encode("utf-8"), "text/html", self._determine_file_name(a))
-            for a in attachments
-        ]
+        processed_attachments = []
+        for a in attachments:
+            if 'base64' in a:
+                processed_attachments.append((base64.b64decode(a['base64']), a.get('content-type', "application/octet-stream"), self._determine_file_name(a)))
+            elif 'template' in a:
+                jinja_output, _ = self._render_template(a['template'], a.get('params', {}), email_to)
+                fmt = a.get('format', 'html')
+                if fmt == 'pdf':
+                    result = self.services['HtmlToPdfService'].format(jinja_output).read()
+                    content_type = "application/pdf"
+                elif fmt == 'html':
+                    result = jinja_output.encode("utf-8")
+                    content_type = "text/html"
+                else:
+                    raise FormatError(format=fmt)
+                processed_attachments.append((result, content_type, self._determine_file_name(a)))
+            else:
+                L.warning("Unknown/invalid attachment.")
+        return processed_attachments
 
     def _determine_file_name(self, a: Dict) -> str:
         return a.get('filename', "att-{}.{}".format(datetime.datetime.now().strftime('%Y%m%d-%H%M%S'), a.get('format')))
