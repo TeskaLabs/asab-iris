@@ -14,6 +14,7 @@ L = logging.getLogger(__name__)
 class SendEmailOrchestrator:
 
     def __init__(self, app):
+        self.ValidExtensions = {'.html', '.md'}
         self.services = {
             name: app.get_service(name) for name in [
                 "JinjaService", "HtmlToPdfService", "MarkdownToHTMLService", "SmtpService"
@@ -50,7 +51,7 @@ class SendEmailOrchestrator:
                 raise PathError(use_case='Email', invalid_path=template)
             jinja_output = await self.services['JinjaService'].format(template, params)
             ext = os.path.splitext(template)[1]
-            if ext not in ['.html', '.md']:
+            if ext not in self.ValidExtensions:
                 raise FormatError(format=ext)
             return {
                 '.html': utils.find_subject_in_html,
