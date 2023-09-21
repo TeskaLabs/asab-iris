@@ -3,7 +3,6 @@ import base64
 import datetime
 import logging
 import jinja2.exceptions
-import asab
 
 from typing import List, Tuple, Dict, Union
 from .. import utils
@@ -21,14 +20,20 @@ class SendEmailOrchestrator:
             ]
         }
 
-    async def send_email(self, email_to: List[str], body_template: str, email_from=None, email_cc=None, email_bcc=None, email_subject=None, body_params=None, attachments=None):
+    async def send_email(self, email_to: List[str], body_template: str, email_from=None, email_cc=None, email_bcc=None,
+                         email_subject=None, body_params=None, attachments=None):
         body_params = body_params or {}
         attachments = attachments or []
         email_cc = email_cc or []
         email_bcc = email_bcc or []
 
         body_html, email_subject_body = await self._render_template(body_template, body_params, email_to)
-        atts = self._process_attachments(attachments, email_to) if not asab.Config.get("jinja", "failsafe") else []
+
+        # Check if there was an error during template rendering and clear attachments if so
+        if body_html.startswith("Hello!<br><br>We encountered an issue"):
+            attachments = []
+
+        atts = self._process_attachments(attachments, email_to)
         await self.services['SmtpService'].send(
             email_from=email_from,
             email_to=email_to,
@@ -38,7 +43,6 @@ class SendEmailOrchestrator:
             body=body_html,
             attachments=atts
         )
-
 
     async def _render_template(self, template: str, params: Dict, email_to: List[str]) -> Tuple[str, str]:
         try:
