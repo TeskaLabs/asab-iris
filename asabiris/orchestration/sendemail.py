@@ -21,18 +21,24 @@ class SendEmailOrchestrator:
             ]
         }
 
-    async def send_email(self, email_to: List[str], body_template: str, **kwargs):
-        body_html, email_subject_body = await self._render_template(body_template, kwargs.get('body_params', {}), email_to)
-        atts = self._process_attachments(kwargs.get('attachments', []), email_to) if not asab.Config.get("jinja", "failsafe") else []
+    async def send_email(self, email_to: List[str], body_template: str, email_from=None, email_cc=None, email_bcc=None, email_subject=None, body_params=None, attachments=None):
+        body_params = body_params or {}
+        attachments = attachments or []
+        email_cc = email_cc or []
+        email_bcc = email_bcc or []
+
+        body_html, email_subject_body = await self._render_template(body_template, body_params, email_to)
+        atts = self._process_attachments(attachments, email_to) if not asab.Config.get("jinja", "failsafe") else []
         await self.services['SmtpService'].send(
-            email_from=kwargs.get('email_from'),
+            email_from=email_from,
             email_to=email_to,
-            email_cc=kwargs.get('email_cc', []),
-            email_bcc=kwargs.get('email_bcc', []),
-            email_subject=kwargs.get('email_subject', email_subject_body),
+            email_cc=email_cc,
+            email_bcc=email_bcc,
+            email_subject=email_subject or email_subject_body,
             body=body_html,
             attachments=atts
         )
+
 
     async def _render_template(self, template: str, params: Dict, email_to: List[str]) -> Tuple[str, str]:
         try:
@@ -47,16 +53,14 @@ class SendEmailOrchestrator:
                 '.md': lambda x: (self.services['MarkdownToHTMLService'].format(utils.find_subject_in_md(x)[0]), utils.find_subject_in_md(x)[1])
             }[ext](jinja_output)
         except (jinja2.exceptions.TemplateError, Exception) as e:
-            if asab.Config.get("jinja", "failsafe"):
-                error_message = (
-                    "Hello!<br><br>"
-                    "We encountered an issue while processing your request. "
-                    "Please review your input and try again.<br><br>"
-                    "Thank you!<br><br>Error Details:<br><pre style='font-family: monospace;'>Timestamp: {}\nRecipients: {}\nError Message: {}\n</pre>"
-                    "<br>Best regards,<br>LogMan.io".format(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), ', '.join(email_to), str(e))
-                )
-                return error_message, "Error Processing Request"
-            raise
+            error_message = (
+                "Hello!<br><br>"
+                "We encountered an issue while processing your request. "
+                "Please review your input and try again.<br><br>"
+                "Thank you!<br><br>Error Details:<br><pre style='font-family: monospace;'>Timestamp: {}\nRecipients: {}\nError Message: {}\n</pre>"
+                "<br>Best regards,<br>LogMan.io".format(datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"), ', '.join(email_to), str(e))
+            )
+            return error_message, "Error Processing Request"
 
     def _process_attachments(self, attachments: List[Dict], email_to: List[str]) -> List[Tuple[Union[str, bytes], str, str]]:
         processed_attachments = []
