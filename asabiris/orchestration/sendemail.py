@@ -13,6 +13,15 @@ L = logging.getLogger(__name__)
 
 
 def handle_template_error(func):
+	"""
+	Decorator to handle template errors when rendering templates.
+
+	Args:
+	    func (function): The function to be wrapped.
+
+	Returns:
+	    function: The wrapped function.
+	"""
 	async def wrapper(self, template, params, email_to, *args, **kwargs):
 		try:
 			return await func(self, template, params, email_to, *args, **kwargs)
