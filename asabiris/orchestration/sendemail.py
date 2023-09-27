@@ -33,9 +33,18 @@ def handle_template_error(func):
 
 
 class SendEmailOrchestrator:
+	"""
+	Orchestrator class to handle sending emails with various functionalities.
+	"""
 	ValidExtensions = {'.html', '.md'}
 
 	def __init__(self, app):
+		"""
+		Initialize the SendEmailOrchestrator with necessary services.
+
+		Args:
+			app (object): The application object containing services.
+		"""
 		self.services = {
 			name: app.get_service(name) for name in [
 				"JinjaService", "HtmlToPdfService", "MarkdownToHTMLService", "SmtpService"
@@ -43,6 +52,22 @@ class SendEmailOrchestrator:
 		}
 
 	async def send_email(self, email_to: List[str], body_template: str, email_from=None, email_cc=None, email_bcc=None, email_subject=None, body_params=None, attachments=None):
+		"""
+		Send an email using the provided details.
+
+		Args:
+			email_to (List[str]): List of email recipients.
+			body_template (str): Path to the email body template.
+			email_from (str, optional): Sender's email address. Defaults to None.
+			email_cc (List[str], optional): List of CC recipients. Defaults to None.
+			email_bcc (List[str], optional): List of BCC recipients. Defaults to None.
+			email_subject (str, optional): Email subject. Defaults to None.
+			body_params (Dict, optional): Parameters to be passed to the template. Defaults to None.
+			attachments (List[Dict], optional): List of attachments. Defaults to None.
+
+		Returns:
+			None
+		"""
 		body_params = body_params or {}
 		attachments = attachments or []
 		email_cc = email_cc or []
@@ -67,6 +92,17 @@ class SendEmailOrchestrator:
 
 	@handle_template_error
 	async def _render_template(self, template: str, params: Dict, email_to: List[str]) -> Tuple[str, str]:
+		"""
+		Render the provided template with the given parameters.
+
+		Args:
+			template (str): Path to the template.
+			params (Dict): Parameters to be passed to the template.
+			email_to (List[str]): List of email recipients.
+
+		Returns:
+			Tuple[str, str]: Rendered template and subject.
+		"""
 		if not template.startswith("/Templates/Email/"):
 			raise PathError(use_case='Email', invalid_path=template)
 		jinja_output = await self.services['JinjaService'].format(template, params)
@@ -130,5 +166,14 @@ class SendEmailOrchestrator:
 
 
 def extract_emails(email_list: List[str]) -> List[str]:
+	"""
+	Extract email addresses from a list of strings.
+
+	Args:
+		email_list (List[str]): List of strings containing email addresses.
+
+	Returns:
+		List[str]: List of extracted email addresses.
+	"""
 	email_pattern = r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}"
 	return [match.group() for email in email_list for match in [re.search(email_pattern, email)] if match]
