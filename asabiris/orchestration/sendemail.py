@@ -149,19 +149,46 @@ class SendEmailOrchestrator:
 		return a.get('filename', "att-{}.{}".format(datetime.datetime.now().strftime('%Y%m%d-%H%M%S'), a.get('format')))
 
 	def _generate_error_message(self, e: Exception, email_to: List[str]) -> Tuple[str, str]:
-		cleaned_email_to = extract_emails(email_to)
-		error_message = (
-			"Hello!<br><br>"
-			"We encountered an issue while processing your request. "
-			"Please review your input and try again.<br><br>"
-			"Thank you!<br><br>Error Details:<br><pre style='font-family: monospace;'>"
-			"Timestamp: {}\nRecipients: {}\nError Message: {}\n</pre>"
-			"<br>Best regards,<br>LogMan.io"
-		).format(
-			datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-			', '.join(cleaned_email_to),
-			str(e)
-		)
+		"""
+		Generate a detailed error message based on the exception and recipients.
+
+		Args:
+			e (Exception): The exception that occurred.
+			email_to (List[str]): List of email recipients.
+
+		Returns:
+			Tuple[str, str]: The error message and the subject.
+		"""
+		# Extract emails safely
+		cleaned_email_to = extract_emails(email_to) if email_to else []
+
+		# Safely get the current timestamp
+		try:
+			timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+		except Exception as date_err:
+			L.error("Error generating timestamp: {}".format(date_err))
+			timestamp = "Unknown"
+
+		# Safely format the error message
+		try:
+			error_message = (
+				"Hello!<br><br>"
+				"We encountered an issue while processing your request. "
+				"Please review your input and try again.<br><br>"
+				"Thank you!<br><br>Error Details:<br><pre style='font-family: monospace;'>"
+				f"Timestamp: {timestamp}\nRecipients: {', '.join(cleaned_email_to)}\nError Message: {str(e)}\n</pre>"
+				"<br>Best regards,<br>LogMan.io"
+			)
+		except Exception as format_err:
+			L.error(f"Error formatting the error message: {format_err}")
+			error_message = (
+				"Hello!<br><br>"
+				"We encountered an issue while processing your request. "
+				"Please review your input and try again.<br><br>"
+				"Thank you!<br><br>"
+				"<br>Best regards,<br>LogMan.io"
+			)
+
 		return error_message, "Error Processing Request"
 
 
