@@ -4,8 +4,7 @@ import asab
 import asab.web.rest
 import asab.zookeeper
 import asab.library
-if 'sentry' in asab.Config.sections():
-	import asab.metrics
+import asab.metrics
 
 # formatters
 from .formatter.jinja import JinjaFormatterService
@@ -55,8 +54,11 @@ class IRISApplication(asab.Application):
 			asab.web.rest.JsonExceptionMiddleware
 
 		)
-		if 'sentry' in asab.Config.sections():
-			self.SentryService = asab.sentry.SentryService(self)
+
+		# Initialize Sentry.io
+		if asab.Config.has_section("sentry"):
+			from asab.sentry import SentryService
+			self.SentryService = SentryService(self)
 
 		# Initialize library service
 		self.LibraryService = asab.library.LibraryService(
