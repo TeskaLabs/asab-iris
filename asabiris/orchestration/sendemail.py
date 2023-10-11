@@ -101,7 +101,7 @@ class SendEmailOrchestrator:
 			L.warning("Error encountered in {}. Clearing attachments.".format(body_template))
 			attachments = []
 
-		atts = self._process_attachments(attachments)
+		atts = await self._process_attachments(attachments, email_to)
 
 		await self.services['SmtpService'].send(
 			email_from=email_from,
@@ -139,6 +139,8 @@ class SendEmailOrchestrator:
 				"Invalid template path: {}. Please ensure the template path is correct.".format(str(e)),
 				email_to
 			)
+			return error_message, error_subject
+
 		except jinja2.TemplateNotFound:
 			L.error("Template not found: {}".format(template))
 			error_message, error_subject = self._generate_error_message(
@@ -191,43 +193,52 @@ class SendEmailOrchestrator:
 		}
 		return processors[ext](output)
 
-	def _process_attachments(self, attachments: List[Dict]) -> List[Tuple[Union[str, bytes], str, str]]:
+	async def _process_attachments(self, attachments: List[Dict], email_to: List[str]) -> List[
+		Tuple[Union[str, bytes], str, str]]:
 		"""
 		Process email attachments.
 
 		Args:
 			attachments (List[Dict]): List of attachments.
+			email_to (List[str]): List of email recipients.
 
 		Returns:
 			List[Tuple[Union[str, bytes], str, str]]: List of processed attachments.
 		"""
-		L.debug("Processing {} attachments".format(len(attachments)))
+		L.debug("Processing {} attachments for email to: {}".format(len(attachments), ', '.join(email_to)))
 		processed_attachments = []
 		for a in attachments:
-			if 'base64' in a:
-				processed_attachments.append(
-					(
-						base64.b64decode(a['base64']),
-						a.get('content-type', "application/octet-stream"),
-						self._determine_file_name(a)
+			try:
+				if 'base64' in a:
+					processed_attachments.append(
+						(
+							base64.b64decode(a['base64']),
+							a.get('content-type', "application/octet-stream"),
+							self._determine_file_name(a)
+						)
 					)
-				)
 
-			elif 'template' in a:
-				jinja_output, _ = self._render_template(a['template'], a.get('params', {}))
-				fmt = a.get('format', 'html')
-				if fmt == 'pdf':
-					result = self.services['HtmlToPdfService'].format(jinja_output).read()
-					content_type = "application/pdf"
-				elif fmt == 'html':
-					result = jinja_output.encode("utf-8")
-					content_type = "text/html"
+				elif 'template' in a:
+					jinja_output, _ = await self._render_template(a['template'], a.get('params', {}), email_to)
+					fmt = a.get('format', 'html')
+					if fmt == 'pdf':
+						result = self.services['HtmlToPdfService'].format(jinja_output).read()
+						content_type = "application/pdf"
+					elif fmt == 'html':
+						result = jinja_output.encode("utf-8")
+						content_type = "text/html"
+					else:
+						raise FormatError(format=fmt)
+					processed_attachments.append((result, content_type, self._determine_file_name(a)))
 				else:
-					raise FormatError(format=fmt)
-				processed_attachments.append((result, content_type, self._determine_file_name(a)))
-			else:
-				L.warning("Unknown/invalid attachment.")
-		L.debug("{} attachments processed successfully".format(len(processed_attachments)))
+					L.warning(
+						"Unknown/invalid attachment for email to: {}. Skipping attachment.".format(', '.join(email_to)))
+			except Exception as e:
+				L.warning(
+					"Error processing attachment for email to {}: {}. Skipping attachment.".format(', '.join(email_to),
+																								   str(e)))
+		L.debug("{} attachments processed successfully for email to: {}".format(len(processed_attachments),
+																				', '.join(email_to)))
 		return processed_attachments
 
 	def _determine_file_name(self, a: Dict) -> str:
