@@ -52,6 +52,11 @@ class IRISApplication(asab.Application):
 
 		)
 
+		# Initialize Sentry.io
+		if asab.Config.has_section("sentry"):
+			import asab.sentry as asab_sentry
+			self.SentryService = asab_sentry.SentryService(self)
+
 		# Initialize library service
 		self.LibraryService = asab.library.LibraryService(
 			self,
