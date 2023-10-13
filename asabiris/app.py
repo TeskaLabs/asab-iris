@@ -30,7 +30,8 @@ L = logging.getLogger(__name__)
 
 asab.Config.add_defaults({
 	"web": {
-		"listen": 8896  # Well-known port of asab iris
+		"listen": 8896,  # Well-known port of asab iris
+		"body_max_size": 31457280  # maximum size of the request body that the web server can handle.
 	},
 	"jinja": {
 		"failsafe": True  # enable failsafe mechanism
@@ -42,7 +43,6 @@ class IRISApplication(asab.Application):
 
 	def __init__(self, args=None):
 		super().__init__(args=args)
-
 		self.add_module(asab.web.Module)
 		self.add_module(asab.zookeeper.Module)
 		self.add_module(asab.metrics.Module)
