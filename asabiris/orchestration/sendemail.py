@@ -119,7 +119,7 @@ class SendEmailOrchestrator:
             email_to=email_to,
             email_cc=email_cc,
             email_bcc=email_bcc,
-            email_subject=email_subject or email_subject_body,
+            email_subject=email_subject_body,
             body=body_html,
             attachments=atts
         )
