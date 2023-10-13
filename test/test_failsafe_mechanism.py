@@ -63,5 +63,6 @@ class TestRenderMethod(unittest.TestCase):
             self.orchestrator._render_template("/Templates/Email/sample.md", {}, ["Tester@example.com"]))
         self.assertEqual(self.strip_html_tags(output), "Mocked Jinja Output")  # Removed the "\n" from the expected value
 
+
 if __name__ == "__main__":
     unittest.main()
