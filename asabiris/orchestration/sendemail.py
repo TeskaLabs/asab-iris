@@ -1,7 +1,9 @@
+import asab
 import os
 import base64
 import datetime
 import logging
+import jinja2.exceptions
 
 from .. import utils
 from .. exceptions import PathError, FormatError
@@ -51,10 +53,13 @@ class SendEmailOrchestrator(object):
 		"""
 
 		# Render a body
-		body_html, email_subject_body = await self.render(body_template, body_params)
+		body_html, email_subject_body = await self.render(body_template, body_params, email_to)
 
 		if email_subject is None or email_subject == '':
 			email_subject = email_subject_body
+
+		if asab.Config.get("jinja", "failsafe"):
+			attachments = []
 
 		atts = []
 
@@ -75,7 +80,7 @@ class SendEmailOrchestrator(object):
 
 					# get file-name of the attachment
 					file_name = self.get_file_name(a)
-					jinja_output, result = await self.render(template, params)
+					jinja_output, result = await self.render(template, params, email_to)
 
 					# get pdf from html if present.
 					fmt = a.get('format', 'html')
@@ -112,48 +117,112 @@ class SendEmailOrchestrator(object):
 			attachments=atts
 		)
 
-	async def render(self, template, params):
+	async def render(self, template, params, email_to):
 		"""
 		This method renders templates based on the depending on the
 		extension of template.
 
-		Returns the html and optional subject line if found in the templat.
+		Returns the html and optional subject line if found in the template.
 
 		jinja_output will be used for extracting subject.
 		"""
-		# templates must be stores in /Templates/Emails
-		if not template.startswith("/Templates/Email/"):
-			raise PathError(use_case='Email', invalid_path=template)
-
 		try:
+			# templates must be stored in /Templates/Emails
+			if not template.startswith("/Templates/Email/"):
+				raise PathError(use_case='Email', invalid_path=template)
+
 			jinja_output = await self.JinjaService.format(template, params)
-		except KeyError:
-			L.warning("Failed to load or render a template (missing?)", struct_data={'template': template})
-			raise
 
-		_, extension = os.path.splitext(template)
+			_, extension = os.path.splitext(template)
 
-		if extension == '.html':
-			return utils.find_subject_in_html(jinja_output)
+			if extension == '.html':
+				return utils.find_subject_in_html(jinja_output)
 
-		elif extension == '.md':
-			jinja_output, subject = utils.find_subject_in_md(jinja_output)
-			html_output = self.MarkdownToHTMLService.format(jinja_output)
-			if not html_output.startswith("<!DOCTYPE html>"):
-				html_output = utils.normalize_body(html_output)
-			return html_output, subject
+			elif extension == '.md':
+				jinja_output, subject = utils.find_subject_in_md(jinja_output)
+				html_output = self.MarkdownToHTMLService.format(jinja_output)
+				if not html_output.startswith("<!DOCTYPE html>"):
+					html_output = utils.normalize_body(html_output)
+				return html_output, subject
 
-		else:
-			raise FormatError(format=extension)
+			else:
+				raise FormatError(format=extension)
+
+
+		except jinja2.exceptions.TemplateError as e:
+			L.warning("Jinja2 Rendering Error: {}".format(str(e)))
+
+			if asab.Config.get("jinja", "failsafe"):
+				# Get the current timestamp
+				current_timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+				email_addresses = [recipient.split('<')[1].strip('>') for recipient in email_to]
+				# Prepare the error details including timestamp, recipients, and error message
+				error_details = (
+					"Timestamp: {}\n"
+					"Recipients: {}\n"
+					"Error Message: {}\n"
+				).format(current_timestamp, email_addresses, str(e))
+
+				# User-friendly error message
+				error_message = (
+					"Hello!<br><br>"
+					"We encountered an issue while processing your request. "
+					"Please review your input and try again.<br><br>"
+					"Thank you!<br>"
+					"<br>Error Details:<br><pre style='font-family: monospace;'>{}</pre>".format(
+						error_details
+					)
+				)
+
+				# Add LogMan signature with HTML line breaks
+				error_message += "<br>Best regards,<br>LogMan.io"
+
+				subject = "Error Processing Request"
+
+				return error_message, subject
+
+		except Exception as e:
+			L.warning("Jinja2 Rendering Error: {}".format(str(e)))
+
+			if asab.Config.get("jinja", "failsafe"):
+				# Get the current timestamp
+				current_timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+
+				email_addresses = [recipient.split('<')[1].strip('>') for recipient in email_to]
+				# Prepare the error details including timestamp, recipients, and error message
+				error_details = (
+					"Timestamp: {}\n"
+					"Recipients: {}\n"
+					"Error Message: {}\n"
+				).format(current_timestamp, email_addresses, str(e))
+
+				# User-friendly error message
+				error_message = (
+					"Hello!<br><br>"
+					"We encountered an issue while processing your request. "
+					"Please review your input and try again.<br><br>"
+					"Thank you!<br>"
+					"<br>Error Details:<br><pre style='font-family: monospace;'>{}</pre>".format(
+						error_details
+					)
+				)
+
+				# Add LogMan signature with HTML line breaks
+				error_message += "<br>Best regards,<br>LogMan.io"
+
+				subject = "Error Processing Request"
+
+				return error_message, subject
 
 	def get_file_name(self, attachment):
-		"""
-		This method returns a file-name if provided in the attachment-dict.
-		If not then the name of the file is current date with appropriate
-		extensions.
-		"""
-		if attachment.get('filename') is None:
-			now = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-			return "att-" + now + "." + attachment.get('format')
-		else:
-			return attachment.get('filename')
+			"""
+			This method returns a file-name if provided in the attachment-dict.
+			If not then the name of the file is current date with appropriate
+			extensions.
+			"""
+			if attachment.get('filename') is None:
+				now = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
+				return "att-" + now + "." + attachment.get('format')
+			else:
+				return attachment.get('filename')

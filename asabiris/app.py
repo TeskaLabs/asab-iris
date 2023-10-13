@@ -32,9 +32,11 @@ asab.Config.add_defaults({
 	"web": {
 		"listen": 8896,  # Well-known port of asab iris
 		"body_max_size": 31457280  # maximum size of the request body that the web server can handle.
-	}
-}
-)
+	},
+	"jinja": {
+		"failsafe": True  # enable failsafe mechanism
+	},
+})
 
 
 class IRISApplication(asab.Application):
@@ -52,6 +54,11 @@ class IRISApplication(asab.Application):
 			asab.web.rest.JsonExceptionMiddleware
 
 		)
+
+		# Initialize Sentry.io
+		if asab.Config.has_section("sentry"):
+			import asab.sentry as asab_sentry
+			self.SentryService = asab_sentry.SentryService(self)
 
 		# Initialize library service
 		self.LibraryService = asab.library.LibraryService(
