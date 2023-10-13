@@ -163,13 +163,6 @@
       ]
 }
 
-EXPECTED RESPONSE:
-
-{
-    "result": "NOT-FOUND",
-    "message": "Invalid path '/Templates/MISSING.html'.",
-    "uuid": "c941fe16-470e-42d2-958c-c9fb09ac8e7d"
-}
 ```
 
 ## TSM008: Try to send an email with template as body and a missing html attachment.
@@ -196,14 +189,6 @@ EXPECTED RESPONSE:
             "format":"pdf"
         }
       ]
-}
-
-EXPECTED RESPONSE:
-
-{
-    "result": "NOT-FOUND",
-    "message": "Invalid path '/Templates/MISSING.html'.",
-    "uuid": "c941fe16-470e-42d2-958c-c9fb09ac8e7d"
 }
 ```
 
@@ -232,14 +217,6 @@ EXPECTED RESPONSE:
         }
       ]
 }
-
-EXPECTED RESPONSE:
-
-{
-    "result": "ERROR",
-    "message": "Invalid/unknown conversion format: 'docx'",
-    "uuid": "8c417770-d931-4397-985b-1e8a5710d1c6"
-}
 ```
 
 ## TSM010: Try to send an email with missing template
@@ -253,15 +230,6 @@ EXPECTED RESPONSE:
         "template": "/Templates/MISSING.html"
     }
 }
-
-EXPECTED RESPONSE:
-
-{
-    "result": "NOT-FOUND",
-    "message": "Invalid path '/Templates/MISSING.html'.",
-    "uuid": "c941fe16-470e-42d2-958c-c9fb09ac8e7d"
-}
-
 ```
 
 ## TSM0011: Try to send an email with no template
@@ -279,8 +247,9 @@ EXPECTED RESPONSE:
 {
     "result": "ERROR",
     "message": "400: data.body must contain ['template'] properties",
-    "uuid": "0cda7e20-046c-498c-bbea-9361e2b4dd11"
+    "uuid": "a59e48ca-3980-4394-9323-8c7e174fe55a"
 }
+
 ```
 
 ## TSM012: Try to send an email with base64 attachment.
