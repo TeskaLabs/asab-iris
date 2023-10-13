@@ -40,7 +40,7 @@ class SendEmailOrchestrator:
 
     Attributes:
         ValidExtensions (set): A set of valid file extensions for templates.
-        services (dict): A dictionary of services used for email processing.
+        Services (dict): A dictionary of services used for email processing.
 
     Methods:
         send_email(...): Send an email using specified parameters.
@@ -60,13 +60,13 @@ class SendEmailOrchestrator:
         Args:
             app: The application object, used to get services.
         """
-        self.services = {
+        self.Services = {
             name: app.get_service(name) for name in [
                 "JinjaService", "HtmlToPdfService", "MarkdownToHTMLService",
                 "SmtpService"
             ]
         }
-        L.info(LOG_MSG_INIT, {"services": list(self.services.keys())})
+        L.info(LOG_MSG_INIT, {"services": list(self.Services.keys())})
 
     async def send_email(
         self, email_to: List[str], body_template: str,
@@ -114,7 +114,7 @@ class SendEmailOrchestrator:
             atts = []
 
         # Sending the email
-        await self.services['SmtpService'].send(
+        await self.Services['SmtpService'].send(
             email_from=email_from,
             email_to=email_to,
             email_cc=email_cc,
@@ -131,7 +131,7 @@ class SendEmailOrchestrator:
             if not template.startswith(TEMPLATE_PREFIX):
                 raise PathError(use_case='Email', invalid_path=template)
 
-            jinja_output = await self.services['JinjaService'].format(template, params)
+            jinja_output = await self.Services['JinjaService'].format(template, params)
             return self._process_template_output(jinja_output, os.path.splitext(template)[1])
         except (PathError, jinja2.TemplateNotFound, jinja2.TemplateSyntaxError, jinja2.UndefinedError, Exception) as e:
             error_message, error_subject = self._generate_error_message(str(e), email_to)
@@ -144,7 +144,7 @@ class SendEmailOrchestrator:
         processors = {
             '.html': utils.find_subject_in_html,
             '.md': lambda x: (
-                self.services['MarkdownToHTMLService'].format(utils.find_subject_in_md(x)[0]),
+                self.Services['MarkdownToHTMLService'].format(utils.find_subject_in_md(x)[0]),
                 utils.find_subject_in_md(x)[1]
             )
         }
@@ -177,7 +177,7 @@ class SendEmailOrchestrator:
                 elif 'template' in a:
                     fmt = a.get('format', 'html')
                     if fmt == 'pdf':
-                        result = self.services['HtmlToPdfService'].format(rendered_output).read()
+                        result = self.Services['HtmlToPdfService'].format(rendered_output).read()
                         content_type = "application/pdf"
                     elif fmt == 'html':
                         result = rendered_output.encode("utf-8")
