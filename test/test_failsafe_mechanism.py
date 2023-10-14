@@ -3,6 +3,7 @@ from unittest import mock
 import re
 import asyncio
 import jinja2.exceptions
+from asabiris.exceptions import PathError
 from asabiris.orchestration.sendemail import SendEmailOrchestrator  # Update the import path if necessary
 
 
@@ -62,6 +63,26 @@ class TestRenderMethod(unittest.TestCase):
         output, subject = self.Loop.run_until_complete(
             self.orchestrator._render_template("/Templates/Email/sample.md", {}, ["Tester@example.com"]))
         self.assertEqual(self.strip_html_tags(output), "Mocked Jinja Output")  # Removed the "\n" from the expected value
+
+    def test_jinja_template_not_found(self):
+        self.MockJinjaService.format.side_effect = jinja2.TemplateNotFound
+        error_message, _ = self.Loop.run_until_complete(self.orchestrator._render_template("/Templates/Email/sample.html", {}, ["Tester@example.com"]))
+        self.assertIn("Error Details:", error_message)
+
+    def test_jinja_template_syntax_error(self):
+        self.MockJinjaService.format.side_effect = jinja2.TemplateSyntaxError
+        error_message, _ = self.Loop.run_until_complete(self.orchestrator._render_template("/Templates/Email/sample.html", {}, ["Tester@example.com"]))
+        self.assertIn("Error Details:", error_message)
+
+    def test_jinja_undefined_error(self):
+        self.MockJinjaService.format.side_effect = jinja2.UndefinedError
+        error_message, _ = self.Loop.run_until_complete(self.orchestrator._render_template("/Templates/Email/sample.html", {}, ["Tester@example.com"]))
+        self.assertIn("Error Details:", error_message)
+
+    def test_general_exception(self):
+        self.MockJinjaService.format.side_effect = Exception("General Exception")
+        error_message, _ = self.Loop.run_until_complete(self.orchestrator._render_template("/Templates/Email/sample.html", {}, ["Tester@example.com"]))
+        self.assertIn("Error Details:", error_message)
 
 
 if __name__ == "__main__":
