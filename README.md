@@ -115,3 +115,24 @@ Explanation:
   - `webhook_url`: Webhook URL for sending messages to Microsoft Teams.
 
 Feel free to adjust the explanations as per your specific setup and requirements. If there are any other sections or details you'd like to add or modify, please let me know!
+
+### Template Storage and Usage
+
+In ASAB Iris, templates, specifically Jinja templates, are utilized to dynamically create message content for various communication channels like email and Slack. Jinja templates allow you to use variables, control statements, filters, and inheritance to generate dynamic and personalized content in your messages.
+
+#### Storage Warning
+Templates must be stored in specific directories in the filesystem or Templates node in Zookeeper to be correctly accessed by the application. 
+
+#### Directory Structure
+- `/Templates/Email/`: Location for Jinja email templates.
+- `/Templates/Slack/`: Location for Jinja Slack message templates.
+- `/Templates/MSTeams/`: Location for Jinja Microsoft Teams message templates (if applicable).
+- `/Templates/General/`: Location for other Jinja general-purpose templates.
+
+#### Explanation
+- **Variables**: Insert values into templates, e.g., `{{ username }}`.
+- **Control Statements**: Use statements like `if` and `for` to control content generation, e.g., `{% if user_is_admin %}...{% endif %}`.
+- **Filters**: Modify variables using filters, e.g., `{{ name|lower }}` to convert a name to lowercase.
+- **Inheritance**: Maintain a consistent design across messages by creating a base template and extending it in child templates.
+
+Ensure to store your Jinja templates in the appropriate directories to facilitate smooth operation of the ASAB Iris application.
