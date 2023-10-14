@@ -78,9 +78,6 @@ Detailed documentation is available [here](https://teskalabs.github.io/asab-iris
 ## Architecture
 ![ASAB Iris Architecture](./docs/asab-iris-architecture.drawio.svg)
 
-### Template Storage Warning
-Templates used for email or Slack must be stored in specific directories in the filesystem or Templates node in Zookeeper. For example, email templates must be stored under `/Templates/Email/`.
-
 ## Example Configuration
 
 ```ini
