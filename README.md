@@ -23,6 +23,14 @@ ssl=no
 starttls=yes
 subject=Mail from ASAB Iris
 ```
+Explanation:
+- `host`: The address of the SMTP server.
+- `user`: Username for SMTP server authentication.
+- `password`: Password for SMTP server authentication.
+- `from`: Default "From" address for emails.
+- `ssl`: Use SSL for the connection (yes/no).
+- `starttls`: Use STARTTLS (yes/no).
+- `subject`: Default email subject.
 
 ### 2. Sending Slack Alerts
 
@@ -36,6 +44,9 @@ subject=Mail from ASAB Iris
 token=xoxb-111111111111-2222222222222-3333333333333voe
 channel=general
 ```
+Explanation:
+- `token`: OAuth access token (xbot token) for Slack.
+- `channel`: Default Slack channel for sending messages.
 
 ### 3. Creating an Incoming Webhook for Outlook
 
@@ -49,6 +60,8 @@ channel=general
 [outlook]
 webhook_url=https://outlook.office.com/webhook/...
 ```
+Explanation:
+- `webhook_url`: Webhook URL provided by Outlook.
 
 ## Supported Technologies
 - HTTP REST API
@@ -93,3 +106,12 @@ channel=general
 [msteams]
 webhook_url=https://teskalabscom.webho
 ```
+Explanation:
+- `[library]`: Configuration related to the ASAB library.
+  - `providers`: Path to the library.
+- `[web]`: Configuration related to the web interface.
+  - `listen`: The address and port on which ASAB Iris will listen for HTTP requests.
+- `[msteams]`: Configuration related to Microsoft Teams (if applicable).
+  - `webhook_url`: Webhook URL for sending messages to Microsoft Teams.
+
+Feel free to adjust the explanations as per your specific setup and requirements. If there are any other sections or details you'd like to add or modify, please let me know!
