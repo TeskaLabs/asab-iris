@@ -7,10 +7,6 @@ emails through an SMTP service.
 
 Classes:
     SendEmailOrchestrator: Orchestrates the sending of emails.
-
-Functions:
-    extract_emails(email_list: List[str]) -> List[str]: Extracts email addresses
-    from a list of strings.
 """
 
 import os
@@ -18,7 +14,6 @@ import base64
 import datetime
 import logging
 import jinja2.exceptions
-import re
 from typing import List, Tuple, Dict, Union
 from .. import utils
 from ..exceptions import PathError, FormatError
@@ -98,7 +93,7 @@ class SendEmailOrchestrator:
 
         # Rendering the template
         body_html, email_subject_body = await self._render_template(
-            body_template, body_params, email_to)
+            body_template, body_params)
 
         # If an error occurs during rendering, set the body and subject to the error message and subject
         if body_html.startswith(ERROR_MESSAGE_PREFIX):
@@ -125,7 +120,7 @@ class SendEmailOrchestrator:
         )
         L.info("Email sent successfully to: {}".format(', '.join(email_to)))
 
-    async def _render_template(self, template: str, params: Dict, email_to: List[str]) -> Tuple[str, str]:
+    async def _render_template(self, template: str, params: Dict) -> Tuple[str, str]:
         L.debug("Rendering template: {}".format(template))
         try:
             if not template.startswith(TEMPLATE_PREFIX):
@@ -135,7 +130,7 @@ class SendEmailOrchestrator:
             return self._process_template_output(jinja_output, os.path.splitext(template)[1])
         except (PathError, jinja2.TemplateNotFound, jinja2.TemplateSyntaxError, jinja2.UndefinedError, Exception) as e:
             L.exception("Exception occurred while rendering template {}: {}".format(template, str(e)))
-            error_message, error_subject = self._generate_error_message(str(e), email_to)
+            error_message, error_subject = self._generate_error_message(str(e))
             return error_message, error_subject
 
     def _process_template_output(self, output: str, ext: str) -> Tuple[str, str]:
@@ -152,9 +147,9 @@ class SendEmailOrchestrator:
         return processors[ext](output)
 
     async def _process_attachments(
-            self, attachments: List[Dict], email_to: List[str]) -> Tuple[
+            self, attachments: List[Dict]) -> Tuple[
             List[Tuple[Union[str, bytes], str, str]], str, str]:
-        L.debug("Processing {} attachments for email to: {}".format(len(attachments), ', '.join(email_to)))
+        L.debug("Processing {} attachments".format(len(attachments)))
         processed_attachments = []
         error_message = error_subject = None
 
@@ -169,8 +164,7 @@ class SendEmailOrchestrator:
                         )
                     )
                 elif 'template' in a:
-                    rendered_output, rendered_subject = await self._render_template(a['template'], a.get('params', {}),
-                                                                                    email_to)
+                    rendered_output, rendered_subject = await self._render_template(a['template'], a.get('params', {}))
 
                     if rendered_output.startswith(ERROR_MESSAGE_PREFIX):
                         error_message, error_subject = rendered_output, rendered_subject
@@ -188,7 +182,7 @@ class SendEmailOrchestrator:
                     processed_attachments.append((result, content_type, self._determine_file_name(a)))
 
             except Exception as e:
-                error_message, error_subject = self._generate_error_message(str(e), email_to)
+                error_message, error_subject = self._generate_error_message(str(e))
                 break
 
         return processed_attachments, error_message, error_subject
@@ -196,9 +190,7 @@ class SendEmailOrchestrator:
     def _determine_file_name(self, a: Dict) -> str:
         return a.get('filename', "att-{}.{}".format(datetime.datetime.now().strftime('%Y%m%d-%H%M%S'), a.get('format')))
 
-    def _generate_error_message(self, specific_error: str, email_to: List[str]) -> Tuple[str, str]:
-        cleaned_email_to = extract_emails(email_to) if email_to else []
-
+    def _generate_error_message(self, specific_error: str) -> Tuple[str, str]:
         try:
             timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         except Exception as date_err:
@@ -211,9 +203,9 @@ class SendEmailOrchestrator:
                 "We encountered an issue while processing your request: <b>{}</b><br>"
                 "Please review your input and try again.<br><br>"
                 "Thank you!<br><br>Error Details:<br><pre style='font-family: monospace;'>"
-                "Timestamp: {}\nRecipients: {}\n</pre>"
+                "Timestamp: {}\n</pre>"
                 "<br>Best regards,<br>Your Team"
-            ).format(specific_error, timestamp, ', '.join(cleaned_email_to))
+            ).format(specific_error, timestamp)
         except Exception as format_err:
             L.exception("Error formatting the error message: {}".format(format_err))
             error_message = (
@@ -225,8 +217,3 @@ class SendEmailOrchestrator:
             )
 
         return error_message, "Error Processing Request"
-
-
-def extract_emails(email_list: List[str]) -> List[str]:
-    email_pattern = r"[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}"
-    return [match.group() for email in email_list for match in [re.search(email_pattern, email)] if match]
