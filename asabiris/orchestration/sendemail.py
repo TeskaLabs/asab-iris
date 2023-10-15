@@ -159,13 +159,6 @@ class SendEmailOrchestrator:
 
         for a in attachments:
             try:
-                rendered_output, rendered_subject = await self._render_template(a['template'], a.get('params', {}),
-                                                                                email_to)
-
-                if rendered_output.startswith(ERROR_MESSAGE_PREFIX):
-                    error_message, error_subject = rendered_output, rendered_subject
-                    break
-
                 if 'base64' in a:
                     processed_attachments.append(
                         (
@@ -175,6 +168,13 @@ class SendEmailOrchestrator:
                         )
                     )
                 elif 'template' in a:
+                    rendered_output, rendered_subject = await self._render_template(a['template'], a.get('params', {}),
+                                                                                    email_to)
+
+                    if rendered_output.startswith(ERROR_MESSAGE_PREFIX):
+                        error_message, error_subject = rendered_output, rendered_subject
+                        break
+
                     fmt = a.get('format', 'html')
                     if fmt == 'pdf':
                         result = self.Services['HtmlToPdfService'].format(rendered_output).read()
