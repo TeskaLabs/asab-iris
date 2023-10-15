@@ -134,6 +134,7 @@ class SendEmailOrchestrator:
             jinja_output = await self.Services['JinjaService'].format(template, params)
             return self._process_template_output(jinja_output, os.path.splitext(template)[1])
         except (PathError, jinja2.TemplateNotFound, jinja2.TemplateSyntaxError, jinja2.UndefinedError, Exception) as e:
+            L.exception("Exception occurred while rendering template {}: {}".format(template, str(e)))
             error_message, error_subject = self._generate_error_message(str(e), email_to)
             return error_message, error_subject
 
