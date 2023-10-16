@@ -47,40 +47,40 @@ class TestRenderMethod(unittest.TestCase):
 
     def test_render_html_template(self):
         # Test rendering of an HTML template
-        output, subject = self.Loop.run_until_complete(self.orchestrator._render_template("/Templates/Email/sample.html", {}, ["Tester@example.com"]))
+        output, subject = self.Loop.run_until_complete(self.orchestrator._render_template("/Templates/Email/sample.html", {}))
         self.assertEqual(output, "Mocked Jinja Output")
 
     def test_render_jinja_exception(self):
         # Test handling of Jinja2 exceptions
         self.MockJinjaService.format.side_effect = jinja2.exceptions.TemplateError("Mocked Jinja Error")
-        output, subject = self.Loop.run_until_complete(self.orchestrator._render_template("/Templates/Email/sample.html", {}, ["Tester@example.com"]))
+        output, subject = self.Loop.run_until_complete(self.orchestrator._render_template("/Templates/Email/sample.html", {}))
         self.assertIn("Error Details:", output)
 
     def test_render_md_template(self):
         # Test rendering of a Markdown template
         self.MockMarkdownToHtmlService.format.return_value = "Mocked Jinja Output"
         output, subject = self.Loop.run_until_complete(
-            self.orchestrator._render_template("/Templates/Email/sample.md", {}, ["Tester@example.com"]))
+            self.orchestrator._render_template("/Templates/Email/sample.md", {}))
         self.assertEqual(self.strip_html_tags(output), "Mocked Jinja Output")  # Removed the "\n" from the expected value
 
     def test_jinja_template_not_found(self):
         self.MockJinjaService.format.side_effect = jinja2.TemplateNotFound
-        error_message, _ = self.Loop.run_until_complete(self.orchestrator._render_template("/Templates/Email/sample.html", {}, ["Tester@example.com"]))
+        error_message, _ = self.Loop.run_until_complete(self.orchestrator._render_template("/Templates/Email/sample.html", {}))
         self.assertIn("Error Details:", error_message)
 
     def test_jinja_template_syntax_error(self):
         self.MockJinjaService.format.side_effect = jinja2.TemplateSyntaxError
-        error_message, _ = self.Loop.run_until_complete(self.orchestrator._render_template("/Templates/Email/sample.html", {}, ["Tester@example.com"]))
+        error_message, _ = self.Loop.run_until_complete(self.orchestrator._render_template("/Templates/Email/sample.html", {}))
         self.assertIn("Error Details:", error_message)
 
     def test_jinja_undefined_error(self):
         self.MockJinjaService.format.side_effect = jinja2.UndefinedError
-        error_message, _ = self.Loop.run_until_complete(self.orchestrator._render_template("/Templates/Email/sample.html", {}, ["Tester@example.com"]))
+        error_message, _ = self.Loop.run_until_complete(self.orchestrator._render_template("/Templates/Email/sample.html", {}))
         self.assertIn("Error Details:", error_message)
 
     def test_general_exception(self):
         self.MockJinjaService.format.side_effect = Exception("General Exception")
-        error_message, _ = self.Loop.run_until_complete(self.orchestrator._render_template("/Templates/Email/sample.html", {}, ["Tester@example.com"]))
+        error_message, _ = self.Loop.run_until_complete(self.orchestrator._render_template("/Templates/Email/sample.html", {}))
         self.assertIn("Error Details:", error_message)
 
 
