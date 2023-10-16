@@ -141,7 +141,7 @@ class SendEmailOrchestrator:
 
     async def _process_attachments(
             self, attachments: List[Dict]) -> Tuple[
-        List[Tuple[Union[str, bytes], str, str]], str, str]:
+            List[Tuple[Union[str, bytes], str, str]], str, str]:
         L.debug("Processing {} attachments".format(len(attachments)))
         processed_attachments = []
         error_message = error_subject = None
