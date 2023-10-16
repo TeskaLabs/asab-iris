@@ -64,26 +64,13 @@ class SendEmailOrchestrator:
         L.info(LOG_MSG_INIT, {"services": list(self.Services.keys())})
 
     async def send_email(
-        self, email_to: List[str], body_template: str,
-        email_from=None, email_cc=None, email_bcc=None,
-        email_subject=None, body_params=None, attachments=None
+            self, email_to: List[str], body_template: str,
+            email_from=None, email_cc=None, email_bcc=None,
+            email_subject=None, body_params=None, attachments=None
     ):
         """
         Send an email using specified parameters.
-
-        Args:
-            email_to (List[str]): List of email recipients.
-            body_template (str): Path to the email body template.
-            email_from (str, optional): Email sender address. Defaults to None.
-            email_cc (List[str], optional): List of CC recipients. Defaults to None.
-            email_bcc (List[str], optional): List of BCC recipients. Defaults to None.
-            email_subject (str, optional): Email subject. Defaults to None.
-            body_params (Dict, optional): Parameters for rendering the email body.
-                Defaults to None.
-            attachments (List[Dict], optional): List of attachments. Defaults to None.
-
-        Returns:
-            None
+        ...
         """
         L.debug("Attempting to send email to: {}".format(', '.join(email_to)))
         body_params = body_params or {}
@@ -98,15 +85,21 @@ class SendEmailOrchestrator:
         # If an error occurs during rendering, set the body and subject to the error message and subject
         if body_html.startswith(ERROR_MESSAGE_PREFIX):
             L.warning("Error encountered in {}. Clearing attachments.".format(body_template))
-            attachments = []
-
-        # Processing attachments
-        atts, att_error_message, att_error_subject = await self._process_attachments(attachments, email_to)
-
-        # If an error occurs during attachment processing, set the body and subject to the error message and subject
-        if att_error_message and att_error_subject:
-            body_html, email_subject_body = att_error_message, att_error_subject
             atts = []
+            email_subject = email_subject_body
+        else:
+            # If email_subject is not provided or is empty, and no error occurred during rendering, use email_subject_body
+            if email_subject is None or email_subject == '':
+                email_subject = email_subject_body
+
+            # Processing attachments
+            atts, att_error_message, att_error_subject = await self._process_attachments(attachments)
+
+            # If an error occurs during attachment processing, set the body and subject to the error message and subject
+            if att_error_message and att_error_subject:
+                body_html, email_subject = att_error_message, att_error_subject
+                atts = []
+            # Note: Removed the redundant else block
 
         # Sending the email
         await self.Services['SmtpService'].send(
@@ -114,7 +107,7 @@ class SendEmailOrchestrator:
             email_to=email_to,
             email_cc=email_cc,
             email_bcc=email_bcc,
-            email_subject=email_subject_body,
+            email_subject=email_subject,
             body=body_html,
             attachments=atts
         )
@@ -148,7 +141,7 @@ class SendEmailOrchestrator:
 
     async def _process_attachments(
             self, attachments: List[Dict]) -> Tuple[
-            List[Tuple[Union[str, bytes], str, str]], str, str]:
+        List[Tuple[Union[str, bytes], str, str]], str, str]:
         L.debug("Processing {} attachments".format(len(attachments)))
         processed_attachments = []
         error_message = error_subject = None
