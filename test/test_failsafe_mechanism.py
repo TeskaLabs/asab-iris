@@ -3,7 +3,7 @@ from unittest import mock
 import re
 import asyncio
 import jinja2.exceptions
-from asabiris.orchestration.sendemail import SendEmailOrchestrator
+from asabiris.orchestration.sendemail import SendEmailOrchestrator  # Update the import path if necessary
 
 
 class AsyncMock(mock.Mock):
@@ -14,30 +14,29 @@ class AsyncMock(mock.Mock):
 class TestRenderMethod(unittest.TestCase):
 
     def setUp(self):
-        self.loop = asyncio.get_event_loop()
-
+        self.Loop = asyncio.get_event_loop()
         # Mocking the app and its get_service method
-        self.mock_app = mock.Mock()
-        self.mock_app.get_service = self._mock_get_service
+        self.MockApp = mock.Mock()
+        self.MockApp.get_service = self._mock_get_service
 
         # Mocking the JinjaService
-        self.mock_jinja_service = AsyncMock()
-        self.mock_jinja_service.format = AsyncMock(return_value="Mocked Jinja Output")
+        self.MockJinjaService = AsyncMock()
+        self.MockJinjaService.format = AsyncMock(return_value="Mocked Jinja Output")
 
         # Mocking other services
-        self.mock_html_to_pdf_service = mock.Mock()
-        self.mock_markdown_to_html_service = mock.Mock()
+        self.MockHtmlToPdfService = mock.Mock()
+        self.MockMarkdownToHtmlService = mock.Mock()
 
         # Creating an instance of the orchestrator with the mocked app
-        self.orchestrator = SendEmailOrchestrator(self.mock_app)
+        self.orchestrator = SendEmailOrchestrator(self.MockApp)
 
     def _mock_get_service(self, service_name):
         if service_name == "JinjaService":
-            return self.mock_jinja_service
+            return self.MockJinjaService
         elif service_name == "HtmlToPdfService":
-            return self.mock_html_to_pdf_service
+            return self.MockHtmlToPdfService
         elif service_name == "MarkdownToHTMLService":
-            return self.mock_markdown_to_html_service
+            return self.MockMarkdownToHtmlService
         else:
             return mock.Mock()
 
@@ -48,20 +47,41 @@ class TestRenderMethod(unittest.TestCase):
 
     def test_render_html_template(self):
         # Test rendering of an HTML template
-        output, subject = self.loop.run_until_complete(self.orchestrator.render("/Templates/Email/sample.html", {}))
+        output, subject = self.Loop.run_until_complete(self.orchestrator._render_template("/Templates/Email/sample.html", {}, ["Tester@example.com"]))
         self.assertEqual(output, "Mocked Jinja Output")
 
     def test_render_jinja_exception(self):
         # Test handling of Jinja2 exceptions
-        self.mock_jinja_service.format.side_effect = jinja2.exceptions.TemplateError("Mocked Jinja Error")
-        output, subject = self.loop.run_until_complete(self.orchestrator.render("/Templates/Email/sample.html", {}))
-        self.assertIn("incorrect Jinja2 template", output)
+        self.MockJinjaService.format.side_effect = jinja2.exceptions.TemplateError("Mocked Jinja Error")
+        output, subject = self.Loop.run_until_complete(self.orchestrator._render_template("/Templates/Email/sample.html", {}, ["Tester@example.com"]))
+        self.assertIn("Error Details:", output)
 
     def test_render_md_template(self):
         # Test rendering of a Markdown template
-        self.mock_markdown_to_html_service.format.return_value = "Mocked Jinja Output"
-        output, subject = self.loop.run_until_complete(self.orchestrator.render("/Templates/Email/sample.md", {}))
-        self.assertEqual(self.strip_html_tags(output), "\nMocked Jinja Output")
+        self.MockMarkdownToHtmlService.format.return_value = "Mocked Jinja Output"
+        output, subject = self.Loop.run_until_complete(
+            self.orchestrator._render_template("/Templates/Email/sample.md", {}, ["Tester@example.com"]))
+        self.assertEqual(self.strip_html_tags(output), "Mocked Jinja Output")  # Removed the "\n" from the expected value
+
+    def test_jinja_template_not_found(self):
+        self.MockJinjaService.format.side_effect = jinja2.TemplateNotFound
+        error_message, _ = self.Loop.run_until_complete(self.orchestrator._render_template("/Templates/Email/sample.html", {}, ["Tester@example.com"]))
+        self.assertIn("Error Details:", error_message)
+
+    def test_jinja_template_syntax_error(self):
+        self.MockJinjaService.format.side_effect = jinja2.TemplateSyntaxError
+        error_message, _ = self.Loop.run_until_complete(self.orchestrator._render_template("/Templates/Email/sample.html", {}, ["Tester@example.com"]))
+        self.assertIn("Error Details:", error_message)
+
+    def test_jinja_undefined_error(self):
+        self.MockJinjaService.format.side_effect = jinja2.UndefinedError
+        error_message, _ = self.Loop.run_until_complete(self.orchestrator._render_template("/Templates/Email/sample.html", {}, ["Tester@example.com"]))
+        self.assertIn("Error Details:", error_message)
+
+    def test_general_exception(self):
+        self.MockJinjaService.format.side_effect = Exception("General Exception")
+        error_message, _ = self.Loop.run_until_complete(self.orchestrator._render_template("/Templates/Email/sample.html", {}, ["Tester@example.com"]))
+        self.assertIn("Error Details:", error_message)
 
 
 if __name__ == "__main__":

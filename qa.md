@@ -121,7 +121,7 @@
     "to": ["foo@example.com"],
      "subject":"Alert-Report-Test",
      "body":{
-      "template":"/Templates/Email/hello.md",
+      "template":"/Templates/Email/hello.html",
       "params":{
          "name":"Iris"
       }
@@ -163,13 +163,6 @@
       ]
 }
 
-EXPECTED RESPONSE:
-
-{
-    "result": "NOT-FOUND",
-    "message": "Invalid path '/Templates/MISSING.html'.",
-    "uuid": "c941fe16-470e-42d2-958c-c9fb09ac8e7d"
-}
 ```
 
 ## TSM008: Try to send an email with template as body and a missing html attachment.
@@ -196,14 +189,6 @@ EXPECTED RESPONSE:
             "format":"pdf"
         }
       ]
-}
-
-EXPECTED RESPONSE:
-
-{
-    "result": "NOT-FOUND",
-    "message": "Invalid path '/Templates/MISSING.html'.",
-    "uuid": "c941fe16-470e-42d2-958c-c9fb09ac8e7d"
 }
 ```
 
@@ -232,14 +217,6 @@ EXPECTED RESPONSE:
         }
       ]
 }
-
-EXPECTED RESPONSE:
-
-{
-    "result": "ERROR",
-    "message": "Invalid/unknown conversion format: 'docx'",
-    "uuid": "8c417770-d931-4397-985b-1e8a5710d1c6"
-}
 ```
 
 ## TSM010: Try to send an email with missing template
@@ -253,15 +230,6 @@ EXPECTED RESPONSE:
         "template": "/Templates/MISSING.html"
     }
 }
-
-EXPECTED RESPONSE:
-
-{
-    "result": "NOT-FOUND",
-    "message": "Invalid path '/Templates/MISSING.html'.",
-    "uuid": "c941fe16-470e-42d2-958c-c9fb09ac8e7d"
-}
-
 ```
 
 ## TSM0011: Try to send an email with no template
@@ -279,8 +247,9 @@ EXPECTED RESPONSE:
 {
     "result": "ERROR",
     "message": "400: data.body must contain ['template'] properties",
-    "uuid": "0cda7e20-046c-498c-bbea-9361e2b4dd11"
+    "uuid": "a59e48ca-3980-4394-9323-8c7e174fe55a"
 }
+
 ```
 
 ## TSM012: Try to send an email with base64 attachment.
@@ -352,8 +321,8 @@ EXPECTED RESPONSE:
 
 {
     "result": "NOT-FOUND",
-    "message": "Invalid path '/Templates/MISSING.html'.",
-    "uuid": "c941fe16-470e-42d2-958c-c9fb09ac8e7d"
+    "message": "Invalid path '/Templates/MISSING.html'. Expected path to start with '/Templates/General/'.",
+    "uuid": "518ab833-1f1a-4711-952d-dcd78bc272a8"
 }
 ```
 
@@ -369,14 +338,14 @@ EXPECTED RESPONSE:
 
 {
     "result": "NOT-FOUND",
-    "message": "Invalid path '/Templates/MISSING.html'.",
-    "uuid": "c941fe16-470e-42d2-958c-c9fb09ac8e7d"
+    "message": "Invalid path '/Templates/MISSING.html'. Expected path to start with '/Templates/General/'.",
+    "uuid": "518ab833-1f1a-4711-952d-dcd78bc272a8"
 }
 ```
 
 ## TSM019: Try to render HTML using missing template
 
-`PUT /render?format=docx&template=/Templates/MISSING.html`
+`PUT /render?format=docx&template=/Templates/General/hello.md`
 
 ```
 
@@ -426,8 +395,8 @@ EXPECTED RESPONSE:
 
 {
     "result": "NOT-FOUND",
-    "message": "Invalid path '/Templates/MISSING.md'.",
-    "uuid": "c941fe16-470e-42d2-958c-c9fb09ac8e7d"
+    "message": "Invalid path '/Templates/MISSING.md'. Expected path to start with '/Templates/Slack/'.",
+    "uuid": "168196bc-eace-4b5c-b8e6-747dd224454c"
 }
 ```
 

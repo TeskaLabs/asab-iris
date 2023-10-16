@@ -32,10 +32,7 @@ asab.Config.add_defaults({
 	"web": {
 		"listen": 8896,  # Well-known port of asab iris
 		"body_max_size": 31457280  # maximum size of the request body that the web server can handle.
-	},
-	"jinja": {
-		"failsafe": True  # enable failsafe mechanism
-	},
+	}
 })
 
 
