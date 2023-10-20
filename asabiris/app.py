@@ -4,6 +4,7 @@ import asab
 import asab.web.rest
 import asab.zookeeper
 import asab.library
+import asab.metrics
 
 # formatters
 from .formatter.jinja import JinjaFormatterService
@@ -29,7 +30,9 @@ L = logging.getLogger(__name__)
 
 asab.Config.add_defaults({
 	"web": {
-	},
+		"listen": 8896,  # Well-known port of asab iris
+		"body_max_size": 31457280  # maximum size of the request body that the web server can handle.
+	}
 })
 
 
@@ -37,9 +40,9 @@ class IRISApplication(asab.Application):
 
 	def __init__(self, args=None):
 		super().__init__(args=args)
-
 		self.add_module(asab.web.Module)
 		self.add_module(asab.zookeeper.Module)
+		self.add_module(asab.metrics.Module)
 
 		# Locate the web service
 		self.WebService = self.get_service("asab.WebService")
@@ -48,6 +51,11 @@ class IRISApplication(asab.Application):
 			asab.web.rest.JsonExceptionMiddleware
 
 		)
+
+		# Initialize Sentry.io
+		if asab.Config.has_section("sentry"):
+			import asab.sentry as asab_sentry
+			self.SentryService = asab_sentry.SentryService(self)
 
 		# Initialize library service
 		self.LibraryService = asab.library.LibraryService(
@@ -68,14 +76,18 @@ class IRISApplication(asab.Application):
 
 		# output services
 		self.EmailOutputService = EmailOutputService(self)
-		self.SlackOutputService = SlackOutputService(self)
-		self.MSTeamsOutputService = MSTeamsOutputService(self)
+
+		if 'slack' in asab.Config.sections():
+			self.SlackOutputService = SlackOutputService(self)
+			self.SendSlackOrchestrator = SendSlackOrchestrator(self)
+
+		if 'msteams' in asab.Config.sections():
+			self.MSTeamsOutputService = MSTeamsOutputService(self)
+			self.SendMSTeamsOrchestrator = SendMSTeamsOrchestrator(self)
 
 		# Orchestrators
 		self.SendEmailOrchestrator = SendEmailOrchestrator(self)
 		self.RenderReportOrchestrator = RenderReportOrchestrator(self)
-		self.SendSlackOrchestrator = SendSlackOrchestrator(self)
-		self.SendMSTeamsOrchestrator = SendMSTeamsOrchestrator(self)
 
 		self.WebHandler = WebHandler(self)
 

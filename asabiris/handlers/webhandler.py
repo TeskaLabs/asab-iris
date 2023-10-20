@@ -12,7 +12,7 @@ from ..schemas.slackschema import slack_schema
 from ..schemas.teamsschema import teams_schema
 
 from ..exceptions import SMTPDeliverError, PathError, FormatError
-
+import slack_sdk.errors
 #
 
 L = logging.getLogger(__name__)
@@ -156,6 +156,8 @@ class WebHandler(object):
 		except FormatError as e:
 			raise aiohttp.web.HTTPBadRequest(text="{}".format(e))
 
+		except slack_sdk.errors.SlackApiError as e:
+			raise aiohttp.web.HTTPServiceUnavailable(text="{}".format(e))
 		# More specific exception handling goes here so that the service provides nice output
 
 		return asab.web.rest.json_response(request, {"result": "OK"})

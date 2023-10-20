@@ -9,14 +9,8 @@ import asab
 
 from ...output_abc import OutputABC
 
-L = logging.getLogger(__name__)
 
-asab.Config.add_defaults(
-	{
-		'slack': {
-			"channel": "general",
-		}
-	})
+L = logging.getLogger(__name__)
 
 
 class SlackOutputService(asab.Service, OutputABC):
@@ -78,4 +72,4 @@ class SlackOutputService(asab.Service, OutputABC):
 						initial_comment=initial_comment
 					)
 		except SlackApiError as e:
-			raise SlackApiError("Failed to send message: {}".format(e))
+			raise SlackApiError("Error sending Slack message: " + e.response['error'], 401)
