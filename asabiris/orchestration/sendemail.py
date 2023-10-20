@@ -122,7 +122,7 @@ class SendEmailOrchestrator:
             jinja_output = await self.Services['JinjaService'].format(template, params)
             return self._process_template_output(jinja_output, os.path.splitext(template)[1])
         except (PathError, jinja2.TemplateNotFound, jinja2.TemplateSyntaxError, jinja2.UndefinedError, Exception) as e:
-            L.exception("Exception occurred while rendering template {}: {}".format(template, str(e)))
+            L.warning("Exception occurred while rendering template {}: {}".format(template, str(e)))
             error_message, error_subject = self._generate_error_message(str(e))
             return error_message, error_subject
 
@@ -187,7 +187,7 @@ class SendEmailOrchestrator:
         try:
             timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         except Exception as date_err:
-            L.exception("Error generating timestamp: {}".format(date_err))
+            L.warning("Error generating timestamp: {}".format(date_err))
             timestamp = "Unknown"
 
         try:
@@ -195,12 +195,11 @@ class SendEmailOrchestrator:
                 "Hello!<br><br>"
                 "We encountered an issue while processing your request: <b>{}</b><br>"
                 "Please review your input and try again.<br><br>"
-                "Thank you!<br><br>Error Details:<br><pre style='font-family: monospace;'>"
-                "Timestamp: {}\n</pre>"
+                "Timestamp: {}<br></pre>"  # Added a <br> here for a new line in HTML
                 "<br>Best regards,<br>Your Team"
             ).format(specific_error, timestamp)
         except Exception as format_err:
-            L.exception("Error formatting the error message: {}".format(format_err))
+            L.warning("Error formatting the error message: {}".format(format_err))
             error_message = (
                 "Hello!<br><br>"
                 "We encountered an issue while processing your request. "

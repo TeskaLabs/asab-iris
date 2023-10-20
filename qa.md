@@ -192,7 +192,7 @@
 }
 ```
 
-## TSM009: Try to send an email with template as body and a missing html attachment.
+## TSM009: Try to send an email with template as body and a docx attachment.
     
 
 `PUT /send_mail`
@@ -209,7 +209,7 @@
    },
     "attachments":[
         {
-            "template":"/Templates/MISSING.html",
+            "template":"/Templates/Email/hello.md",
             "params":{
                 "name":"Iris"
             },       

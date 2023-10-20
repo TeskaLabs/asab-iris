@@ -14,7 +14,7 @@ class PathError(Exception):
 		if message is not None:
 			super().__init__(message, *args)
 		elif invalid_path is not None:
-			message = "Invalid path '{}'. Expected path to start with '/Templates/{}/'.".format(invalid_path, use_case)
+			message = "The entered path '{}' is not correct. Please move your files to '/Templates/{}/'.".format(invalid_path, use_case)
 			super().__init__(message, *args)
 		else:
 			super().__init__(message, *args)
