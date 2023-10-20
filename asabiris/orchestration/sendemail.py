@@ -187,7 +187,7 @@ class SendEmailOrchestrator:
         try:
             timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         except Exception as date_err:
-            L.exception("Error generating timestamp: {}".format(date_err))
+            L.warning("Error generating timestamp: {}".format(date_err))
             timestamp = "Unknown"
 
         try:
@@ -199,7 +199,7 @@ class SendEmailOrchestrator:
                 "<br>Best regards,<br>Your Team"
             ).format(specific_error, timestamp)
         except Exception as format_err:
-            L.exception("Error formatting the error message: {}".format(format_err))
+            L.warning("Error formatting the error message: {}".format(format_err))
             error_message = (
                 "Hello!<br><br>"
                 "We encountered an issue while processing your request. "
