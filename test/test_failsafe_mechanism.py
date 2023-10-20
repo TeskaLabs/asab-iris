@@ -54,7 +54,8 @@ class TestRenderMethod(unittest.TestCase):
         # Test handling of Jinja2 exceptions
         self.MockJinjaService.format.side_effect = jinja2.exceptions.TemplateError("Mocked Jinja Error")
         output, subject = self.Loop.run_until_complete(self.orchestrator._render_template("/Templates/Email/sample.html", {}))
-        self.assertIn("Error Details:", output)
+        self.assertIn("We encountered an issue", output)
+
 
     def test_render_md_template(self):
         # Test rendering of a Markdown template
@@ -66,22 +67,22 @@ class TestRenderMethod(unittest.TestCase):
     def test_jinja_template_not_found(self):
         self.MockJinjaService.format.side_effect = jinja2.TemplateNotFound
         error_message, _ = self.Loop.run_until_complete(self.orchestrator._render_template("/Templates/Email/sample.html", {}))
-        self.assertIn("Error Details:", error_message)
+        self.assertIn("We encountered an issue", error_message)
 
     def test_jinja_template_syntax_error(self):
         self.MockJinjaService.format.side_effect = jinja2.TemplateSyntaxError
         error_message, _ = self.Loop.run_until_complete(self.orchestrator._render_template("/Templates/Email/sample.html", {}))
-        self.assertIn("Error Details:", error_message)
+        self.assertIn("We encountered an issue", error_message)
 
     def test_jinja_undefined_error(self):
         self.MockJinjaService.format.side_effect = jinja2.UndefinedError
         error_message, _ = self.Loop.run_until_complete(self.orchestrator._render_template("/Templates/Email/sample.html", {}))
-        self.assertIn("Error Details:", error_message)
+        self.assertIn("We encountered an issue", error_message)
 
     def test_general_exception(self):
         self.MockJinjaService.format.side_effect = Exception("General Exception")
         error_message, _ = self.Loop.run_until_complete(self.orchestrator._render_template("/Templates/Email/sample.html", {}))
-        self.assertIn("Error Details:", error_message)
+        self.assertIn("We encountered an issue", error_message)
 
 
 if __name__ == "__main__":
