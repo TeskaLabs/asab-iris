@@ -76,7 +76,7 @@ class JinjaFormatterService(asab.Service, FormatterABC):
         # Read the template from the specified template_path
         template_io = await self.App.LibraryService.read(template_path)
         if template_io is None:
-            raise PathError(f"Template '{template_path}' not found")
+            raise PathError("Template '{}' not found".format(template_path))
 
         # Create a Jinja2 template from the read content
         template = jinja2.Template(template_io.read().decode('utf-8'))
