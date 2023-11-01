@@ -17,11 +17,28 @@ class CaseInsensitiveDict(dict):
     """
     A dictionary subclass that provides case-insensitive access to its keys.
     """
+    def __setitem__(self, key, value):
+        super().__setitem__(key.upper(), value)
+
     def __getitem__(self, key):
         return super().__getitem__(key.upper())
 
     def get(self, key, default=None):
         return super().get(key.upper(), default)
+
+    def setdefault(self, key, default=None):
+        return super().setdefault(key.upper(), default)
+
+    def update(self, other=None, **kwargs):
+        if other is not None:
+            for key, value in other.items():
+                self[key] = value
+        for key, value in kwargs.items():
+            self[key] = value
+
+    def __contains__(self, key):
+        return super().__contains__(key.upper())
+
 
 
 class JinjaFormatterService(asab.Service, FormatterABC):
