@@ -1,16 +1,15 @@
-# 🌟 ASAB Iris 🌟
+# ASAB Iris
 
-Welcome to ASAB Iris, your go-to multifunctional messenger microservice, shining bright in the world of automated document rendering and message dispatching across various communication channels! 🚀
+Welcome to ASAB Iris, your go-to multifunctional messenger microservice, designed for automated *document rendering* and message dispatching across various communication channels!
 
-## 🎯 Use Cases
+## Use Cases
 
 ### 📧 1. Sending Emails
 
 **Overview:**
 - Craft beautiful emails with templates using Jinja, Markdown, or HTML.
-- Personalize recipient details or go with default configurations - the world is your oyster!
-- Subjects? Write your own or let ASAB Iris pick up the vibes from the email body.
-- Kick things off through a web handler or an Apache Kafka message - flexibility is key!
+- Personalize recipient details or go with default configurations.
+- Trigger them through a web handler or an Apache Kafka message - flexibility is key!
 
 **Configuration:**
 ```ini
@@ -23,20 +22,22 @@ ssl=no
 starttls=yes
 subject=Mail from ASAB Iris
 ```
-**Explanation:**
-- `host`: Your SMTP server's address, where all the magic starts.
-- `user`: The magician's name (well, your username for the SMTP server).
-- `password`: The magic word (a.k.a. your super-secret password).
-- `from`: Your wizard's alias (the default "From" address for your emails).
-- `ssl`: A spell to encrypt your messages (yes/no for SSL).
-- `starttls`: Another incantation for security (yes/no for STARTTLS).
-- `subject`: The default subject line - because even magicians need intros!
 
-### 🚨 2. Sending Slack Alerts
+**Explanation:**
+- `host`: Your SMTP server's address.
+- `user`: Your username for the SMTP server.
+- `password`: Your super-secret password.
+- `from`: The default "From" address for your emails.
+- `ssl`: `yes`/`no` for SSL, depends on the SMTP server.
+- `starttls`: `yes`/`no` for STARTTLS, depends on the SMTP server.
+- `subject`: The default subject line, if not provided by a caller or a template.
+
+### 🚨 2. Sending Slack messages
 
 **Overview:**
-- Consume messages like a pro from a Kafka topic, retrieving templates with ASAB's library.
-- Send out those alert messages via HTTP REST API, all jazzed up with your rendered templates.
+- Send messages to a Slack via HTTP REST API or thru Kafka Topic
+- Apply Jinja2 templates.
+- Trigger them through a web handler or an Apache Kafka message - flexibility is key!
 
 **Configuration:**
 ```ini
@@ -45,71 +46,46 @@ token=xoxb-111111111111-2222222222222-3333333333333voe
 channel=general
 ```
 **Explanation:**
-- `token`: Your secret key to the Slack kingdom (OAuth access token).
-- `channel`: Your default court for heralding messages (Slack channel).
+- `token`: Your Slack OAuth access token.
+- `channel`: The Slack channel you want to send messages to.
 
-### 📬 3. Creating an Incoming Webhook for Outlook
+### 📬 3. Sending Microsoft Teams messages
 
 **Overview:**
-- Dive into Outlook settings and whip up a new webhook.
-- Set the stage with your webhook URL and chosen acts (triggers).
-- Tweak the settings to your heart's content and let the show begin!
+- Send messages to a Microsoft Teams via HTTP REST API or thru Kafka Topic
+- Apply Jinja2 templates.
+- Trigger them through a web handler or an Apache Kafka message - flexibility is key!
 
 **Configuration:**
 ```ini
 [outlook]
 webhook_url=https://outlook.office.com/webhook/...
 ```
+
 **Explanation:**
-- `webhook_url`: The stage door (your webhook URL provided by Outlook).
+- `webhook_url`: Your webhook URL.
+
 
 ## 🛠 Supported Technologies
-- HTTP REST API (for all your webby needs)
-- Apache Kafka (bringing async requests into the mix)
-- Email (SMTP for outgoing mails, because retro is cool)
-- Slack (for when you need to slide into those DMs)
-- Jinja2, Markdown, and HTML (templating galore)
-- PDF (making sure your docs are picture-perfect)
+- Inbound: HTTP REST API
+- Inbound: Apache Kafka
+- Jinja2 for template specifications
+- Markdown for templates
+- HTML for templates and the output
+- PDF for the output
+- Output: Email SMTP
+- Output: Slack
+- Output: Microsoft Teams
 - Powered by [ASAB](https://github.com/TeskaLabs/asab) (because we’re standing on the shoulders of giants)
 
-## 📚 Documentation
-Dive deep into the knowledge ocean with our [detailed documentation](https://teskalabs.github.io/asab-iris/).
+## 📚 More info
 
-## 🏛 Architecture
-Behold the blueprint of greatness: ![ASAB Iris Architecture](./docs/asab-iris-architecture.drawio.svg)
+* [Documentation](https://teskalabs.github.io/asab-iris/).
 
-## 🧙‍♂️ Example Configuration
+Architecture: 
 
-```ini
-[library]
-providers=./library
+![Architecture](./docs/asab-iris-architecture.drawio.svg)
 
-[web]
-listen=:8080
-
-[smtp]
-host=smtp.example.com
-user=admin
-password=secret
-from=info@example.com
-ssl=no
-starttls=yes
-subject=Mail from ASAB Iris
-
-[slack]
-token=xoxb-111111111111-2222222222222-3333333333333voe
-channel=general
-
-[msteams]
-webhook_url=https://teskalabscom.webhook.office.com/...
-```
-**Explanation:**
-- `[library]`: The sacred scrolls (configuration related to the ASAB library).
-  - `providers`: The path to wisdom (your library location).
-- `[web]`: Your digital storefront (web interface configuration).
-  - `listen`: Ears to the digital ground (where ASAB Iris listens for HTTP requests).
-- `[msteams]`: For when you need to rally the troops on Microsoft Teams.
-  - `webhook_url`: Your bat-signal (webhook URL for MS Teams).
 
 ## 🎨 Template Storage and Usage
 
