@@ -1,5 +1,6 @@
 import logging
 import asab
+import re
 import configparser
 import collections
 import jinja2
@@ -8,7 +9,6 @@ import os
 
 from ...exceptions import PathError
 from ...formater_abc import FormatterABC
-from ... import utils
 
 L = logging.getLogger(__name__)
 
@@ -64,25 +64,68 @@ class JinjaFormatterService(asab.Service, FormatterABC):
             with open(json_path, 'r') as json_file:
                 json_data = {k.upper(): v for k, v in json.load(json_file).items()}
                 self.Variables.update(json_data)  # This will overwrite any conflicting keys from the config
-
+                print(self.Variables)
         self.Variables = CaseInsensitiveDict(self.Variables)
 
+        print(self.Variables)
     async def format(self, template_path, template_params):
-        # Convert template_params to be case-insensitive
-        template_params = CaseInsensitiveDict(template_params)
+        # Normalize template_params keys to uppercase for internal handling
+        template_params = CaseInsensitiveDict({k.upper(): v for k, v in template_params.items()})
 
         # Combine the provided template_params with the loaded Variables
+        # Ensure that the ChainMap uses CaseInsensitiveDict to maintain case insensitivity
         jinja_variables = collections.ChainMap(template_params, self.Variables)
+
         # Read the template from the specified template_path
         template_io = await self.App.LibraryService.read(template_path)
         if template_io is None:
-            raise PathError("Template '{}' not found".format(template_path))
+            raise PathError(use_case='slack', invalid_path=template_path)
 
         # Create a Jinja2 template from the read content
-        template = jinja2.Template(template_io.read().decode('utf-8'))
+        template_content = template_io.read().decode('utf-8')
+        template = jinja2.Template(template_content)
 
         # Convert keys with dot notation into nested dictionaries
-        template_params = utils.create_nested_dict_from_dots_in_keys(jinja_variables)
+        # Ensure that the nested dictionary is also case-insensitive
+        nested_template_params = create_nested_dict_from_dots_in_keys(jinja_variables)
 
-        # Render the template with the combined variables
-        return template.render(**template_params)
+        # Prepare the parameters for rendering by matching the case of the template placeholders
+        # We need to extract the placeholders from the template content
+        placeholders = set(re.findall(r'\{\{\s*(\w+)\s*\}\}', template_content))
+        rendering_params = {
+            placeholder: nested_template_params.get(placeholder.upper())
+            for placeholder in placeholders
+        }
+
+        # Render the template with the parameters that match the placeholders' case
+        rendered_template = template.render(rendering_params)
+        return rendered_template
+
+def create_nested_dict_from_dots_in_keys(data):
+    """
+    This function creates a nested dictionary from a dictionary with keys containing dots.
+    It uses a stack to keep track of dictionaries that need to be processed, avoiding recursion.
+    """
+
+    def insert_nested_dict(keys, value, nested_dict):
+        for key in keys[:-1]:
+            key = key.upper()  # Convert to uppercase for case-insensitivity
+            nested_dict = nested_dict.setdefault(key, CaseInsensitiveDict())
+        nested_dict[keys[-1].upper()] = value  # Convert to uppercase for case-insensitivity
+
+    nested_dict = CaseInsensitiveDict()
+    stack = [(list(data.items()), nested_dict)]
+
+    while stack:
+        current_data, current_dict = stack.pop()
+        for key, value in current_data:
+            keys = key.split('.')
+            keys = [k.upper() for k in keys]  # Convert all parts to uppercase
+            if isinstance(value, dict):
+                new_dict = CaseInsensitiveDict()
+                stack.append((list(value.items()), new_dict))
+                insert_nested_dict(keys, new_dict, current_dict)
+            else:
+                insert_nested_dict(keys, value, current_dict)
+
+    return nested_dict
