@@ -24,7 +24,7 @@ class SlackOutputService(asab.Service, OutputABC):
 			self.Channel = asab.Config.get("slack", "channel")
 
 		except configparser.NoOptionError as e:
-			L.error("Please provide webhook_url in slack configuration section.")
+			L.error("Please provide token and channel in slack configuration section.")
 			raise e
 
 		except configparser.NoSectionError:
