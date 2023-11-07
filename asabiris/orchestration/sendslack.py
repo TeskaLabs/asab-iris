@@ -22,11 +22,10 @@ class SendSlackOrchestrator(object):
 	def __init__(self, app):
 		# formatters
 		self.JinjaService = app.get_service("JinjaService")
-		self.HtmlToPdfService = app.get_service("HtmlToPdfService")
-		self.MarkdownToHTMLService = app.get_service("MarkdownToHTMLService")
+
 		# output service
 		self.SlackOutputService = app.get_service("SlackOutputService")
-		# location of slack templates
+
 
 	async def send_to_slack(self, msg):
 		try:
@@ -36,15 +35,35 @@ class SendSlackOrchestrator(object):
 			return
 
 		body = msg['body']
-		attachments = msg.get("attachments", [])
+		template = body["template"]
+		attachments = msg.get("attachments", None)
 		# if params no provided pass empty params
 		# - primarily use absolute path - starts with "/"
-		# - if absolute path is used, check it start with "/Templates"
+		# - if absolute path is used, check it start with "/Templates/Slack"
 		# - if it is not absolute path, it is file name - assume it's a file in Templates folder
 
 		# templates must be stores in /Templates/Slack
-		if not body['template'].startswith("/Templates/Slack/"):
-			raise PathError(use_case='Slack', invalid_path=body['template'])
+		if not template.startswith("/Templates/Slack/"):
+			raise PathError(use_case='Slack', invalid_path=template)
+
+		if attachments is None:
+			# No attachments provided, send the message as a block
+			params = body.get("params", {})
+			output = await self.JinjaService.format(template, params)
+
+			# See https://api.slack.com/reference/block-kit/blocks
+			blocks = [
+				{
+					"type": "section",
+					"text": {
+						"type": "mrkdwn" if template.endswith('.md') else "plain_text",
+						"text": output
+					}
+				}
+			]
+			await self.SlackOutputService.send_message(blocks)
+			return
+
 
 		atts = []
 
@@ -100,6 +119,7 @@ class SendSlackOrchestrator(object):
 
 		return jinja_output
 
+
 	def get_file_name(self, attachment):
 		"""
 		This method returns a file-name if provided in the attachment-dict.
@@ -111,6 +131,7 @@ class SendSlackOrchestrator(object):
 			return "att-" + now + "." + attachment.get('format')
 		else:
 			return attachment.get('filename')
+
 
 	def get_content_type(self, file_extension):
 		"""

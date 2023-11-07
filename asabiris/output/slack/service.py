@@ -14,19 +14,49 @@ L = logging.getLogger(__name__)
 
 
 class SlackOutputService(asab.Service, OutputABC):
+
 	def __init__(self, app, service_name="SlackOutputService"):
 		super().__init__(app, service_name)
+
 		try:
 			self.SlackWebhookUrl = asab.Config.get("slack", "token")
 			self.Client = WebClient(token=self.SlackWebhookUrl)
 			self.Channel = asab.Config.get("slack", "channel")
+
 		except configparser.NoOptionError as e:
 			L.error("Please provide webhook_url in slack configuration section.")
 			raise e
+
 		except configparser.NoSectionError:
 			self.SlackWebhookUrl = None
 
-	async def send(self, body: str, atts: List[Tuple[bytes, str, str]]) -> None:
+
+	async def send_message(self, blocks) -> None:
+		"""
+		Sends a message to a Slack channel.
+
+		See https://api.slack.com/methods/chat.postMessage
+
+		"""
+
+		if self.Channel is None:
+			raise ValueError("Cannot send message to Slack. Reason: Missing Slack channel")
+
+		if self.SlackWebhookUrl is None:
+			raise ValueError("Cannot send message to Slack. Reason: Missing Webhook URL or token")
+
+		try:
+			# TODO: This could be a blocking operation, launch it in the proactor service
+			self.Client.chat_postMessage(
+				channel=self.Channel,
+				blocks=blocks
+			)
+		except SlackApiError as e:
+			raise SlackApiError("Error sending Slack message: " + e.response['error'], 401)
+
+
+
+	async def send_files(self, body: str, atts: List[Tuple[bytes, str, str]]) -> None:
 		"""
 		Sends a message to a Slack channel with optional attachments.
 
@@ -43,33 +73,27 @@ class SlackOutputService(asab.Service, OutputABC):
 		if self.Channel is None:
 			raise ValueError("Cannot send message to Slack. Reason: Missing Slack channel")
 
-		if not self.SlackWebhookUrl:
-			return
+		if self.SlackWebhookUrl is None:
+			raise ValueError("Cannot send message to Slack. Reason: Missing Webhook URL or token")
 
 		try:
-			if len(atts) == 0:
-				self.Client.chat_postMessage(
-					channel=self.Channel,
-					text=body
-				)
-			else:
-				for i, attachment in enumerate(atts):
-					file_content = attachment[0].encode('utf-8') if not isinstance(attachment[0], bytes) else attachment[0]
-					file_obj = BytesIO(file_content)
-					if i == 0:
-						# For the last iteration, set initial comment to body
-						initial_comment = body
-					else:
-						# For other iterations, set initial comment to None
-						initial_comment = None
+			for i, attachment in enumerate(atts):
+				file_content = attachment[0].encode('utf-8') if not isinstance(attachment[0], bytes) else attachment[0]
+				file_obj = BytesIO(file_content)
+				if i == 0:
+					# For the last iteration, set initial comment to body
+					initial_comment = body
+				else:
+					# For other iterations, set initial comment to None
+					initial_comment = None
 
-					self.Client.files_upload(
-						channels=self.Channel,
-						file=file_obj,
-						filetype=attachment[1],
-						filename=attachment[2],
-						title=attachment[2],
-						initial_comment=initial_comment
-					)
+				self.Client.files_upload(
+					channels=self.Channel,
+					file=file_obj,
+					filetype=attachment[1],
+					filename=attachment[2],
+					title=attachment[2],
+					initial_comment=initial_comment
+				)
 		except SlackApiError as e:
 			raise SlackApiError("Error sending Slack message: " + e.response['error'], 401)

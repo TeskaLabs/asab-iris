@@ -29,7 +29,7 @@ class WebHandler(object):
 		web_app.router.add_put(r"/send_email", self.send_email)
 		web_app.router.add_put(r"/send_mail", self.send_email)  # This one is for backward compatibility
 		web_app.router.add_put(r"/render", self.render)
-		web_app.router.add_put(r"/send_slack", self.send_alert)
+		web_app.router.add_put(r"/send_slack", self.send_slack)
 		web_app.router.add_put(r"/send_msteams", self.send_msteams)
 
 
@@ -123,8 +123,9 @@ class WebHandler(object):
 		# More specific exception handling goes here so that the service provides nice output
 		return asab.web.rest.json_response(request, {"result": "OK"})
 
+
 	@asab.web.rest.json_schema_handler(slack_schema)
-	async def send_alert(self, request, *, json_data):
+	async def send_slack(self, request, *, json_data):
 		"""
 		This endpoint is for sending slack-notification.
 		```
@@ -135,7 +136,7 @@ class WebHandler(object):
 		{
 			"type": "slack",
 			"body": {
-				"template": "/Templates/Slack/alert.md",
+				"template": "/Templates/Slack/message.md",
 				"params": {
 					"Name": "Toddy Siciro"
 			}
@@ -161,6 +162,7 @@ class WebHandler(object):
 		# More specific exception handling goes here so that the service provides nice output
 
 		return asab.web.rest.json_response(request, {"result": "OK"})
+
 
 	@asab.web.rest.json_schema_handler(teams_schema)
 	async def send_msteams(self, request, *, json_data):
