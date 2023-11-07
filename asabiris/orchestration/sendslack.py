@@ -87,12 +87,8 @@ class SendSlackOrchestrator(object):
 		"""
 		This method renders templates based on the depending on the
 		extension of template.
-
-		Returns the html and optional subject line if found in the templat.
-
-		jinja_output will be used for extracting subject.
 		"""
-		# templates must be stores in /Templates/Emails
+		# templates must be stores in /Templates/Slack
 		if not template.startswith("/Templates/Slack/"):
 			raise PathError(path=template)
 
