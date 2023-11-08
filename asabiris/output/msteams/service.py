@@ -15,7 +15,7 @@ L = logging.getLogger(__name__)
 
 
 class MSTeamsOutputService(asab.Service, OutputABC):
-	
+
 	def __init__(self, app, service_name="MSTeamsOutputService"):
 		super().__init__(app, service_name)
 		try:
