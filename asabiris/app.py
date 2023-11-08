@@ -80,10 +80,14 @@ class IRISApplication(asab.Application):
 		if 'slack' in asab.Config.sections():
 			self.SlackOutputService = SlackOutputService(self)
 			self.SendSlackOrchestrator = SendSlackOrchestrator(self)
+		else:
+			self.SendSlackOrchestrator = None
 
 		if 'msteams' in asab.Config.sections():
 			self.MSTeamsOutputService = MSTeamsOutputService(self)
 			self.SendMSTeamsOrchestrator = SendMSTeamsOrchestrator(self)
+		else:
+			self.SendMSTeamsOrchestrator = None
 
 		# Orchestrators
 		self.SendEmailOrchestrator = SendEmailOrchestrator(self)

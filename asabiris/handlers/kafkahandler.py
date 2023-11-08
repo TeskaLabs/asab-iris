@@ -22,8 +22,8 @@ class KafkaHandler(asab.Service):
 
 	# validate slack and email messages
 	ValidationSchemaMail = fastjsonschema.compile(email_schema)
-
 	ValidationSchemaSlack = fastjsonschema.compile(slack_schema)
+	# TODO: ValidationSchemaMSTeams = fastjsonschema.compile(msteams_schema)
 
 	def __init__(self, app, service_name="KafkaHandler"):
 		super().__init__(app, service_name)
@@ -83,7 +83,22 @@ class KafkaHandler(asab.Service):
 			except fastjsonschema.exceptions.JsonSchemaException as e:
 				L.warning("Invalid notification format: {}".format(e))
 				return
-			await self.send_to_slack(msg)
+			if self.App.SendSlackOrchestrator is not None:
+				await self.App.SendSlackOrchestrator.send_to_slack(msg)
+			else:
+				L.warning("Slack is not configured, a notification is discarded")
+
+		elif msg_type == "msteams":
+			# TODO: This ...
+			# try:
+			# 	KafkaHandler.ValidationSchemaMSTeams(msg)
+			# except fastjsonschema.exceptions.JsonSchemaException as e:
+			# 	L.warning("Invalid notification format: {}".format(e))
+			# 	return
+			if self.App.SendMSTeamsOrchestrator is not None:
+				await self.App.SendMSTeamsOrchestrator.send_to_msteams(msg)
+			else:
+				L.warning("MS Teams is not configured, a notification is discarded")
 
 		else:
 			L.warning("Message type '{}' not implemented.".format(msg_type))
@@ -98,7 +113,4 @@ class KafkaHandler(asab.Service):
 			email_from=json_data.get("from"),
 			body_params=json_data["body"].get("params", {}),  # Optional
 			attachments=json_data.get("attachments", []),  # Optional
-		)
-
-	async def send_to_slack(self, msg):
-		await self.App.SendSlackOrchestrator.send_to_slack(msg)
+		)		
