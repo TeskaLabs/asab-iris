@@ -45,14 +45,13 @@ class SendMSTeamsOrchestrator(object):
 			L.warning("Invalid notification format: {}".format(e))
 			return
 
-
 		body = msg['body']
-		if not body['template'].startswith("/Templates/MSTeams/"):
-			raise PathError(use_case='MSTeams', invalid_path=body['template'])
+		template = body["template"]
 
-		body["params"] = body.get("params", {})
-		output = await self.JinjaService.format(body["template"], body["params"])
+		if not template.startswith("/Templates/MSTeams/"):
+			raise PathError(use_case='MSTeams', invalid_path=template)
 
-		output_teams = {"title": msg["title"], 'text': output}
+		params = body.get("params", {})
+		output = await self.JinjaService.format(template, params)
 
-		return await self.MSTeamsOutputService.send(output_teams)
+		return await self.MSTeamsOutputService.send(output)
