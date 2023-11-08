@@ -6,12 +6,14 @@ Welcome to ASAB Iris, your go-to multifunctional messenger microservice, designe
 
 ### 📧 1. Sending Emails
 
-**Overview:**
+**Overview**
+
 - Craft beautiful emails with templates using Jinja, Markdown, or HTML.
 - Personalize recipient details or go with default configurations.
 - Trigger them through a web handler or an Apache Kafka message - flexibility is key!
 
-**Configuration:**
+**Configuration**
+
 ```ini
 [smtp]
 host=smtp.example.com
@@ -23,7 +25,8 @@ starttls=yes
 subject=Mail from ASAB Iris
 ```
 
-**Explanation:**
+**Explanation**
+
 - `host`: Your SMTP server's address.
 - `user`: Your username for the SMTP server.
 - `password`: Your super-secret password.
@@ -34,64 +37,80 @@ subject=Mail from ASAB Iris
 
 ### 🚨 2. Sending Slack messages
 
-**Overview:**
+**Overview**
+
 - Send messages to a Slack via HTTP REST API or thru Kafka Topic
 - Apply Jinja2 templates.
 - Trigger them through a web handler or an Apache Kafka message - flexibility is key!
 
-**Configuration:**
+**Configuration**
+
 ```ini
 [slack]
 token=xoxb-111111111111-2222222222222-3333333333333voe
 channel=general
 ```
-**Explanation:**
+**Explanation**
+
 - `token`: Your Slack OAuth access token.
 - `channel`: The Slack channel you want to send messages to.
 
-#### 🤖 Creating Xbot Tokens for Slack Apps
+#### 🤖 Creating Slack OAuth access token for Slack Apps
 
-##### Prerequisites:
-- A Slack workspace where you're the wizard of app creation.
-- A GitHub repository for your spell formulas.
+##### Prerequisites
 
-##### Steps:
+- A Slack workspace where you're the admin of app creation.
+
+##### Steps
+
 1. Visit the [Slack API website](https://api.slack.com/apps).
-2. "Create New App" - your wand for this journey.
+2. Select "Create New App".
 3. Name your app and choose its home (workspace).
-4. "Create App" and watch the magic happen!
-5. Configure "OAuth & Permissions" - your spell's components.
-6. Add the necessary scopes (e.g., `chat:write`, `files:write`).
-7. "Install to Workspace" - like choosing where to cast your spell.
-8. "Allow" - give your spell the go-ahead!
-9. Copy the OAuth access token (your xbot token , a.k.a. magic key).
+4. Select "Create App"
+5. Configure "OAuth & Permissions".
+6. Add the necessary scopes: `chat:write`, `files:write`, `files:read`, `channels:read`.
+7. Select "Install to Workspace".
+8. "Allow"
+9. Copy the OAuth access token.
 
-##### Adding the App to a Channel:
+Add following scopes for:
+
+* `groups:read`: for posting to private channels
+* `im:read`: for posting to direct messsages
+* `mpim:read`: for posting to group direct messages
+
+
+##### Adding the App to a Channel
+
 1. Choose a channel in your Slack workspace.
-2. Invite the app (summon it to your channel).
+2. Invite the app.
 3. Search for your app and select it.
-4. Confirm the addition (consent is key in magic!).
-5. Verify the app's presence (make sure the spell was cast correctly).
+4. Confirm the addition.
+5. Verify the app's presence.
 
 
 ### 📬 3. Sending Microsoft Teams messages
 
-**Overview:**
+**Overview**
+
 - Send messages to a Microsoft Teams via HTTP REST API or thru Kafka Topic
 - Apply Jinja2 templates.
 - Trigger them through a web handler or an Apache Kafka message - flexibility is key!
 
-**Configuration:**
+**Configuration**
+
 ```ini
 [outlook]
 webhook_url=https://outlook.office.com/webhook/...
 ```
 
-**Explanation:**
+**Explanation**
+
 - `webhook_url`: Your webhook URL.
 
 
 ## 🛠 Supported Technologies
+
 - Inbound: HTTP REST API
 - Inbound: Apache Kafka
 - Jinja2 for template specifications
