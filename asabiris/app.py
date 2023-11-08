@@ -10,6 +10,7 @@ import asab.metrics
 from .formatter.jinja import JinjaFormatterService
 from .formatter.markdown import MarkdownFormatterService
 from .formatter.pdf import PdfFormatterService
+from .formatter.attachments import AttachmentRenderingService
 
 # output
 from .output.smtp import EmailOutputService
@@ -73,6 +74,7 @@ class IRISApplication(asab.Application):
 		self.MarkdownFormatterService = MarkdownFormatterService(self)
 		self.PdfFormatterService = PdfFormatterService(self)
 		self.JinjaFormatterService = JinjaFormatterService(self)
+		self.AttachmentRenderingService = AttachmentRenderingService(self)
 
 		# output services
 		self.EmailOutputService = EmailOutputService(self)
