@@ -1,15 +1,15 @@
 import datetime
 import logging
 import mimetypes
-import fastjsonschema
-import os
-import base64
 
-from .. exceptions import PathError
+import fastjsonschema
+
+from ..exceptions import PathError
 from ..schemas import slack_schema
 
-L = logging.getLogger(__name__)
+#
 
+L = logging.getLogger(__name__)
 
 #
 
@@ -22,6 +22,8 @@ class SendSlackOrchestrator(object):
 	def __init__(self, app):
 		# formatters
 		self.JinjaService = app.get_service("JinjaService")
+		self.MarkdownFormatterService = app.get_service("MarkdownToHTMLService")
+		self.AttachmentRenderingService = app.get_service("AttachmentRenderingService")
 
 		# output service
 		self.SlackOutputService = app.get_service("SlackOutputService")
@@ -46,70 +48,46 @@ class SendSlackOrchestrator(object):
 		if not template.startswith("/Templates/Slack/"):
 			raise PathError(use_case='Slack', invalid_path=template)
 
+		params = body.get("params", {})
+		output = await self.JinjaService.format(template, params)
+
 		if attachments is None:
 			# No attachments provided, send the message as a block
-			params = body.get("params", {})
-			output = await self.JinjaService.format(template, params)
 
-			# See https://api.slack.com/reference/block-kit/blocks
-			blocks = [
-				{
-					"type": "section",
-					"text": {
-						"type": "mrkdwn" if template.endswith('.md') else "plain_text",
-						"text": output
+			if template.endswith('.md'):
+				# Translate output from markdown to plain text
+				fallback_message = self.MarkdownFormatterService.unformat(output)
+
+				# See https://api.slack.com/reference/block-kit/blocks
+				blocks = [
+					{
+						"type": "section",
+						"text": {
+							"type": "mrkdwn",
+							"text": output
+						}
 					}
-				}
-			]
-			await self.SlackOutputService.send_message(blocks)
+				]
+
+			else:
+				# This is a plain text Slack message
+				fallback_message = output
+				blocks = None
+
+			await self.SlackOutputService.send_message(blocks, fallback_message)
 			return
 
+		# Sending attachments
 
-		atts = []
-
-		for a in attachments:
-			# If there are 'template' we render 'template's' else we throw a sweet warning.
-			# If content-type is application/octet-stream we assume there is additional attachments in request else we raise bad-request error.
-			template = a.get('template', None)
-
-			if template is not None:
-				params = a.get('params', {})
-				# templates must be stores in /Templates/Slack
-				if not template.startswith("/Templates/Slack/"):
-					raise PathError(path=template)
-
-				# get file-name of the attachment
-				file_name = self.get_file_name(a)
-				jinja_output = await self.render(template, params)
-
-				_, node_extension = os.path.splitext(template)
-				content_type = self.get_content_type(node_extension)
-
-				atts.append((jinja_output, content_type, file_name))
-				continue
-
-			# If there is `base64` field, then the content of the attachment is provided in the body in base64
-			base64cnt = a.get('base64', None)
-			if base64cnt is not None:
-				content_type = a.get('content-type', "application/octet-stream")
-				file_name = self.get_file_name(a)
-				result = base64.b64decode(base64cnt)
-				atts.append((result, content_type, file_name))
-				continue
-
-		body["params"] = body.get("params", {})
-		output = await self.JinjaService.format(body["template"], body["params"])
-		await self.SlackOutputService.send(output, atts)
+		output = self.MarkdownFormatterService.unformat(output)
+		atts_gen = self.AttachmentRenderingService.render_attachment(attachments)
+		await self.SlackOutputService.send_files(output, atts_gen)
 
 
-	async def render(self, template, params):
+	async def render_attachment(self, template, params):
 		"""
-		This method renders templates based on the depending on the
-		extension of template.
+		This method renders attachment based on the depending on the extension of template.
 		"""
-		# templates must be stores in /Templates/Slack
-		if not template.startswith("/Templates/Slack/"):
-			raise PathError(path=template)
 
 		try:
 			jinja_output = await self.JinjaService.format(template, params)

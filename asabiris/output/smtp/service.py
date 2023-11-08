@@ -65,7 +65,7 @@ class EmailOutputService(asab.Service, OutputABC):
 		email_bcc=[],
 		email_subject=None,
 		email_from=None,
-		attachments=[]
+		attachments=None
 	):
 		"""
 		Send an outgoing email with the given parameters.
@@ -117,14 +117,15 @@ class EmailOutputService(asab.Service, OutputABC):
 			msg['From'] = sender = formatted_sender
 
 		# Add attachments
-		for content, content_type, file_name in attachments:
-			maintype, subtype = content_type.split('/', 1)
-			msg.add_attachment(
-				content,
-				maintype=maintype,
-				subtype=subtype,
-				filename=file_name
-			)
+		if attachments is not None:
+			async for attachment in attachments:
+				maintype, subtype = attachment.ContentType.split('/', 1)
+				msg.add_attachment(
+					attachment.Content.read(),
+					maintype=maintype,
+					subtype=subtype,
+					filename=attachment.FileName
+				)
 
 		# Send the result over SMTP
 		try:
@@ -139,6 +140,7 @@ class EmailOutputService(asab.Service, OutputABC):
 				use_tls=self.SSL,
 				start_tls=self.StartTLS
 			)
+
 		except aiosmtplib.errors.SMTPConnectError as e:
 			L.error("Connection failed: {}".format(e), struct_data={"host": self.Host, "port": self.Port})
 			raise SMTPDeliverError("SMTP delivery failed")
@@ -160,6 +162,7 @@ class EmailOutputService(asab.Service, OutputABC):
 			raise SMTPDeliverError("SMTP delivery failed")
 
 		L.log(asab.LOG_NOTICE, "Email sent", struct_data={'result': result[1], "host": self.Host})
+
 
 	def format_sender_info(self, email_info):
 		"""

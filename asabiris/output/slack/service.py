@@ -1,10 +1,8 @@
-import configparser
 import logging
-from io import BytesIO
+import configparser
 
 from slack_sdk import WebClient
-from slack_sdk.errors import SlackApiError
-from typing import List, Tuple
+
 import asab
 
 from ...output_abc import OutputABC
@@ -31,7 +29,7 @@ class SlackOutputService(asab.Service, OutputABC):
 			self.SlackWebhookUrl = None
 
 
-	async def send_message(self, blocks) -> None:
+	async def send_message(self, blocks, fallback_message) -> None:
 		"""
 		Sends a message to a Slack channel.
 
@@ -45,30 +43,19 @@ class SlackOutputService(asab.Service, OutputABC):
 		if self.SlackWebhookUrl is None:
 			raise ValueError("Cannot send message to Slack. Reason: Missing Webhook URL or token")
 
-		try:
-			# TODO: This could be a blocking operation, launch it in the proactor service
-			self.Client.chat_postMessage(
-				channel=self.Channel,
-				blocks=blocks
-			)
-		except SlackApiError as e:
-			raise SlackApiError("Error sending Slack message: " + e.response['error'], 401)
+		channel_id = self.get_channel_id(self.Channel)
+
+		# TODO: This could be a blocking operation, launch it in the proactor service
+		self.Client.chat_postMessage(
+			channel=channel_id,
+			text=fallback_message,
+			blocks=blocks
+		)
 
 
-
-	async def send_files(self, body: str, atts: List[Tuple[bytes, str, str]]) -> None:
+	async def send_files(self, body: str, atts_gen):
 		"""
-		Sends a message to a Slack channel with optional attachments.
-
-		:param body: The main text of the message to send.
-		:type body: str
-		:param atts: A list of tuples, where each tuple represents an attachment to send. The first item in the tuple is the
-					attachment's binary data, the second is the attachment's file type, and the third is the attachment's
-					file name.
-		:type atts: List[Tuple[bytes, str, str]]
-		:return: None
-		:raises ValueError: If Slack channel is missing.
-		:raises SlackApiError: If there was an error sending the message.
+		Sends a message to a Slack channel with attachments.
 		"""
 		if self.Channel is None:
 			raise ValueError("Cannot send message to Slack. Reason: Missing Slack channel")
@@ -76,24 +63,25 @@ class SlackOutputService(asab.Service, OutputABC):
 		if self.SlackWebhookUrl is None:
 			raise ValueError("Cannot send message to Slack. Reason: Missing Webhook URL or token")
 
-		try:
-			for i, attachment in enumerate(atts):
-				file_content = attachment[0].encode('utf-8') if not isinstance(attachment[0], bytes) else attachment[0]
-				file_obj = BytesIO(file_content)
-				if i == 0:
-					# For the last iteration, set initial comment to body
-					initial_comment = body
-				else:
-					# For other iterations, set initial comment to None
-					initial_comment = None
+		channel_id = self.get_channel_id(self.Channel)
 
-				self.Client.files_upload(
-					channels=self.Channel,
-					file=file_obj,
-					filetype=attachment[1],
-					filename=attachment[2],
-					title=attachment[2],
-					initial_comment=initial_comment
-				)
-		except SlackApiError as e:
-			raise SlackApiError("Error sending Slack message: " + e.response['error'], 401)
+		async for attachment in atts_gen:
+			# TODO: This could be a blocking operation, launch it in the proactor service
+			self.Client.files_upload_v2(
+				channel=channel_id,
+				file=attachment.Content,
+				filename=attachment.FileName,
+				initial_comment=body if attachment.Position == 0 else None
+			)
+
+
+	def get_channel_id(self, channel_name, types="public_channel"):
+		# TODO: Cache the channel_id to limit number of requests to Slack API
+
+		# TODO: This could be a blocking operation, launch it in the proactor service
+		for response in self.Client.conversations_list(types=types):
+			for channel in response['channels']:
+				if channel['name'] == channel_name:
+					return channel['id']
+
+		raise KeyError("Slack channel not found.")
