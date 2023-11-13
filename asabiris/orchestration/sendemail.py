@@ -90,9 +90,9 @@ class SendEmailOrchestrator:
 			)
 			L.info("Email sent successfully to: {}".format(', '.join(email_to)))
 
-
+		# TODO: Capture common exceptions and print useful error messages
 		except Exception as e:
-			L.exception("Error occurred preparint the email")
+			L.exception("Error occurred when preparing the email")
 
 			error_message, error_subject = self._generate_error_message(str(e))
 			await self.SmtpService.send(
@@ -125,30 +125,17 @@ class SendEmailOrchestrator:
 
 
 	def _generate_error_message(self, specific_error: str) -> Tuple[str, str]:
-		try:
-			timestamp = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-		except Exception as date_err:
-			L.warning("Error generating timestamp: {}".format(date_err))
-			timestamp = "Unknown"
-
-		try:
-			error_message = (
-				"Hello!<br><br>"
-				"We encountered an issue while processing your request: <b>{}</b><br>"
-				"Please review your input and try again.<br><br>"
-				"Timestamp: {}<br></pre>"  # Added a <br> here for a new line in HTML
-				"<br>Best regards,<br>Your Team"
-			).format(specific_error, timestamp)
-		except Exception as format_err:
-			L.warning("Error formatting the error message: {}".format(format_err))
-			error_message = (
-				"Hello!<br><br>"
-				"We encountered an issue while processing your request. "
-				"Please review your input and try again.<br><br>"
-				"Thank you!<br><br>"
-				"<br>Best regards,<br>Your Team"
-			)
-
+		timestamp = datetime.datetime.now(tz=datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+		error_message = (
+			"<p>Hello!</p>"
+			"<p>We encountered an issue while processing your request:<br><b>{}</b></p>"
+			"<p>Please review your input and try again.<p>"
+			"<p>Time: {} UTC</p>"  # Added a <br> here for a new line in HTML
+			"<p>Best regards,<br>ASAB Iris</p>"
+		).format(
+			specific_error,
+			timestamp
+		)
 		return error_message, "Error when generating email"
 
 

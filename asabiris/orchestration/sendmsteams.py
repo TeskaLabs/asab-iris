@@ -26,6 +26,7 @@ class SendMSTeamsOrchestrator(object):
 		self.JinjaService = app.get_service("JinjaService")
 		self.MSTeamsOutputService = app.get_service("MSTeamsOutputService")
 
+
 	async def send_to_msteams(self, msg):
 		"""
 		Sends a message to MS Teams.
