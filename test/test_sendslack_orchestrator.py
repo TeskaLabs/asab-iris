@@ -4,7 +4,6 @@ import asyncio
 from asabiris.orchestration.sendslack import SendSlackOrchestrator  # Update the import path as necessary
 import asab
 from asabiris.exceptions import PathError
-import fastjsonschema.exceptions
 
 
 class AsyncMock(MagicMock):
