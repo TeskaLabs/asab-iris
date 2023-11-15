@@ -31,7 +31,7 @@ class FormatError(Exception):
 		if message is not None:
 			super().__init__(message, *args)
 		elif format is not None:
-			message = "Unsupported template format {!r}.".format(format)
+			message = "Unsupported format {!r}.".format(format)
 			super().__init__(message, *args)
 		else:
 			super().__init__(message, *args)
