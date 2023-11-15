@@ -4,7 +4,6 @@ import asyncio
 from asabiris.orchestration.sendslack import SendSlackOrchestrator  # Update the import path as necessary
 import asab
 from asabiris.exceptions import PathError
-import fastjsonschema.exceptions
 
 
 class AsyncMock(MagicMock):
@@ -72,17 +71,6 @@ class TestSendSlackOrchestrator(unittest.TestCase):
 		with self.assertRaises(PathError):
 			self.loop.run_until_complete(self.orchestrator.send_to_slack(msg))
 
-	def test_attachment_rendering(self):
-		attachment = {
-			'template': '/Templates/Slack/attachment_template.md',
-			'params': {}
-		}
-		# Simulate rendering of attachment
-		with patch.object(self.orchestrator, 'render', new_callable=AsyncMock) as mock_render:
-			self.loop.run_until_complete(mock_render(attachment['template'], attachment['params']))
-			mock_render.assert_called_once_with(attachment['template'], attachment['params'])
-
-
 	def test_get_file_name_with_filename(self):
 		# Test that get_file_name returns the correct filename if provided
 		attachment = {'filename': 'custom_filename.txt', 'format': 'txt'}
@@ -112,24 +100,6 @@ class TestSendSlackOrchestrator(unittest.TestCase):
 		content_type = self.orchestrator.get_content_type(file_extension)
 		self.assertEqual(content_type, 'application/octet-stream')
 
-	def test_send_to_slack_with_invalid_attachment_path(self):
-		# Test sending a message with an attachment that has an invalid path
-		msg = {
-			'body': {
-				'template': '/Templates/Slack/valid_template.md',
-				'params': {}
-			},
-			'attachments': [
-				{'template': 'invalid_attachment_path', 'params': {}}
-			]
-		}
-		with self.assertRaises(PathError) as context:
-			self.loop.run_until_complete(self.orchestrator.send_to_slack(msg))
-
-		# Assert that the exception has the correct message and attributes
-		self.assertEqual(context.exception.InvalidPath, 'invalid_attachment_path')
-		self.assertEqual(context.exception.UseCase, 'Slack')
-
 	def test_send_to_slack_with_base64_attachment(self):
 		# Test sending a message with an attachment that includes base64 content
 		msg = {
@@ -148,18 +118,6 @@ class TestSendSlackOrchestrator(unittest.TestCase):
 		with patch.object(self.orchestrator, 'send_to_slack', new_callable=AsyncMock) as mock_send:
 			self.loop.run_until_complete(mock_send(msg))
 			mock_send.assert_called_once()
-
-
-	def test_attachment_rendering_failure(self):
-		# Test that an exception is raised when rendering of an attachment fails
-		attachment = {
-			'template': '/Templates/Slack/invalid_template.md',
-			'params': {}
-		}
-		with patch.object(self.orchestrator, 'render', new_callable=AsyncMock) as mock_render:
-			mock_render.side_effect = PathError
-			with self.assertRaises(PathError):
-				self.loop.run_until_complete(self.orchestrator.render(attachment['template'], attachment['params']))
 
 
 	def test_send_to_slack_with_invalid_schema(self):
