@@ -13,7 +13,7 @@
 {
     "to": ["foo@example.com"],
     "body": {
-        "template": "/Templates/Email/hello.md",
+        "template": "/Templates/Email/message.md",
          "params":{
             "name":"Iris"
       }
@@ -30,7 +30,7 @@
 {
     "to": ["foo@example.com"],
     "body": {
-        "template": "/Templates/Email/hello.html",
+        "template": "/Templates/Email/message.html",
          "params":{
             "name":"Iris"
       }
@@ -38,8 +38,45 @@
 }
 ```
 
+## TSM003: Send an email using HTML template
 
-## TSM003: Email with multiple To, CC and BCC with html as template.
+`PUT /send_mail`
+
+```
+{
+    "to": ["foo@example.com"],
+    "body": {
+        "template": "/Templates/Email/message.html",
+         "params":{
+            "name":"Iris"
+      }
+    }
+}
+```
+
+## TSM004: Try to send an email with base64 attachment.
+
+`PUT /send_mail`
+
+```
+{
+    "to": ["foo@example.com"],
+    "body": {
+        "template": "/Templates/Email/message.html",
+        "params":{
+          "name":"Iris"
+      }
+    },
+    "attachments": [{
+        "base64": "TixOLEEsQSxBLE4sTkI=",
+        "content-type": "text/csv",
+        "filename": "c7fbbb3d716d4d7c95d3b887b288ed62.csv"
+    }]
+}
+```
+
+
+## TSM005: Email with multiple To, CC and BCC with html as template.
 
 `PUT /send_mail`
 
@@ -49,7 +86,7 @@
     "cc": ["foo3@example.com", "foo4@example.com"],
     "bcc": ["foo5@example.com", "foo6@example.com"],
     "body": {
-        "template": "/Templates/Email/hello.html",
+        "template": "/Templates/Email/message.html",
          "params":{
             "name":"Iris"
       }
@@ -57,7 +94,7 @@
 }
 ```
 
-## TSM004: Try to send an email with template as body and attachment(Subject should be taken from md body).
+## TSM006: Try to send an email with '.md' template as body and attachment(pdf) format.
 
 `PUT /send_mail`
 
@@ -65,14 +102,14 @@
 {
     "to": ["foo@example.com"],
      "body":{
-      "template":"/Templates/Email/hello.md",
+      "template":"/Templates/Email/message.md",
       "params":{
          "name":"Iris"
       }
    },
     "attachments":[
         {
-            "template":"/Templates/Email/hello.md",
+            "template":"/Templates/Attachment/attachment.md",
             "params":{
                 "name":"Iris"
             },       
@@ -85,7 +122,7 @@
 
 
 
-## TSM005: Try to send an email with '.html' template as body and attachment.(Format=pdf)
+## TSM007: Try to send an email with '.html' template as body and attachment.(Format=pdf)
 
 `PUT /send_mail`
 
@@ -94,17 +131,14 @@
     "to": ["foo@example.com"],
      "subject":"Alert-Report-Test",
      "body":{
-      "template":"/Templates/Email/hello.html",
+      "template":"/Templates/Email/message.html",
       "params":{
          "name":"Iris"
       }
    },
     "attachments":[
         {
-            "template":"/Templates/Email/hello.md",
-            "params":{
-                "name":"Iris"
-            },       
+            "template":"/Templates/Attachment/attachment.md",     
             "format":"pdf"
         }
       ]
@@ -112,7 +146,7 @@
 ```
 
 
-## TSM006: Try to send an email with '.md' template as body and attachment.(Format=html)
+## TSM008A: Try to send an email with '.md' template as body and attachment in both html and pdf formats.
 
 `PUT /send_mail`
 
@@ -121,24 +155,283 @@
     "to": ["foo@example.com"],
      "subject":"Alert-Report-Test",
      "body":{
-      "template":"/Templates/Email/hello.html",
+      "template":"/Templates/Email/message.md",
       "params":{
          "name":"Iris"
       }
    },
     "attachments":[
         {
-            "template":"/Templates/Email/hello.md",
-            "params":{
-                "name":"Iris"
-            },       
+            "template":"/Templates/Attachment/attachment.md",     
+            "format":"html"
+        },
+         {
+            "template":"/Templates/Attachment/attachment.md",     
+            "format":"pdf"
+        }
+      ]
+   }
+```
+
+## TSM008B: Try to send an email with '.md' template as body and three attachment(pdf-pdf-md).
+
+`PUT /send_mail`
+
+```
+{
+    "to": ["foo@example.com"],
+     "subject":"Alert-Report-Test",
+     "body":{
+      "template":"/Templates/Email/message.md",
+      "params":{
+         "name":"Iris"
+      }
+   },
+    "attachments":[
+        {
+            "template":"/Templates/Attachment/attachment.md",     
+            "format":"pdf"
+        },
+         {
+            "template":"/Templates/Attachment/attachment.md",    
+            "format":"pdf"
+        },
+         {
+            "template": "/Templates/Attachment/attachment.md",
+            "format": "md"
+      },
+      ]
+   }
+```
+
+## TSM008C: Try to send an email with '.md' template as body and attachment (pdf-pdf).
+
+`PUT /send_mail`
+
+```
+{
+    "to": ["foo@example.com"],
+     "subject":"Alert-Report-Test",
+     "body":{
+      "template":"/Templates/Email/message.md",
+      "params":{
+         "name":"Iris"
+      }
+   },
+    "attachments":[
+        {
+            "template":"/Templates/Attachment/attachment.md",    
+            "format":"pdf"
+        },
+         {
+            "template":"/Templates/Attachment/attachment.md", 
+            "format":"pdf"
+        }
+      ]
+   }
+```
+
+## TSM009A: Try to send an email with '.md' template as body and attachment (html-pdf)formats.
+
+`PUT /send_mail`
+
+```
+{
+    "to": ["foo@example.com"],
+     "subject":"Alert-Report-Test",
+     "body":{
+      "template":"/Templates/Email/message.html",
+      "params":{
+         "name":"Iris"
+      }
+   },
+    "attachments":[
+        {
+            "template":"/Templates/Attachment/attachment.md",       
+            "format":"html"
+        },
+         {
+            "template":"/Templates/Attachment/attachment.md",
+            "format":"pdf"
+        }
+      ]
+   }
+```
+
+## TSM009B: Try to send an email with '.html' template as body and attachment (pdf-html)formats.
+
+`PUT /send_mail`
+
+```
+{
+    "to": ["foo@example.com"],
+     "subject":"Alert-Report-Test",
+     "body":{
+      "template":"/Templates/Email/message.html",
+      "params":{
+         "name":"Iris"
+      }
+   },
+    "attachments":[
+        {
+            "template":"/Templates/Attachment/attachment.md",    
+            "format":"pdf"
+        },
+         {
+            "template":"/Templates/Attachment/attachment.md", 
+            "format":"pdf"
+        }
+      ]
+   }
+```
+
+## TSM009C: Try to send an email with '.html' template as body and attachment(html-html) format.
+
+`PUT /send_mail`
+
+```
+{
+    "to": ["foo@example.com"],
+     "subject":"Alert-Report-Test",
+     "body":{
+      "template":"/Templates/Email/message.html",
+      "params":{
+         "name":"Iris"
+      }
+   },
+    "attachments":[
+        {
+            "template":"/Templates/Attachment/attachment.md",    
+            "format":"html"
+        },
+         {
+            "template":"/Templates/Attachment/attachment.md",     
             "format":"html"
         }
       ]
+   }
+```
+
+
+## TSM010A: Try to send an email with base64 attachment.
+
+`PUT /send_mail`
+
+```
+{
+    "to": ["foo@example.com"],
+    "body": {
+        "template": "/Templates/Email/message.html",
+        "params":{
+           "name":"Iris"
+        },  
+    },
+    "attachments": [{
+        "base64": "TixOLEEsQSxBLE4sTkI=",
+        "content-type": "text/csv",
+        "filename": "testfile.csv"
+    }]
 }
 ```
 
-## TSM007: Try to send an email with template as body and a missing html attachment.
+## TSM010B: Try to send an email with base64 attachment.
+
+`PUT /send_mail`
+
+```
+{
+    "to": ["foo@example.com"],
+     "body":{
+      "template":"/Templates/Email/message.html",
+      "params":{
+         "name":"Iris"
+      },
+    "attachments": [{
+        "base64": "TixOLEEsQSxBLE4sTkI=",
+        "content-type": "text/csv",
+        "filename": "testfile1.csv"
+    },
+    {
+        "base64": "TixOLEEsQSxBLE4sTkI=",
+        "content-type": "text/csv",
+        "filename": "testfile2.csv"
+    }]
+}
+```
+
+## TSM010C: Try to send an email with base64 attachment and a PDF attachment.
+
+`PUT /send_mail`
+
+```
+{
+    "to": ["foo@example.com"],
+     "body":{
+      "template":"/Templates/Email/message.html",
+      "params":{
+         "name":"Iris"
+      },
+    "attachments": [{
+        "base64": "TixOLEEsQSxBLE4sTkI=",
+        "content-type": "text/csv",
+        "filename": "testfile1.csv"
+    },
+    {
+        "template":"/Templates/Attachment/attachment.md",      
+        "format":"pdf"
+        }]
+}
+```
+
+## TSM010D: Try to send an email with html as body template and base64 attachment and an HTML attachment.
+
+`PUT /send_mail`
+
+```
+{
+    "to": ["foo@example.com"],
+     "body":{
+      "template":"/Templates/Email/message.html",
+      "params":{
+         "name":"Iris"
+      },
+    "attachments": [{
+        "base64": "TixOLEEsQSxBLE4sTkI=",
+        "content-type": "text/csv",
+        "filename": "testfile1.csv"
+    },
+    {
+        "template":"/Templates/Attachment/attachment.md",    
+        "format":"html"
+        }]
+}
+```
+
+## TSM010E: Try to send an email with html as body template and base64 attachment and an PDF attachment.
+
+`PUT /send_mail`
+
+```
+{
+    "to": ["foo@example.com"],
+     "body":{
+      "template":"/Templates/Email/message.html",
+      "params":{
+         "name":"Iris"
+      },
+    "attachments": [{
+        "base64": "TixOLEEsQSxBLE4sTkI=",
+        "content-type": "text/csv",
+        "filename": "testfile1.csv"
+    },
+    {
+        "template":"/Templates/Attachment/attachment.md",    
+         "format":"pdf"
+        }]
+}
+```
+
+## TSM011A: Try to send an email with '.md' template as body and attachment in both html and pdf formats.
 
 `PUT /send_mail`
 
@@ -147,17 +440,323 @@
     "to": ["foo@example.com"],
      "subject":"Alert-Report-Test",
      "body":{
-      "template":"/Templates/Email/hello.md",
+      "template":"/Templates/Email/message.md",
       "params":{
          "name":"Iris"
       }
    },
     "attachments":[
         {
-            "template":"/Templates/MISSING.html",
-            "params":{
-                "name":"Iris"
-            },       
+            "template":"/Templates/Attachment/attachment.md",     
+            "format":"md"
+        },
+         {
+            "template":"/Templates/Attachment/attachment.md",     
+            "format":"md"
+        }
+      ]
+   }
+```
+
+## TSM011B: Try to send an email with '.md' template as body and attachment (md-md-pdf) formats.
+
+`PUT /send_mail`
+
+```
+{
+    "to": ["foo@example.com"],
+     "subject":"Alert-Report-Test",
+     "body":{
+      "template":"/Templates/Email/message.md",
+      "params":{
+         "name":"Iris"
+      }
+   },
+    "attachments":[
+        {
+            "template":"/Templates/Attachment/attachment.md",     
+            "format":"md"
+        },
+         {
+            "template":"/Templates/Attachment/attachment.md",    
+            "format":"md"
+        },
+         {
+            "template": "/Templates/Attachment/attachment.md",
+            "format": "pdf"
+      },
+      ]
+   }
+```
+
+## TSM011C: Try to send an email with '.md' template as body and attachment (md-md-html) formats.
+
+`PUT /send_mail`
+
+```
+{
+    "to": ["foo@example.com"],
+     "subject":"Alert-Report-Test",
+     "body":{
+      "template":"/Templates/Email/message.md",
+      "params":{
+         "name":"Iris"
+      }
+   },
+    "attachments":[
+        {
+            "template":"/Templates/Attachment/attachment.md",     
+            "format":"md"
+        },
+         {
+            "template":"/Templates/Attachment/attachment.md",    
+            "format":"md"
+        },
+         {
+            "template": "/Templates/Attachment/attachment.md",
+            "format": "html"
+      },
+      ]
+   }
+```
+
+## TSM011D: Try to send an email with '.md' template as body and attachment (md-html-html) formats.
+
+`PUT /send_mail`
+
+```
+{
+    "to": ["foo@example.com"],
+     "subject":"Alert-Report-Test",
+     "body":{
+      "template":"/Templates/Email/message.md",
+      "params":{
+         "name":"Iris"
+      }
+   },
+    "attachments":[
+        {
+            "template":"/Templates/Attachment/attachment.md",     
+            "format":"md"
+        },
+         {
+            "template":"/Templates/Attachment/attachment.md",    
+            "format":"html"
+        },
+         {
+            "template": "/Templates/Attachment/attachment.md",
+            "format": "html"
+      },
+      ]
+   }
+```
+
+## TSM011E: Try to send an email with '.md' template as body and attachment (md-pdf-pdf) formats.
+
+`PUT /send_mail`
+
+```
+{
+    "to": ["foo@example.com"],
+     "subject":"Alert-Report-Test",
+     "body":{
+      "template":"/Templates/Email/message.md",
+      "params":{
+         "name":"Iris"
+      }
+   },
+    "attachments":[
+        {
+            "template":"/Templates/Attachment/attachment.md",     
+            "format":"md"
+        },
+         {
+            "template":"/Templates/Attachment/attachment.md",    
+            "format":"pdf"
+        },
+         {
+            "template": "/Templates/Attachment/attachment.md",
+            "format": "pdf"
+      },
+      ]
+   }
+```
+
+## TSM011F: Try to send an email with '.md' template as body and attachment (html-html-md-md) formats with filename.
+
+`PUT /send_mail`
+
+```
+{
+    "to": ["foo@example.com"],
+    "subject":"Alert-Report-Test",
+    "body":{
+      "template":"/Templates/Email/message.md",
+      "params":{
+         "message":"I am testing a template",
+         "event":"Iris-Event"
+      }
+   },
+    "attachments":[
+        {
+            "template":"/Templates/Attachment/attachment.md",
+            "filename": "testfile1.html" , 
+            "format":"html"
+        },
+         {
+            "template":"/Templates/Attachment/attachment.md",    
+            "filename": "testfile2.html" ,  
+            "format":"html"
+        },
+        {
+            "template":"/Templates/Attachment/attachment.md",
+            "filename": "testfile3.md" , 
+            "format":"md"
+        },
+        {
+            "template":"/Templates/Attachment/attachment.md",
+            "filename": "testfile4.md" ,   
+            "format":"md"
+        }
+      ]
+}
+```
+
+
+## TSM011G: Try to send an email with '.md' template as body and attachment (html-html-md-md) formats without filename.
+
+`PUT /send_mail`
+
+```
+{
+    "to": ["foo@example.com"],
+    "subject":"Alert-Report-Test",
+    "body":{
+      "template":"/Templates/Email/message.md",
+      "params":{
+         "message":"I am testing a template",
+         "event":"Iris-Event"
+      }
+   },
+    "attachments":[
+        {
+            "template":"/Templates/Attachment/attachment.md",
+            "format":"html"
+        },
+         {
+            "template":"/Templates/Attachment/attachment.md",    
+            "format":"html"
+        },
+        {
+            "template":"/Templates/Attachment/attachment.md",
+            "format":"md"
+        },
+        {
+            "template":"/Templates/Attachment/attachment.md",
+            "format":"md"
+        }
+      ]
+}
+```
+
+## TSM011G: Try to send an email with '.md' template as body and attachment (html-html-md-md) formats without filename.
+
+`PUT /send_mail`
+
+```
+{
+    "to": ["foo@example.com"],
+    "subject":"Alert-Report-Test",
+    "body":{
+      "template":"/Templates/Email/message.md",
+      "params":{
+         "message":"I am testing a template",
+         "event":"Iris-Event"
+      }
+   },
+    "attachments":[
+        {
+            "template":"/Templates/Attachment/attachment.md",
+            "format":"html"
+        },
+         {
+            "template":"/Templates/Attachment/attachment.md",    
+            "format":"html"
+        },
+        {
+            "template":"/Templates/Attachment/attachment.md",
+            "format":"md"
+        },
+        {
+            "template":"/Templates/Attachment/attachment.md",
+            "format":"md"
+        }
+      ]
+}
+```
+
+## TSM011G: Try to send an email with '.md' template as body and attachment (html-html-md-md-pdf-pdf) formats without filename.
+
+`PUT /send_mail`
+
+```
+{
+    "to": ["foo@example.com"],
+    "subject":"Alert-Report-Test",
+    "body":{
+      "template":"/Templates/Email/message.md",
+      "params":{
+         "message":"I am testing a template",
+         "event":"Iris-Event"
+      }
+   },
+    "attachments":[
+        {
+            "template":"/Templates/Attachment/attachment.md",
+            "format":"html"
+        },
+         {
+            "template":"/Templates/Attachment/attachment.md",    
+            "format":"html"
+        },
+        {
+            "template":"/Templates/Attachment/attachment.md",
+            "format":"md"
+        },
+        {
+            "template":"/Templates/Attachment/attachment.md",
+            "format":"md"
+        },
+        {
+            "template":"/Templates/Attachment/attachment.md",
+            "format":"pdf"
+        },
+        {
+            "template":"/Templates/Attachment/attachment.md",
+            "format":"pdf"
+        }
+      ]
+}
+```
+
+
+## TSM011: Try to send an email with template as body and an attachment html file "NOT-FOUND".
+
+`PUT /send_mail`
+
+```
+{
+    "to": ["foo@example.com"],
+     "subject":"Alert-Report-Test",
+     "body":{
+      "template":"/Templates/Email/message.md",
+      "params":{
+         "name":"Iris"
+      }
+   },
+    "attachments":[
+        {
+            "template":"/Templates/Attachment/MISSING.html",   
             "format":"pdf"
         }
       ]
@@ -165,7 +764,31 @@
 
 ```
 
-## TSM008: Try to send an email with template as body and a missing html attachment.
+## TSM012: Try to send an email with template as body and accessing attachment that does not exist".
+
+`PUT /send_mail`
+
+```
+{
+    "to": ["foo@example.com"],
+     "subject":"Alert-Report-Test",
+     "body":{
+      "template":"/Templates/Email/message.md",
+      "params":{
+         "name":"Iris"
+      }
+   },
+    "attachments":[
+        {
+            "template":"/Templates/Attachments/MISSING.html",       
+            "format":"pdf"
+        }
+      ]
+}
+
+```
+
+## TSM013: Try to send an email with message.md as body and accessing template from wrong location.
     
 
 `PUT /send_mail`
@@ -175,24 +798,21 @@
     "to": ["foo@example.com"],
     "subject":"Alert-Report-Test",
      "body":{
-      "template":"/Templates/Email/hello.md",
+      "template":"/Templates/Email/message.md",
       "params":{
          "name":"Iris"
       }
    },
     "attachments":[
         {
-            "template":"/Templates/MISSING.html",
-            "params":{
-                "name":"Iris"
-            },       
+            "template":"/Templates/MISSING.html",      
             "format":"pdf"
         }
       ]
 }
 ```
 
-## TSM009: Try to send an email with template as body and a docx attachment.
+## TSM014: Try to send an email with template as body and a docx attachment.
     
 
 `PUT /send_mail`
@@ -202,14 +822,14 @@
     "to": ["foo@example.com"],
     "subject":"Alert-Report-Test",
      "body":{
-      "template":"/Templates/Email/hello.md",
+      "template":"/Templates/Email/message.md",
       "params":{
          "name":"Iris"
       }
    },
     "attachments":[
         {
-            "template":"/Templates/Email/hello.md",
+            "template":"/Templates/Attachment/attachment.md",
             "params":{
                 "name":"Iris"
             },       
@@ -219,7 +839,7 @@
 }
 ```
 
-## TSM010: Try to send an email with missing template
+## TSM015: Try to send an email with missing template
 
 `PUT /send_mail`
 
@@ -232,7 +852,7 @@
 }
 ```
 
-## TSM0011: Try to send an email with no template
+## TSM0016: Try to send an email with no template
 
 `PUT /send_mail`
 
@@ -252,25 +872,7 @@ EXPECTED RESPONSE:
 
 ```
 
-## TSM012: Try to send an email with base64 attachment.
-
-`PUT /send_mail`
-
-```
-{
-    "to": ["foo@example.com"],
-    "body": {
-        "template": "/Templates/Email/hello.html"
-    },
-    "attachments": [{
-        "base64": "TixOLEEsQSxBLE4sTkI=",
-        "content-type": "text/csv",
-        "filename": "c7fbbb3d716d4d7c95d3b887b288ed62.csv"
-    }]
-}
-```
-
-## TSM013: Try to render PDF report using html template
+## TSM017: Try to render PDF report using html template
 
 `PUT /render?format=html&template=/Templates/General/hello.html`
 
@@ -280,7 +882,7 @@ EXPECTED RESPONSE:
 }
 ```
 
-## TSM014: Try to render PDF report using html template
+## TSM018: Try to render PDF report using html template
 
 `PUT /render?format=pdf&template=/Templates/General/hello.html`
 
@@ -290,7 +892,7 @@ EXPECTED RESPONSE:
 }
 ```
 
-## TSM015: Try to render PDF report using markdown template
+## TSM019: Try to render PDF report using markdown template
 
 `PUT /render?format=pdf&template=/Templates/General/hello.md`
 
@@ -300,7 +902,7 @@ EXPECTED RESPONSE:
 }
 ```
 
-## TSM016: Try to render PDF report using html template
+## TSM020: Try to render PDF report using html template
 
 `PUT /render?format=html&template=/Templates/General/hello.md`
 
@@ -310,7 +912,7 @@ EXPECTED RESPONSE:
 }
 ```
 
-## TSM017: Try to render PDF using missing template
+## TSM021: Try to render PDF using missing template
 
 `PUT /render?format=pdf&template=/Templates/MISSING.html`
 
@@ -321,12 +923,12 @@ EXPECTED RESPONSE:
 
 {
     "result": "NOT-FOUND",
-    "message": "Invalid path '/Templates/MISSING.html'. Expected path to start with '/Templates/General/'.",
+    "message": "The entered path '/Templates/MISSING.html' is not correct. Please move your files to '/Templates/General/'.",
     "uuid": "518ab833-1f1a-4711-952d-dcd78bc272a8"
 }
 ```
 
-## TSM018: Try to render HTML using missing template
+## TSM022: Try to render HTML using missing template
 
 `PUT /render?format=html&template=/Templates/MISSING.html`
 
@@ -338,12 +940,12 @@ EXPECTED RESPONSE:
 
 {
     "result": "NOT-FOUND",
-    "message": "Invalid path '/Templates/MISSING.html'. Expected path to start with '/Templates/General/'.",
+    "message": "The entered path '/Templates/MISSING.html' is not correct. Please move your files to '/Templates/General/'.",
     "uuid": "518ab833-1f1a-4711-952d-dcd78bc272a8"
 }
 ```
 
-## TSM019: Try to render HTML using missing template
+## TSM023: Try to render HTML using missing template
 
 `PUT /render?format=docx&template=/Templates/General/hello.md`
 
@@ -360,14 +962,14 @@ EXPECTED RESPONSE:
 }
 ```
 
-## TSM020: Try to send Slack message using markdown template
+## TSM024: Try to send Slack message using markdown template
 
 `PUT /send_slack`
 
 ```
 {
    "body":{
-      "template":"/Templates/Slack/alert.md",
+      "template":"/Templates/Slack/message.md",
       "params":{
          "message":"I am testing a template",
          "event":"Iris-Event"
@@ -376,7 +978,7 @@ EXPECTED RESPONSE:
 }
 ```
 
-## TSM021: Try to send Slack message using missing template
+## TSM025: Try to send Slack message using missing template
 
 `PUT /send_slack`
 
@@ -395,13 +997,13 @@ EXPECTED RESPONSE:
 
 {
     "result": "NOT-FOUND",
-    "message": "Invalid path '/Templates/MISSING.md'. Expected path to start with '/Templates/Slack/'.",
+    "message": "The entered path '/Templates/MISSING.md' is not correct. Please move your files to '/Templates/Slack/'.",
     "uuid": "168196bc-eace-4b5c-b8e6-747dd224454c"
 }
 ```
 
 
-## TSM022: Try to send Slack with attachment
+## TSM026: Try to send Slack with attachment
 
 `PUT /send_slack`
 
