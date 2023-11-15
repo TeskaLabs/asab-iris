@@ -2,7 +2,6 @@ import unittest
 from unittest import mock
 import re
 import asyncio
-import jinja2.exceptions
 from asabiris.orchestration.sendemail import SendEmailOrchestrator  # Update the import path if necessary
 
 
