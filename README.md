@@ -68,7 +68,7 @@ channel=general
 3. Name your app and choose its home (workspace).
 4. Select "Create App"
 5. Configure "OAuth & Permissions".
-6. Add the necessary scopes: `chat:write`, `files:write`, `files:read`, `channels:read`, `channels:read`, `groups:read`, `mpim:read`, and `im:read`
+6. Add the necessary scopes: `chat:write`, `files:write`, `files:read` and `channels:read`.
 7. Select "Install to Workspace".
 8. "Allow"
 9. Copy the OAuth access token.
