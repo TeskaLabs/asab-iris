@@ -5,7 +5,7 @@ from asabiris.formatter.jinja.service import JinjaFormatterService
 
 class TestJinjaFormatterService(unittest.TestCase):
     """
-    Unit tests for the JinjaFormatterService class.
+    Unit tests for the JinjaFormatterService class method _load_variables_from_json.
     """
 
     @patch('builtins.open', new_callable=mock_open, read_data='{"key": "value"}')
@@ -115,11 +115,8 @@ class TestJinjaFormatterService(unittest.TestCase):
         mock_app = MagicMock()
         service = JinjaFormatterService(mock_app)
         service._load_variables_from_json()
-        # Check if the method can handle and correctly parse the complex structure
         expected_structure = {"complex": {"nested": {"key": ["value1", {"subkey": "subvalue"}]}}}
         self.assertEqual(service.Variables, expected_structure)
-
-
 
 
 if __name__ == '__main__':
