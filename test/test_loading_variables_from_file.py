@@ -102,5 +102,25 @@ class TestJinjaFormatterService(unittest.TestCase):
         self.assertEqual(service.Variables, {})
 
 
+    @patch('builtins.open', new_callable=mock_open, read_data='{"complex": {"nested": {"key": ["value1", {"subkey": "subvalue"}]}}}')
+    @patch('pathlib.Path.is_file')
+    @patch('asabiris.formatter.jinja.service.asab.Config.get')
+    def test_complex_nested_json_structure(self, mock_config_get, mock_is_file, _):
+        """
+        Test loading variables from a JSON file with a complex nested structure.
+        This test is designed to challenge the method's ability to handle complex JSON structures.
+        """
+        mock_config_get.return_value = 'complex.json'
+        mock_is_file.return_value = True
+        mock_app = MagicMock()
+        service = JinjaFormatterService(mock_app)
+        service._load_variables_from_json()
+        # Check if the method can handle and correctly parse the complex structure
+        expected_structure = {"complex": {"nested": {"key": ["value1", {"subkey": "subvalue"}]}}}
+        self.assertEqual(service.Variables, expected_structure)
+
+
+
+
 if __name__ == '__main__':
     unittest.main()
