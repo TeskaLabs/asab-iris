@@ -29,15 +29,16 @@ class JinjaFormatterService(asab.Service, FormatterABC):
 
 		self.Environment = jinja2.Environment()
 		self._load_variables_from_json()
+		print(self.Variables)
 
 	def _load_variables_from_json(self):
 		"""
 		Load variables from a JSON file specified in the configuration.
 		Overwrites any existing variables from the configuration file with the same keys.
 		"""
-		json_path_str = asab.Config.get('jinja', 'variables', fallback=None)
-		if not json_path_str:
-			L.info("No JSON file specified for variables in configuration.")
+		try:
+			json_path_str = asab.Config.get('jinja', 'variables')
+		except (configparser.NoSectionError, configparser.NoOptionError):
 			return
 
 		json_path = pathlib.Path(json_path_str)
