@@ -33,7 +33,16 @@ class JinjaFormatterService(asab.Service, FormatterABC):
 
 	def _load_variables_from_json(self):
 		"""
-		Load variables from a JSON file specified in the configuration.
+		Load variables from a JSON file specified in the 'jinja' section of the configuration.
+
+		This function attempts to read the path to a JSON file from the 'variables' key
+		under the 'jinja' section of the configuration. If the 'jinja' section or the
+		'variables' key is missing, the function returns without loading any variables.
+
+		If the specified JSON file is found, it reads and updates the internal variables
+		with the contents of the file. If the file is not found, cannot be read, or contains
+		invalid JSON, a warning is logged and the function returns without updating variables.
+
 		Overwrites any existing variables from the configuration file with the same keys.
 		"""
 		try:
