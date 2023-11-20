@@ -29,7 +29,6 @@ class JinjaFormatterService(asab.Service, FormatterABC):
 
 		self.Environment = jinja2.Environment()
 		self._load_variables_from_json()
-		print(self.Variables)
 
 	def _load_variables_from_json(self):
 		"""
@@ -66,7 +65,7 @@ class JinjaFormatterService(asab.Service, FormatterABC):
 			return
 
 		self.Variables.update(json_data)
-		L.info("Variables successfully loaded from JSON file '{}'.".format(json_path))
+		L.debug("Variables successfully loaded from JSON file '{}'.".format(json_path))
 
 
 	async def format(self, template_path, template_params):
