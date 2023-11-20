@@ -2,6 +2,8 @@ import logging
 import configparser
 
 import asab
+import pathlib
+import json
 import jinja2
 
 from ...exceptions import PathError
@@ -26,6 +28,44 @@ class JinjaFormatterService(asab.Service, FormatterABC):
 			self.Variables = {}
 
 		self.Environment = jinja2.Environment()
+		self._load_variables_from_json()
+
+	def _load_variables_from_json(self):
+		"""
+		Load variables from a JSON file specified in the 'jinja' section of the configuration.
+
+		This function attempts to read the path to a JSON file from the 'variables' key
+		under the 'jinja' section of the configuration. If the 'jinja' section or the
+		'variables' key is missing, the function returns without loading any variables.
+
+		If the specified JSON file is found, it reads and updates the internal variables
+		with the contents of the file. If the file is not found, cannot be read, or contains
+		invalid JSON, a warning is logged and the function returns without updating variables.
+
+		Overwrites any existing variables from the configuration file with the same keys.
+		"""
+		try:
+			json_path_str = asab.Config.get('jinja', 'variables')
+		except (configparser.NoSectionError, configparser.NoOptionError):
+			return
+
+		json_path = pathlib.Path(json_path_str)
+		if not json_path.is_file():
+			L.warning("JSON file specified '{}' in configuration does not exist.".format(json_path))
+			return
+
+		try:
+			with open(json_path, 'r') as json_file:
+				json_data = json.load(json_file)
+		except IOError as io_err:
+			L.warning("Failed to read JSON file '{}': {}".format(json_path, io_err))
+			return
+		except json.JSONDecodeError as json_err:
+			L.warning("Invalid JSON format in file '{}': {}".format(json_path, json_err))
+			return
+
+		self.Variables.update(json_data)
+		L.debug("Variables successfully loaded from JSON file '{}'.".format(json_path))
 
 
 	async def format(self, template_path, template_params):
