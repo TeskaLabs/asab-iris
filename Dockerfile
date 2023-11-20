@@ -14,7 +14,7 @@ RUN apk add --no-cache \
   libgit2 \
   freetype
 
-RUN apk add --no-cache --virtual .buildenv python3-dev gcc musl-dev git libgit2-dev freetype-dev
+RUN apk add --no-cache --virtual .buildenv python3-dev gcc musl-dev git libgit2-dev freetype-dev cairo-dev
 
 RUN pip3 install sentry-sdk slack_sdk
 
