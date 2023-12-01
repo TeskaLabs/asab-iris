@@ -37,7 +37,7 @@ asab.Config.add_defaults({
 })
 
 
-class IRISApplication(asab.Application):
+class ASABIRISApplication(asab.Application):
 
 	def __init__(self, args=None):
 		super().__init__(args=args)
