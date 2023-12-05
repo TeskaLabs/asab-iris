@@ -1,5 +1,6 @@
 FROM alpine:3.18 AS building
 MAINTAINER TeskaLabs Ltd (support@teskalabs.com)
+USER root
 
 # Include build environment variables from GitLab CI/CD
 ARG CI_COMMIT_BRANCH
