@@ -22,7 +22,7 @@
 👤 *Changed by User:* {{ username }}
 {% endif %}
 
-📌 *Note:* The above notification has been classified based on the criteria configured in your *<{{ public_url }}/?tenant={{ tenant }}#|TeskaLabs LogMan.io>*. We encourage you to *review this incident promptly* to determine the next appropriate course of action.
+We encourage you to *review this incident promptly* to determine the next appropriate course of action.
 
 🔍 To examine the incident in greater detail, please log in to your *<{{ public_url }}/?tenant={{ tenant }}#|TeskaLabs LogMan.io>*.
 
