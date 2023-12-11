@@ -1,9 +1,35 @@
-Hi,
+*🚨 Alert Management Notification 🚨*
 
-This is a *sample* Slack message from <https://github.com/TeskaLabs/asab-iris|ASAB Iris>.  
-It uses the Slack <https://api.slack.com/reference/surfaces/formatting|markdown formatting>.
+*<{{ public_url }}/?tenant={{ tenant }}#|TeskaLabs LogMan.io>* has identified a noteworthy event in your IT infrastructure that might require your immediate attention. 🕵️‍♂️ Please review the following summary of the event:
 
-{{ message }}
+{% if ticketid %}
+🔖 *Ticket ID:* {{ ticketid }} - This ticket has been updated.
+{% endif %}
 
-All the best,
-ASAB Iris
+{% if type %}
+📑 *Type of Ticket:* {{ type }}
+{% endif %}
+
+{% if status %}
+📊 *Status Update:* The status was changed to: *{{ status }}*
+{% endif %}
+
+{% if credid %}
+🔑 *Changed by Credential ID:* {{ credid }}
+{% endif %}
+
+{% if username %}
+👤 *Changed by User:* {{ username }}
+{% endif %}
+
+📌 *Note:* The above notification has been classified based on the criteria configured in your *<{{ public_url }}/?tenant={{ tenant }}#|TeskaLabs LogMan.io>*. We encourage you to *review this incident promptly* to determine the next appropriate course of action.
+
+🔍 To examine the incident in greater detail, please log in to your *<{{ public_url }}/?tenant={{ tenant }}#|TeskaLabs LogMan.io>*.
+
+💡 *Remember,* the effectiveness of any security program lies in a swift response. Thank you for your attention to this matter.
+
+Stay safe,
+
+*<{{ public_url }}/?tenant={{ tenant }}#|TeskaLabs LogMan.io>*
+
+Made with ❤️ by *<https://teskalabs.com|TeskaLabs>*
