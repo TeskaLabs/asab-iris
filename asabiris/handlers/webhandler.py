@@ -158,7 +158,6 @@ class WebHandler(object):
 			# Catching any other Jinja2 template errors
 			raise aiohttp.web.HTTPBadRequest(text="Jinja2 TemplateError: {}".format(e))
 
-
 		except PathError as e:
 			raise aiohttp.web.HTTPNotFound(text="{}".format(e))
 
@@ -198,9 +197,16 @@ class WebHandler(object):
 
 		try:
 			await self.App.SendMSTeamsOrchestrator.send_to_msteams(json_data)
-
 		except jinja2.exceptions.UndefinedError as e:
-			raise aiohttp.web.HTTPBadRequest(text="Jinja2 error: {}".format(e))
+			raise aiohttp.web.HTTPBadRequest(text="Jinja2 UndefinedError: {}".format(e))
+
+		except jinja2.exceptions.TemplateSyntaxError as e:
+			# Catching Jinja2 syntax errors
+			raise aiohttp.web.HTTPBadRequest(text="Jinja2 SyntaxError: {}".format(e))
+
+		except jinja2.TemplateError as e:
+			# Catching any other Jinja2 template errors
+			raise aiohttp.web.HTTPBadRequest(text="Jinja2 TemplateError: {}".format(e))
 
 		except PathError as e:
 			raise aiohttp.web.HTTPNotFound(text="{}".format(e))
