@@ -4,6 +4,9 @@ import mimetypes
 
 import fastjsonschema
 
+
+from typing import Tuple
+
 from ..exceptions import PathError
 from ..schemas import slack_schema
 
@@ -44,45 +47,52 @@ class SendSlackOrchestrator(object):
 		# - if absolute path is used, check it start with "/Templates/Slack"
 		# - if it is not absolute path, it is file name - assume it's a file in Templates folder
 
-		# templates must be stores in /Templates/Slack
-		if not template.startswith("/Templates/Slack/"):
-			raise PathError(use_case='Slack', invalid_path=template)
+		try:
+			# templates must be stores in /Templates/Slack
+			if not template.startswith("/Templates/Slack/"):
+				raise PathError(use_case='Slack', invalid_path=template)
 
-		params = body.get("params", {})
-		output = await self.JinjaService.format(template, params)
+			params = body.get("params", {})
+			output = await self.JinjaService.format(template, params)
 
-		if attachments is None:
-			# No attachments provided, send the message as a block
+			if attachments is None:
+				# No attachments provided, send the message as a block
 
-			if template.endswith('.md'):
-				# Translate output from markdown to plain text
-				fallback_message = self.MarkdownFormatterService.unformat(output)
+				if template.endswith('.md'):
+					# Translate output from markdown to plain text
+					fallback_message = self.MarkdownFormatterService.unformat(output)
 
-				# See https://api.slack.com/reference/block-kit/blocks
-				blocks = [
-					{
-						"type": "section",
-						"text": {
-							"type": "mrkdwn",
-							"text": output
+					# See https://api.slack.com/reference/block-kit/blocks
+					blocks = [
+						{
+							"type": "section",
+							"text": {
+								"type": "mrkdwn",
+								"text": output
+							}
 						}
-					}
-				]
+					]
 
-			else:
-				# This is a plain text Slack message
-				fallback_message = output
-				blocks = None
+				else:
+					# This is a plain text Slack message
+					fallback_message = output
+					blocks = None
 
-			await self.SlackOutputService.send_message(blocks, fallback_message)
-			return
+				await self.SlackOutputService.send_message(blocks, fallback_message)
+				return
 
-		# Sending attachments
+			# Sending attachments
 
-		output = self.MarkdownFormatterService.unformat(output)
-		atts_gen = self.AttachmentRenderingService.render_attachment(attachments)
-		await self.SlackOutputService.send_files(output, atts_gen)
+			output = self.MarkdownFormatterService.unformat(output)
+			atts_gen = self.AttachmentRenderingService.render_attachment(attachments)
+			await self.SlackOutputService.send_files(output, atts_gen)
+		except Exception as e:
+			L.exception("Error occurred when preparing slack notification")
+			error_message = self._generate_error_message_slack(str(e))
+			# This is a plain text Slack message
+			blocks = None
 
+			await self.SlackOutputService.send_message(blocks, error_message)
 
 	async def render_attachment(self, template, params):
 		"""
@@ -123,3 +133,21 @@ class SendSlackOrchestrator(object):
 		"""
 		content_type = mimetypes.guess_type('dummy' + file_extension)[0]
 		return content_type or 'application/octet-stream'
+
+	def _generate_error_message_slack(self, specific_error: str) -> Tuple[str, str]:
+		timestamp = datetime.datetime.now(tz=datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+
+		# Slack uses markdown-like syntax, so HTML tags are replaced with markdown and plain text
+		error_message = (
+			"Hello!\n\n"  # <p> tags are replaced with double newlines for paragraph breaks
+			"We encountered an issue while processing your request:\n*{}*\n\n"  # <b> tags are replaced with asterisks for bold text
+			"Please review your input and try again.\n\n"
+			"Time: {} UTC\n\n"  # Line breaks are just newlines in Slack format
+			"Best regards,\nASAB Iris"  # <br> tags are replaced with single newlines
+		).format(
+			specific_error,
+			timestamp
+		)
+
+		return error_message
+
