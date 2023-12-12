@@ -135,14 +135,13 @@ class SendSlackOrchestrator(object):
 	def _generate_error_message_slack(self, specific_error: str) -> Tuple[str, str]:
 		timestamp = datetime.datetime.now(tz=datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 		error_message = (
-			"Hello!\n\n"
-			"We encountered an issue while processing your request:\n*{}*\n\n"
+			":warning: *Hello!*\n\n" 
+			"We encountered an issue while processing your request:\n`{}`\n\n"  
 			"Please review your input and try again.\n\n"
-			"Time: {} UTC\n\n"
-			"Best regards,\nASAB Iris"
+			"*Time:* `{}` UTC\n\n"  
+			"Best regards,\nASAB Iris :robot_face:"
 		).format(
 			specific_error,
 			timestamp
 		)
-
 		return error_message
