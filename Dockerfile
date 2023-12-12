@@ -1,6 +1,5 @@
 FROM alpine:3.18 AS building
 MAINTAINER TeskaLabs Ltd (support@teskalabs.com)
-USER root
 
 # Include build environment variables from GitLab CI/CD
 ARG CI_COMMIT_BRANCH
@@ -45,7 +44,5 @@ RUN apk del .buildenv
 
 COPY asabiris /opt/asab-iris/asabiris
 COPY asab-iris.py /opt/asab-iris/asab-iris.py
-COPY etc /conf
-RUN chmod a+x /opt/asab-iris/asab-iris.py
 
-CMD ["./asab-iris.py", "-c", "/conf/asab-iris.conf"]
+CMD ["python3", "asab-iris.py", "-c", "/conf/asab-iris.conf"]
