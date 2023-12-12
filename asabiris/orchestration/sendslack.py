@@ -92,19 +92,6 @@ class SendSlackOrchestrator(object):
 			blocks = None
 			await self.SlackOutputService.send_message(blocks, error_message)
 
-	async def render_attachment(self, template, params):
-		"""
-		This method renders attachment based on the depending on the extension of template.
-		"""
-
-		try:
-			jinja_output = await self.JinjaService.format(template, params)
-		except KeyError:
-			L.warning("Failed to load or render a template (missing?)", struct_data={'template': template})
-			raise
-
-		return jinja_output
-
 
 	def get_file_name(self, attachment):
 		"""
@@ -135,10 +122,10 @@ class SendSlackOrchestrator(object):
 	def _generate_error_message_slack(self, specific_error: str) -> Tuple[str, str]:
 		timestamp = datetime.datetime.now(tz=datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 		error_message = (
-			":warning: *Hello!*\n\n" 
-			"We encountered an issue while processing your request:\n`{}`\n\n"  
+			":warning: *Hello!*\n\n"
+			"We encountered an issue while processing your request:\n`{}`\n\n"
 			"Please review your input and try again.\n\n"
-			"*Time:* `{}` UTC\n\n"  
+			"*Time:* `{}` UTC\n\n"
 			"Best regards,\nASAB Iris :robot_face:"
 		).format(
 			specific_error,
