@@ -150,4 +150,3 @@ class SendSlackOrchestrator(object):
 		)
 
 		return error_message
-
