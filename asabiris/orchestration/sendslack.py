@@ -89,9 +89,7 @@ class SendSlackOrchestrator(object):
 		except Exception as e:
 			L.exception("Error occurred when preparing slack notification")
 			error_message = self._generate_error_message_slack(str(e))
-			# This is a plain text Slack message
 			blocks = None
-
 			await self.SlackOutputService.send_message(blocks, error_message)
 
 	async def render_attachment(self, template, params):
@@ -136,14 +134,12 @@ class SendSlackOrchestrator(object):
 
 	def _generate_error_message_slack(self, specific_error: str) -> Tuple[str, str]:
 		timestamp = datetime.datetime.now(tz=datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
-
-		# Slack uses markdown-like syntax, so HTML tags are replaced with markdown and plain text
 		error_message = (
-			"Hello!\n\n"  # <p> tags are replaced with double newlines for paragraph breaks
-			"We encountered an issue while processing your request:\n*{}*\n\n"  # <b> tags are replaced with asterisks for bold text
+			"Hello!\n\n"  
+			"We encountered an issue while processing your request:\n*{}*\n\n"  
 			"Please review your input and try again.\n\n"
-			"Time: {} UTC\n\n"  # Line breaks are just newlines in Slack format
-			"Best regards,\nASAB Iris"  # <br> tags are replaced with single newlines
+			"Time: {} UTC\n\n"  
+			"Best regards,\nASAB Iris"
 		).format(
 			specific_error,
 			timestamp
