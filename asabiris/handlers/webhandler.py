@@ -198,7 +198,7 @@ class WebHandler(object):
 		try:
 			await self.App.SendMSTeamsOrchestrator.send_to_msteams(json_data)
 		except Jinja2TemplateUndefinedError as e:
-			raise aiohttp.web.HTTPBadRequest(text="Jinja2 UndefinedError: {}".format(text=str(e)))
+			raise aiohttp.web.HTTPBadRequest(text=str(e))
 
 		except jinja2.exceptions.TemplateSyntaxError as e:
 			# Catching Jinja2 syntax errors

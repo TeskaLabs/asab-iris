@@ -84,6 +84,7 @@ class JinjaFormatterService(asab.Service, FormatterABC):
 		except jinja2.exceptions.UndefinedError as e:
 			raise Jinja2TemplateUndefinedError(template_path=template_path, variable_name=str(e))
 
+
 def construct_context(context, *other_dicts):
 	"""
 	Merges multiple dictionaries into a single context dictionary,
