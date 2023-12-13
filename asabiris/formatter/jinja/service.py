@@ -69,11 +69,11 @@ class JinjaFormatterService(asab.Service, FormatterABC):
 
 
 	async def format(self, template_path, template_params):
+		# Load the template
+		template_io = await self.App.LibraryService.read(template_path)
+		if template_io is None:
+			raise PathError("Template '{}' not found".format(template_path))
 		try:
-			# Load the template
-			template_io = await self.App.LibraryService.read(template_path)
-			if template_io is None:
-				raise PathError("Template '{}' not found".format(template_path))
 			template = self.Environment.from_string(template_io.read().decode('utf-8'))
 
 			# Prepare template variables (aka context)
