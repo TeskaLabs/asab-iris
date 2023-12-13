@@ -44,6 +44,6 @@ class Jinja2TemplateUndefinedError(Exception):
 
 		if message is not None:
 			super().__init__(message, *args)
-		elif template_path is not None and variable_name is not None:
+		else:
 			message = "'{}' in Jinja2 template '{}'.".format(variable_name, template_path)
 			super().__init__(message, *args)
