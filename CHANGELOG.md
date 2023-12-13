@@ -93,3 +93,7 @@
 #### 15. 11. 2023
 
 - More testing and Fix unit tests testing
+
+#### 14. 12. 2023
+
+- Handle better jinja2 exceptions in Handler
