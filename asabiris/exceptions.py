@@ -49,4 +49,3 @@ class Jinja2TemplateUndefinedError(Exception):
 			super().__init__(message, *args)
 		else:
 			super().__init__(message, *args)
-
