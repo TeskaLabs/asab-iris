@@ -11,7 +11,7 @@ from ..schemas.emailschema import email_schema
 from ..schemas.slackschema import slack_schema
 from ..schemas.teamsschema import teams_schema
 
-from ..exceptions import SMTPDeliverError, PathError, FormatError
+from ..exceptions import SMTPDeliverError, PathError, FormatError, Jinja2TemplateUndefinedError
 import slack_sdk.errors
 #
 
@@ -147,8 +147,8 @@ class WebHandler(object):
 
 		try:
 			await self.App.SendSlackOrchestrator.send_to_slack(json_data)
-		except jinja2.exceptions.UndefinedError as e:
-			raise aiohttp.web.HTTPBadRequest(text="Jinja2 UndefinedError: {}".format(e))
+		except Jinja2TemplateUndefinedError as e:
+			raise aiohttp.web.HTTPBadRequest(text=str(e))
 
 		except jinja2.exceptions.TemplateSyntaxError as e:
 			# Catching Jinja2 syntax errors
@@ -197,8 +197,8 @@ class WebHandler(object):
 
 		try:
 			await self.App.SendMSTeamsOrchestrator.send_to_msteams(json_data)
-		except jinja2.exceptions.UndefinedError as e:
-			raise aiohttp.web.HTTPBadRequest(text="Jinja2 UndefinedError: {}".format(e))
+		except Jinja2TemplateUndefinedError as e:
+			raise aiohttp.web.HTTPBadRequest(text="Jinja2 UndefinedError: {}".format(text=str(e)))
 
 		except jinja2.exceptions.TemplateSyntaxError as e:
 			# Catching Jinja2 syntax errors
