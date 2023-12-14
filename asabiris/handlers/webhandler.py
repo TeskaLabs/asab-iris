@@ -251,6 +251,17 @@ class WebHandler(object):
 		# Render a body
 		try:
 			html = await self.App.RenderReportOrchestrator.render(template, template_data)
+		except Jinja2TemplateUndefinedError as e:
+			raise aiohttp.web.HTTPBadRequest(text=str(e))
+
+		except jinja2.exceptions.TemplateSyntaxError as e:
+			# Catching Jinja2 syntax errors
+			raise aiohttp.web.HTTPBadRequest(text="Jinja2 SyntaxError: {}".format(e))
+
+		except jinja2.TemplateError as e:
+			# Catching any other Jinja2 template errors
+			raise aiohttp.web.HTTPBadRequest(text="Jinja2 TemplateError: {}".format(e))
+
 		except PathError as e:
 			raise aiohttp.web.HTTPNotFound(text="{}".format(e))
 
