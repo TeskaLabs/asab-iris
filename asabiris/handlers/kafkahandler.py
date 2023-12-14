@@ -3,7 +3,7 @@ import json
 import logging
 
 from aiokafka import AIOKafkaConsumer
-import kafka.errors
+import aiokafka.errors
 import fastjsonschema
 
 import asab
@@ -45,7 +45,7 @@ class KafkaHandler(asab.Service):
 	async def initialize(self, app):
 		try:
 			await self.Consumer.start()
-		except kafka.errors.KafkaConnectionError as e:
+		except aiokafka.errors.KafkaConnectionError as e:
 			L.warning("No connection to Kafka established. Stopping the app... {}".format(e))
 			exit()
 		self.Task = asyncio.ensure_future(self.consume(), loop=self.App.Loop)
