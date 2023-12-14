@@ -1,7 +1,6 @@
 Hi,
 
-This is a *sample* Slack message from <https://github.com/TeskaLabs/asab-iris|ASAB Iris>.  
-It uses the Slack <https://api.slack.com/reference/surfaces/formatting|markdown formatting>.
+This is a sample MSTeam message from <https://github.com/TeskaLabs/asab-iris|ASAB Iris>.
 
 {{ message }}
 
