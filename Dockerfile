@@ -22,27 +22,44 @@ RUN set -ex \
   && apk update \
   && apk upgrade
 
-RUN apk add --no-cache \
-  python3 \
-  py3-pip \
-  libgit2 \
-  freetype
+RUN apk add  \
+    git \
+    python3-dev \
+    py3-pip \
+    libffi-dev \
+    openssl-dev \
+    libgit2-dev \
+    gcc \
+    g++ \
+    musl-dev \
+    freetype-dev \
+     cairo-dev
 
-RUN apk add --no-cache --virtual .buildenv python3-dev gcc musl-dev git libgit2-dev freetype-dev cairo-dev
-
+RUN pip3 install --upgrade pip
+RUN pip3 install pygit2==1.11 aiokafka aiosmtplib fastjsonschema
+RUN pip3 install jinja2 markdown pyyaml xhtml2pdf git+https://github.com/TeskaLabs/asab.git
 RUN pip3 install sentry-sdk slack_sdk
 
-RUN mkdir -p /opt/asab-iris
-WORKDIR /opt/asab-iris
-COPY requirements.txt /opt/asab-iris
-COPY library /opt/asab-iris/library
+RUN mkdir -p /app/asab-iris
 
-# TODO: Install ASAB from pypy once it is released
-RUN pip3 install git+https://github.com/TeskaLabs/asab.git
-RUN pip3 install -r requirements.txt
-RUN apk del .buildenv
+COPY . /app/asab-iris
 
-COPY asabiris /opt/asab-iris/asabiris
-COPY asab-iris.py /opt/asab-iris/asab-iris.py
+FROM alpine:3.18 AS shiping
 
+RUN apk add \
+  python3 \
+  libgit2
+
+COPY --from=building /usr/lib/python3.11/site-packages /usr/lib/python3.11/site-packages
+
+COPY ./asabiris      /app/asab-iris/asabiris
+COPY ./asab-iris.py  /app/asab-iris/asab-iris.py
+COPY ./library  /app/asab-iris/library
+COPY ./CHANGELOG.md     /app/CHANGELOG.md
+
+RUN set -ex \
+  && mkdir /conf \
+  && touch conf/asab-iris.conf
+
+WORKDIR /app/asab-iris
 CMD ["python3", "asab-iris.py", "-c", "/conf/asab-iris.conf"]
