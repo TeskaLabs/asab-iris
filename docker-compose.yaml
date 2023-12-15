@@ -4,4 +4,6 @@ services:
     image: asab-iris
     volumes:
       - ./etc:/conf
+    ports:
+      - "8082:8082"
     restart: always
