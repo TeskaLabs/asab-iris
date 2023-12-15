@@ -18,11 +18,11 @@ ARG GITHUB_REPOSITORY
 
 ENV LANG C.UTF-8
 
-RUN set -ex -no-cache \
+RUN set -ex \
   && apk update \
   && apk upgrade
 
-RUN apk add  \
+RUN apk add no-cache \
     git \
     python3-dev \
     py3-pip \
