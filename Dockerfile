@@ -18,7 +18,7 @@ ARG GITHUB_REPOSITORY
 
 ENV LANG C.UTF-8
 
-RUN set -ex \
+RUN set -ex -no-cache \
   && apk update \
   && apk upgrade
 
@@ -36,9 +36,9 @@ RUN apk add  \
      cairo-dev
 
 RUN pip3 install --upgrade pip
-RUN pip3 install pygit2==1.11 aiokafka aiosmtplib fastjsonschema
-RUN pip3 install jinja2 markdown pyyaml xhtml2pdf git+https://github.com/TeskaLabs/asab.git
-RUN pip3 install sentry-sdk slack_sdk
+RUN pip3 install --no-cache-dir pygit2==1.11 aiokafka aiosmtplib fastjsonschema
+RUN pip3 install --no-cache-dir jinja2 markdown pyyaml xhtml2pdf git+https://github.com/TeskaLabs/asab.git
+RUN pip3 install --no-cache-dir sentry-sdk slack_sdk
 
 RUN mkdir -p /app/asab-iris
 
@@ -46,7 +46,7 @@ COPY . /app/asab-iris
 
 FROM alpine:3.18 AS shiping
 
-RUN apk add \
+RUN apk add --no-cache \
   python3 \
   libgit2
 
@@ -55,7 +55,7 @@ COPY --from=building /usr/lib/python3.11/site-packages /usr/lib/python3.11/site-
 COPY ./asabiris      /app/asab-iris/asabiris
 COPY ./asab-iris.py  /app/asab-iris/asab-iris.py
 COPY ./library  /app/asab-iris/library
-COPY ./CHANGELOG.md     /app/CHANGELOG.md
+COPY ./CHANGELOG.md     /app/asab-iris/CHANGELOG.md
 
 RUN set -ex \
   && mkdir /conf \
