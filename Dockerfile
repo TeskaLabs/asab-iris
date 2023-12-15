@@ -22,7 +22,7 @@ RUN set -ex \
   && apk update \
   && apk upgrade
 
-RUN apk add no-cache \
+RUN apk add --no-cache \
     git \
     python3-dev \
     py3-pip \
