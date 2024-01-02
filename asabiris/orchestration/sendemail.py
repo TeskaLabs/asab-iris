@@ -24,6 +24,37 @@ L = logging.getLogger(__name__)
 #
 
 
+class EmailFailsafeManagaer:
+	def __init__(self, smtp_service):
+		self.smtp_service = smtp_service
+
+	async def send_error_notification(self, error, email_from, email_to):
+		"""
+		Send an error notification email.
+
+		Args:
+			error: The exception that was raised.
+			original_recipients: List of recipients for the original email.
+		"""
+		error_message, error_subject = self._generate_error_message(str(error))
+		await self.smtp_service.send(
+			email_from=email_from,
+			email_to=email_to,
+			email_subject=error_subject,
+			body=error_message
+		)
+
+	def _generate_error_message(self, specific_error: str) -> Tuple[str, str]:
+		timestamp = datetime.datetime.now(tz=datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+		error_message = (
+			"<p>Hello!</p>"
+			"<p>We encountered an issue while processing your request:<br><b>{}</b></p>"
+			"<p>Please review your input and try again.<p>"
+			"<p>Time: {} UTC</p>"
+			"<p>Best regards,<br>Your Team</p>").format(specific_error, timestamp)
+		return error_message, "Error when generating email"
+
+
 class SendEmailOrchestrator:
 	"""
 	A class to orchestrate the sending of emails.
@@ -45,6 +76,9 @@ class SendEmailOrchestrator:
 		self.AttachmentRenderingService = app.get_service("AttachmentRenderingService")
 
 		self.SmtpService = app.get_service("SmtpService")
+
+		# Our failsafe manager
+		self.EmailFailsafeManagaer = EmailFailsafeManagaer(app.get_service("SmtpService"))
 
 
 	async def send_email(
@@ -93,16 +127,7 @@ class SendEmailOrchestrator:
 		# TODO: Capture common exceptions and print useful error messages
 		except Exception as e:
 			L.exception("Error occurred when preparing the email")
-
-			error_message, error_subject = self._generate_error_message(str(e))
-			await self.SmtpService.send(
-				email_from=email_from,
-				email_to=email_to,
-				email_cc=email_cc,
-				email_bcc=email_bcc,
-				email_subject=error_subject,
-				body=error_message
-			)
+			await self.EmailFailsafeManagaer.send_error_notification(str(e), email_from, email_to)
 
 
 	async def _render_template(self, template: str, params: Dict) -> Tuple[str, str]:
@@ -122,21 +147,6 @@ class SendEmailOrchestrator:
 
 		else:
 			raise FormatError(format=ext)
-
-
-	def _generate_error_message(self, specific_error: str) -> Tuple[str, str]:
-		timestamp = datetime.datetime.now(tz=datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
-		error_message = (
-			"<p>Hello!</p>"
-			"<p>We encountered an issue while processing your request:<br><b>{}</b></p>"
-			"<p>Please review your input and try again.<p>"
-			"<p>Time: {} UTC</p>"  # Added a <br> here for a new line in HTML
-			"<p>Best regards,<br>ASAB Iris</p>"
-		).format(
-			specific_error,
-			timestamp
-		)
-		return error_message, "Error when generating email"
 
 
 def find_subject_in_html(body):
