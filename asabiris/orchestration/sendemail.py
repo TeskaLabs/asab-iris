@@ -13,9 +13,10 @@ import os
 import re
 import datetime
 import logging
+import jinja2
 from typing import List, Tuple, Dict
 
-from ..exceptions import PathError, FormatError
+from ..exceptions import PathError, FormatError, Jinja2TemplateUndefinedError
 
 #
 
@@ -127,6 +128,8 @@ class SendEmailOrchestrator:
 		# TODO: Capture common exceptions and print useful error messages
 		except Exception as e:
 			L.exception("Error occurred when preparing the email")
+			await self.EmailFailsafeManager.send_error_notification(str(e), email_from, email_to)
+		except jinja2.exceptions.UndefinedError as e:
 			await self.EmailFailsafeManager.send_error_notification(str(e), email_from, email_to)
 
 
