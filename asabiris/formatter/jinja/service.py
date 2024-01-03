@@ -6,7 +6,7 @@ import pathlib
 import json
 import jinja2
 
-from ...exceptions import PathError
+from ...exceptions import PathError, Jinja2TemplateUndefinedError
 from ...formater_abc import FormatterABC
 
 #
@@ -69,18 +69,20 @@ class JinjaFormatterService(asab.Service, FormatterABC):
 
 
 	async def format(self, template_path, template_params):
-
 		# Load the template
 		template_io = await self.App.LibraryService.read(template_path)
 		if template_io is None:
 			raise PathError("Template '{}' not found".format(template_path))
-		template = self.Environment.from_string(template_io.read().decode('utf-8'))
+		try:
+			template = self.Environment.from_string(template_io.read().decode('utf-8'))
 
-		# Prepare template variables (aka context)
-		context = construct_context(dict(), self.Variables, template_params)
+			# Prepare template variables (aka context)
+			context = construct_context(dict(), self.Variables, template_params)
 
-		# Do the rendering
-		return template.render(context)
+			# Do the rendering
+			return template.render(context)
+		except jinja2.exceptions.UndefinedError as e:
+			raise Jinja2TemplateUndefinedError(template_path=template_path, variable_name=str(e))
 
 
 def construct_context(context, *other_dicts):

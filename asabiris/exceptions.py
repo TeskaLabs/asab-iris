@@ -35,3 +35,15 @@ class FormatError(Exception):
 			super().__init__(message, *args)
 		else:
 			super().__init__(message, *args)
+
+
+class Jinja2TemplateUndefinedError(Exception):
+	def __init__(self, message=None, *args, template_path=None, variable_name=None):
+		self.TemplatePath = template_path
+		self.VariableName = variable_name
+
+		if message is not None:
+			super().__init__(message, *args)
+		else:
+			message = "'{}' in Jinja2 template '{}'.".format(variable_name, template_path)
+			super().__init__(message, *args)

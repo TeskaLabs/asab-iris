@@ -20,18 +20,80 @@
 
 - Refactoring :Slack use case
 
+#### 12. 10. 2023
+
+- Refactor : Orchs
+
+#### 20. 11. 2023 
+
+- Refactor the Slack, Email, MS Teams and Attachments 
 
 
 ### Enhancements
+
+- 
 
 #### 09. 04. 2023 
 
 - Slack supports attachments.
 
+#### 28. 08. 2023
+
+- Introduce failsafe mechanism for jinja-rendering
+
+#### 12. 09. 2023
+
+- Failsafe message modifications
+
+#### 13. 10. 2023 
+
+- Add "body_max_size": 31457280 to config defaults
+
+#### 13. 10. 2023 
+
+- Sentry Integration.
+
+#### 20. 10. 2023 
+
+-  Method create_nested_dict_from_dots_in_keys uses stack instead of recursion
+
+#### 20. 11. 2023 
+
+- Load variables from json file
 
 
 ### Bugfix
 
+- 
+
 #### 13. 06. 2023
 
 - Redo Exception message : Patherror 
+
+#### 29. 06. 2023
+
+- Slack , MSteams must be optional
+
+#### 29. 06. 2023
+
+- Email : Subject condition change
+
+#### 14. 07. 2023
+
+- Catch slack error exception
+
+#### 08. 08. 2023
+
+- Adding metrics module so metrics endpoints are accessible
+
+#### 12. 10. 2023
+
+ - Sending email always clears the attachments
+
+#### 15. 11. 2023
+
+- More testing and Fix unit tests testing
+
+#### 14. 12. 2023
+
+- Handle better jinja2 exceptions in Handler
