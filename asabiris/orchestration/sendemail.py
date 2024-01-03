@@ -24,7 +24,7 @@ L = logging.getLogger(__name__)
 #
 
 
-class EmailFailsafeManagaer:
+class EmailFailsafeManager:
 	def __init__(self, smtp_service):
 		self.smtp_service = smtp_service
 
@@ -78,7 +78,7 @@ class SendEmailOrchestrator:
 		self.SmtpService = app.get_service("SmtpService")
 
 		# Our failsafe manager
-		self.EmailFailsafeManagaer = EmailFailsafeManagaer(app.get_service("SmtpService"))
+		self.EmailFailsafeManager = EmailFailsafeManager(app.get_service("SmtpService"))
 
 
 	async def send_email(
@@ -127,7 +127,7 @@ class SendEmailOrchestrator:
 		# TODO: Capture common exceptions and print useful error messages
 		except Exception as e:
 			L.exception("Error occurred when preparing the email")
-			await self.EmailFailsafeManagaer.send_error_notification(str(e), email_from, email_to)
+			await self.EmailFailsafeManager.send_error_notification(str(e), email_from, email_to)
 
 
 	async def _render_template(self, template: str, params: Dict) -> Tuple[str, str]:
