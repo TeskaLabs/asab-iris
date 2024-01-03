@@ -7,7 +7,7 @@ import fastjsonschema
 
 from typing import Tuple
 
-from ..exceptions import PathError
+from ..exceptions import PathError, Jinja2TemplateUndefinedError
 from ..schemas import slack_schema
 
 #
@@ -15,6 +15,37 @@ from ..schemas import slack_schema
 L = logging.getLogger(__name__)
 
 #
+
+
+class SlackFailsafeManager:
+	def __init__(self, smtp_service):
+		self.smtp_service = smtp_service
+
+	async def send_error_notification(self, error):
+		"""
+		Send an error notification email.
+
+		Args:
+			error: The exception that was raised.
+		"""
+		error_message = self._generate_error_message_slack(str(error))
+		await self.smtp_service.send_message(None, error_message)
+
+	def _generate_error_message_slack(self, specific_error: str) -> Tuple[str, str]:
+		timestamp = datetime.datetime.now(tz=datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+		error_message = (
+			":warning: *Hello!*\n\n"
+			"We encountered an issue while processing your request:\n`{}`\n\n"
+			"Please review your input and try again.\n\n"
+			"*Time:* `{}` UTC\n\n"
+			"Best regards,\nASAB Iris :robot_face:"
+		).format(
+			specific_error,
+			timestamp
+		)
+		return error_message
+
+
 
 
 class SendSlackOrchestrator(object):
@@ -30,6 +61,8 @@ class SendSlackOrchestrator(object):
 
 		# output service
 		self.SlackOutputService = app.get_service("SlackOutputService")
+		# Our failsafe manager
+		self.SlackFailsafeManager = SlackFailsafeManager(self.SlackOutputService)
 
 
 	async def send_to_slack(self, msg):
@@ -87,10 +120,11 @@ class SendSlackOrchestrator(object):
 			atts_gen = self.AttachmentRenderingService.render_attachment(attachments)
 			await self.SlackOutputService.send_files(output, atts_gen)
 		except Exception as e:
-			L.exception("Error occurred when preparing slack notification")
-			error_message = self._generate_error_message_slack(str(e))
-			blocks = None
-			await self.SlackOutputService.send_message(blocks, error_message)
+			await self.SlackFailsafeManager.send_error_notification(str(e))
+		except Jinja2TemplateUndefinedError as e:
+			await self.SlackFailsafeManager.send_error_notification(str(e))
+		except PathError as e:
+			await self.SlackFailsafeManager.send_error_notification(str(e))
 
 
 	def get_file_name(self, attachment):

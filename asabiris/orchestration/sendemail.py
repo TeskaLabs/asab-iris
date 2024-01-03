@@ -78,7 +78,7 @@ class SendEmailOrchestrator:
 		self.SmtpService = app.get_service("SmtpService")
 
 		# Our failsafe manager
-		self.EmailFailsafeManager = EmailFailsafeManager(app.get_service("SmtpService"))
+		self.EmailFailsafeManager = EmailFailsafeManager(self.SmtpService)
 
 
 	async def send_email(
