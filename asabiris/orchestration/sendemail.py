@@ -124,16 +124,15 @@ class SendEmailOrchestrator:
 			)
 			L.info("Email sent successfully to: {}".format(', '.join(email_to)))
 
-		except Exception as e:
-			L.exception("Error occurred when preparing the email")
-			await self.EmailFailsafeManager.send_error_notification(str(e), email_from, email_to)
 		except Jinja2TemplateUndefinedError as e:
-			await self.EmailFailsafeManager.send_error_notification(str(e), email_from, email_to)
-		except PathError as e:
 			await self.EmailFailsafeManager.send_error_notification(str(e), email_from, email_to)
 		except FormatError as e:
 			await self.EmailFailsafeManager.send_error_notification(str(e), email_from, email_to)
-
+		except PathError as e:
+			await self.EmailFailsafeManager.send_error_notification(str(e), email_from, email_to)
+		except Exception as e:
+			L.exception("Error occurred when preparing the email")
+			await self.EmailFailsafeManager.send_error_notification(str(e), email_from, email_to)
 
 	async def _render_template(self, template: str, params: Dict) -> Tuple[str, str]:
 		if not template.startswith('/Templates/Email/'):

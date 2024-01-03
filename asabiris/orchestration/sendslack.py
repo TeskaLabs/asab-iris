@@ -119,11 +119,11 @@ class SendSlackOrchestrator(object):
 			output = self.MarkdownFormatterService.unformat(output)
 			atts_gen = self.AttachmentRenderingService.render_attachment(attachments)
 			await self.SlackOutputService.send_files(output, atts_gen)
-		except Exception as e:
-			await self.SlackFailsafeManager.send_error_notification(str(e))
 		except Jinja2TemplateUndefinedError as e:
 			await self.SlackFailsafeManager.send_error_notification(str(e))
 		except PathError as e:
+			await self.SlackFailsafeManager.send_error_notification(str(e))
+		except Exception as e:
 			await self.SlackFailsafeManager.send_error_notification(str(e))
 
 
