@@ -146,7 +146,7 @@ class EmailOutputService(asab.Service, OutputABC):
 			raise SMTPDeliverError("SMTP delivery failed.Reason: {}".format(e))
 
 		except aiosmtplib.errors.SMTPAuthenticationError as e:
-			L.exception("Generic error: {}".format(e), struct_data={"host": self.Host})
+			L.exception("Authentication Error: {}".format(e), struct_data={"host": self.Host})
 			raise SMTPDeliverError("SMTP delivery failed.Reason: {}".format(e))
 
 		except aiosmtplib.errors.SMTPResponseException as e:
