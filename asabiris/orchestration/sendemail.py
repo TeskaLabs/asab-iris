@@ -28,7 +28,7 @@ class EmailFailsafeManager:
 	def __init__(self, smtp_service):
 		self.smtp_service = smtp_service
 		# send fallback message to thies email address
-		self.To = asab.Config.get('fallback', "to").split(',')
+		self.Fallback_Recipient = asab.Config.get('fallback', "to").split(',')
 
 
 	async def send_error_notification(self, error, email_from, email_to):
@@ -42,7 +42,7 @@ class EmailFailsafeManager:
 		error_message, error_subject = self._generate_error_message(str(error))
 		await self.smtp_service.send(
 			email_from=email_from,
-			email_to=self.To,
+			email_to=self.Fallback_Recipient,
 			email_subject=error_subject,
 			body=error_message
 		)
