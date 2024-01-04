@@ -6,7 +6,7 @@ import pathlib
 import json
 import jinja2
 
-from ...exceptions import PathError, Jinja2TemplateUndefinedError
+from ...exceptions import PathError, Jinja2TemplateUndefinedError, Jinja2TemplateSyntaxError
 from ...formater_abc import FormatterABC
 
 #
@@ -83,6 +83,8 @@ class JinjaFormatterService(asab.Service, FormatterABC):
 			return template.render(context)
 		except jinja2.exceptions.UndefinedError as e:
 			raise Jinja2TemplateUndefinedError(template_path=template_path, variable_name=str(e))
+		except jinja2.TemplateSyntaxError as e:
+			raise Jinja2TemplateSyntaxError(template_path=template_path, syntax_error=str(e))
 
 
 def construct_context(context, *other_dicts):
