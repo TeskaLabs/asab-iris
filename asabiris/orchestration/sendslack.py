@@ -7,7 +7,7 @@ import fastjsonschema
 
 from typing import Tuple
 
-from ..exceptions import PathError, Jinja2TemplateUndefinedError
+from ..exceptions import PathError, Jinja2TemplateUndefinedError, Jinja2TemplateSyntaxError
 from ..schemas import slack_schema
 
 #
@@ -31,7 +31,7 @@ class SlackFailsafeManager:
 		error_message = self._generate_error_message_slack(str(error))
 		await self.smtp_service.send_message(None, error_message)
 
-	def _generate_error_message_slack(self, specific_error: str) -> Tuple[str, str]:
+	def _generate_error_message_slack(self, specific_error: str) -> str:
 		timestamp = datetime.datetime.now(tz=datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 		error_message = (
 			":warning: *Hello!*\n\n"
@@ -119,6 +119,8 @@ class SendSlackOrchestrator(object):
 			output = self.MarkdownFormatterService.unformat(output)
 			atts_gen = self.AttachmentRenderingService.render_attachment(attachments)
 			await self.SlackOutputService.send_files(output, atts_gen)
+		except Jinja2TemplateSyntaxError as e:
+			await self.SlackFailsafeManager.send_error_notification(str(e))
 		except Jinja2TemplateUndefinedError as e:
 			await self.SlackFailsafeManager.send_error_notification(str(e))
 		except PathError as e:
@@ -152,17 +154,3 @@ class SendSlackOrchestrator(object):
 		"""
 		content_type = mimetypes.guess_type('dummy' + file_extension)[0]
 		return content_type or 'application/octet-stream'
-
-	def _generate_error_message_slack(self, specific_error: str) -> Tuple[str, str]:
-		timestamp = datetime.datetime.now(tz=datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
-		error_message = (
-			":warning: *Hello!*\n\n"
-			"We encountered an issue while processing your request:\n`{}`\n\n"
-			"Please review your input and try again.\n\n"
-			"*Time:* `{}` UTC\n\n"
-			"Best regards,\nASAB Iris :robot_face:"
-		).format(
-			specific_error,
-			timestamp
-		)
-		return error_message
