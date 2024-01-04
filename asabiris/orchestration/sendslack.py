@@ -4,9 +4,6 @@ import mimetypes
 
 import fastjsonschema
 
-
-from typing import Tuple
-
 from ..exceptions import PathError, Jinja2TemplateUndefinedError, Jinja2TemplateSyntaxError
 from ..schemas import slack_schema
 
@@ -18,18 +15,36 @@ L = logging.getLogger(__name__)
 
 
 class SlackFailsafeManager:
-	def __init__(self, smtp_service):
-		self.smtp_service = smtp_service
+	"""
+	A manager class responsible for handling errors and executing fallback mechanisms for Slack notifications.
+
+	This class provides functionality to send error notifications via email when an issue occurs in processing
+	Slack-related requests. It acts as a failsafe mechanism to ensure that errors are communicated effectively.
+
+	Attributes:
+		SlackService: A service used to send slack messages.
+	"""
+	def __init__(self, slack_service):
+		"""
+		Initialize the SlackFailsafeManager with the necessary SMTP service.
+
+		Args:
+			SlackService: A service used to send Slack messages.
+		"""
+		self.SlackService = slack_service
 
 	async def send_error_notification(self, error):
 		"""
-		Send an error notification email.
+		Send an error notification as a fallback mechanism.
+
+		This method is invoked when there is an error in processing Slack requests. It sends a Slack
+		notification detailing the error encountered.
 
 		Args:
-			error: The exception that was raised.
+			error: The exception that was raised, indicating the nature of the error.
 		"""
 		error_message = self._generate_error_message_slack(str(error))
-		await self.smtp_service.send_message(None, error_message)
+		await self.SlackService.send_message(None, error_message)
 
 	def _generate_error_message_slack(self, specific_error: str) -> str:
 		timestamp = datetime.datetime.now(tz=datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
