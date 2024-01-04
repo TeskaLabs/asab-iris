@@ -8,7 +8,7 @@ emails through an SMTP service.
 Classes:
 	SendEmailOrchestrator: Orchestrates the sending of emails.
 """
-
+import asab
 import os
 import re
 import datetime
@@ -27,6 +27,9 @@ L = logging.getLogger(__name__)
 class EmailFailsafeManager:
 	def __init__(self, smtp_service):
 		self.smtp_service = smtp_service
+		# send fallback message to thies email address
+		self.To = asab.Config.get('fallback', "to").split(',')
+
 
 	async def send_error_notification(self, error, email_from, email_to):
 		"""
@@ -39,7 +42,7 @@ class EmailFailsafeManager:
 		error_message, error_subject = self._generate_error_message(str(error))
 		await self.smtp_service.send(
 			email_from=email_from,
-			email_to=email_to,
+			email_to=self.To,
 			email_subject=error_subject,
 			body=error_message
 		)
