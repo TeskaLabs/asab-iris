@@ -40,9 +40,17 @@ class EmailFailsafeManager:
 			original_recipients: List of recipients for the original email.
 		"""
 		error_message, error_subject = self._generate_error_message(str(error))
+
+		# Determine the recipient list
+		if self.Fallback_Recipient in [None, "", []]:
+			recipients = email_to
+			L.debug("Fallback recipient is not set. Using 'email_to' as the recipient list.")
+		else:
+			recipients = self.Fallback_Recipient
+
 		await self.smtp_service.send(
 			email_from=email_from,
-			email_to=self.Fallback_Recipient,
+			email_to=recipients,
 			email_subject=error_subject,
 			body=error_message
 		)
