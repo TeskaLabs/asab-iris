@@ -47,3 +47,14 @@ class Jinja2TemplateUndefinedError(Exception):
 		else:
 			message = "'{}' in Jinja2 template '{}'.".format(variable_name, template_path)
 			super().__init__(message, *args)
+
+class Jinja2TemplateSyntaxError(Exception):
+	def __init__(self, message=None, *args, template_path=None, syntax_error=None):
+		self.TemplatePath = template_path
+		self.SyntaxError = syntax_error
+
+		if message is not None:
+			super().__init__(message, *args)
+		else:
+			message = "'{}' in Jinja2 template '{}'.".format(syntax_error, template_path)
+			super().__init__(message, *args)
