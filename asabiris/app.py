@@ -18,7 +18,7 @@ from .output.slack import SlackOutputService
 from .output.msteams import MSTeamsOutputService
 
 # orchestrators.
-from .orchestration.sendemail import SendEmailOrchestrator, EmailFailsafeManager
+from .orchestration.sendemail import SendEmailOrchestrator
 from .orchestration.render import RenderReportOrchestrator
 from .orchestration.sendmsteams import SendMSTeamsOrchestrator
 
