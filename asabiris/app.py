@@ -18,9 +18,11 @@ from .output.slack import SlackOutputService
 from .output.msteams import MSTeamsOutputService
 
 # orchestrators.
-from .orchestration.sendemail import SendEmailOrchestrator
+from .orchestration.sendemail import SendEmailOrchestrator, EmailFailsafeManager
 from .orchestration.render import RenderReportOrchestrator
 from .orchestration.sendmsteams import SendMSTeamsOrchestrator
+
+from .exception_handler import EmailExceptionHandlingStrategy
 
 from .handlers.kafkahandler import KafkaHandler
 from .handlers.webhandler import WebHandler
@@ -91,11 +93,13 @@ class ASABIRISApplication(asab.Application):
 		else:
 			self.SendMSTeamsOrchestrator = None
 
-		# Orchestrators
+		# Our Orchestrators
 		self.SendEmailOrchestrator = SendEmailOrchestrator(self)
+
 		self.RenderReportOrchestrator = RenderReportOrchestrator(self)
 
 		self.WebHandler = WebHandler(self)
+
 
 		# Apache Kafka API is conditional
 		if "kafka" in asab.Config.sections():

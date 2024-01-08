@@ -8,7 +8,6 @@ emails through an SMTP service.
 Classes:
 	SendEmailOrchestrator: Orchestrates the sending of emails.
 """
-import asab
 import os
 import re
 import datetime
@@ -16,7 +15,7 @@ import logging
 from typing import List, Tuple, Dict
 
 from ..exceptions import PathError, FormatError, Jinja2TemplateUndefinedError
-
+from ..exception_handler import EmailExceptionHandlingStrategy
 #
 
 L = logging.getLogger(__name__)
@@ -27,9 +26,6 @@ L = logging.getLogger(__name__)
 class EmailFailsafeManager:
 	def __init__(self, smtp_service):
 		self.smtp_service = smtp_service
-		# send fallback message to thies email address
-		self.Fallback_Recipient = asab.Config.get('fallback', "to").split(',')
-
 
 	async def send_error_notification(self, error, email_from, email_to):
 		"""
@@ -41,16 +37,9 @@ class EmailFailsafeManager:
 		"""
 		error_message, error_subject = self._generate_error_message(str(error))
 
-		# Determine the recipient list
-		if self.Fallback_Recipient in [None, "", []]:
-			recipients = email_to
-			L.debug("Fallback recipient is not set. Using 'email_to' as the recipient list.")
-		else:
-			recipients = self.Fallback_Recipient
-
 		await self.smtp_service.send(
 			email_from=email_from,
-			email_to=recipients,
+			email_to=email_to,
 			email_subject=error_subject,
 			body=error_message
 		)
@@ -87,9 +76,9 @@ class SendEmailOrchestrator:
 		self.AttachmentRenderingService = app.get_service("AttachmentRenderingService")
 
 		self.SmtpService = app.get_service("SmtpService")
-
-		# Our failsafe manager
 		self.EmailFailsafeManager = EmailFailsafeManager(self.SmtpService)
+		# Our failsafe manager
+		self.EmailExceptionHandlingStrategy = EmailExceptionHandlingStrategy(self.EmailFailsafeManager)
 
 
 	async def send_email(
@@ -101,7 +90,8 @@ class SendEmailOrchestrator:
 		email_cc=None,
 		email_bcc=None,
 		email_subject=None,
-		attachments=None
+		attachments=None,
+		caller_context='default'
 	):
 		"""
 		Send an email using specified parameters.
@@ -136,14 +126,18 @@ class SendEmailOrchestrator:
 			L.info("Email sent successfully to: {}".format(', '.join(email_to)))
 
 		except Jinja2TemplateUndefinedError as e:
-			await self.EmailFailsafeManager.send_error_notification(str(e), email_from, email_to)
+			context = {'context': caller_context,'from_email': email_from, 'to_emails': email_to}
+			await self.EmailExceptionHandlingStrategy.handle_exception(e, context)
 		except FormatError as e:
-			await self.EmailFailsafeManager.send_error_notification(str(e), email_from, email_to)
+			context = {'context': caller_context,'from_email': email_from, 'to_emails': email_to}
+			await self.EmailExceptionHandlingStrategy.handle_exception(e, context)
 		except PathError as e:
-			await self.EmailFailsafeManager.send_error_notification(str(e), email_from, email_to)
+			context = {'context': caller_context,'from_email': email_from, 'to_emails': email_to}
+			await self.EmailExceptionHandlingStrategy.handle_exception(e, context)
 		except Exception as e:
 			L.exception("Error occurred when preparing the email")
-			await self.EmailFailsafeManager.send_error_notification(str(e), email_from, email_to)
+			context = {'context': caller_context,'from_email': email_from, 'to_emails': email_to}
+			await self.EmailExceptionHandlingStrategy.handle_exception(e, context)
 
 	async def _render_template(self, template: str, params: Dict) -> Tuple[str, str]:
 		if not template.startswith('/Templates/Email/'):

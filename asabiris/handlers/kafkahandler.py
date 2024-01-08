@@ -114,4 +114,5 @@ class KafkaHandler(asab.Service):
 			email_from=json_data.get("from"),
 			body_params=json_data["body"].get("params", {}),  # Optional
 			attachments=json_data.get("attachments", []),  # Optional
+			caller_context='kafka'
 		)
