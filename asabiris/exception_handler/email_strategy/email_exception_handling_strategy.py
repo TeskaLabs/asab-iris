@@ -9,12 +9,12 @@ class EmailExceptionHandlingStrategy(ExceptionHandlingStrategy):
     def __init__(self, email_failsafe_manager):
         self.email_failsafe_manager = email_failsafe_manager
 
-    async def handle_exception(self, exception, context):
+    async def handle_exception(self, exception, context_strategy):
 
-        if context == 'kafka':
+        if context_strategy == 'kafka':
             # Extract 'from_email' and 'to_emails' from the context
-            from_email = context.get('from_email')
-            to_emails = context.get('to_emails')
+            from_email = context_strategy.get('from_email')
+            to_emails = context_strategy.get('to_emails')
 
             # Send error notification via Email Failsafe Manager
             if from_email and to_emails:
@@ -23,5 +23,5 @@ class EmailExceptionHandlingStrategy(ExceptionHandlingStrategy):
             else:
                 L.error("Failed to send error notification")
         else:
-            # we assume it's default c
+            # we assume it's default
             raise exception
