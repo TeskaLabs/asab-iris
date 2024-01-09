@@ -15,7 +15,6 @@ import logging
 from typing import List, Tuple, Dict
 
 from ..exceptions import PathError, FormatError, Jinja2TemplateUndefinedError
-from ..exception_handler import EmailExceptionHandlingStrategy
 #
 
 L = logging.getLogger(__name__)
@@ -64,7 +63,7 @@ class SendEmailOrchestrator:
 
 	"""
 
-	def __init__(self, app):
+	def __init__(self, app, exception_handler):
 		"""
 		Initialize the SendEmailOrchestrator with necessary services.
 
@@ -78,7 +77,7 @@ class SendEmailOrchestrator:
 		self.SmtpService = app.get_service("SmtpService")
 		self.EmailFailsafeManager = EmailFailsafeManager(self.SmtpService)
 		# Our failsafe manager
-		self.EmailExceptionHandlingStrategy = EmailExceptionHandlingStrategy(self.EmailFailsafeManager)
+		self.ExceptionHandler = exception_handler
 
 
 	async def send_email(
@@ -159,7 +158,7 @@ class SendEmailOrchestrator:
 			'from_email': email_from,
 			'to_emails': email_to
 		}
-		await self.EmailExceptionHandlingStrategy.handle_exception(exception, context)
+		await self.ExceptionHandler.handle_exception(exception, context)
 
 
 def find_subject_in_html(body):
