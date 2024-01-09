@@ -23,8 +23,8 @@ from .orchestration.render import RenderReportOrchestrator
 from .orchestration.sendmsteams import SendMSTeamsOrchestrator
 
 # exception handler's
-from .exception_handler import EmailExceptionHandlingStrategy
-from .exception_handler import APIExceptionHandlingStrategy
+from .exception_manager import EmailExceptionManager
+from .exception_manager import APIExceptionManager
 
 # failsafe manager's
 from .failsafe.email_failsafe import EmailFailsafeManager
@@ -100,8 +100,8 @@ class ASABIRISApplication(asab.Application):
 		else:
 			self.SendMSTeamsOrchestrator = None
 
-		self.EmailExceptionHandlingStrategy = EmailExceptionHandlingStrategy(self, self.EmailOutputService)
-		self.APIExceptionHandlingStrategy = APIExceptionHandlingStrategy(self)
+		self.EmailExceptionHandlingStrategy = EmailExceptionManager(self, self.EmailOutputService)
+		self.APIExceptionHandlingStrategy = APIExceptionManager(self)
 
 		# Our Email Orchestrator's
 		self.SendEmailOrchestratorAPI = SendEmailOrchestrator(self, self.APIExceptionHandlingStrategy)

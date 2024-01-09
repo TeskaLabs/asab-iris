@@ -1,11 +1,11 @@
-from asabiris.exception_handler_abc import ExceptionHandlingStrategy
+from asabiris.exception_manager_abc import ExceptionManager
 
 import logging
 
 L = logging.getLogger(__name__)
 
 
-class EmailExceptionHandlingStrategy(ExceptionHandlingStrategy):
+class EmailExceptionManager(ExceptionManager):
     def __init__(self, _, email_Service):
         self.EmailFailsafeManager = email_Service
 

@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 
 
-class ExceptionHandlingStrategy(ABC):
+class ExceptionManager(ABC):
     @abstractmethod
     async def handle_exception(self, exception, notification_params):
         pass
