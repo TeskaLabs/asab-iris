@@ -9,7 +9,7 @@ class EmailExceptionManager(ExceptionManager):
     def __init__(self, _, email_failsafe_manager):
         self.EmailFailsafeManager = email_failsafe_manager
 
-    async def handle_exception(self, exception, notification_params):
+    async def handle_exception(self, exception, notification_params=None):
         if notification_params:
             # Extract 'from_email' and 'to_emails' from the context
             from_email = notification_params.get('from_email')
