@@ -26,9 +26,9 @@ from .orchestration.sendmsteams import SendMSTeamsOrchestrator
 from .exception_handler import EmailExceptionHandlingStrategy
 from .exception_handler import APIExceptionHandlingStrategy
 
-# failsafe
-
+# failsafe manager's
 from .failsafe.email_failsafe import EmailFailsafeManager
+from .failsafe.slack_failsafe import SlackFailsafeManager
 
 from .handlers.kafkahandler import KafkaHandler
 from .handlers.webhandler import WebHandler
@@ -90,6 +90,7 @@ class ASABIRISApplication(asab.Application):
 		if 'slack' in asab.Config.sections():
 			self.SlackOutputService = SlackOutputService(self)
 			self.SendSlackOrchestrator = SendSlackOrchestrator(self)
+			self.SlackFailsafeManager = SlackFailsafeManager(self)
 		else:
 			self.SendSlackOrchestrator = None
 
@@ -99,14 +100,13 @@ class ASABIRISApplication(asab.Application):
 		else:
 			self.SendMSTeamsOrchestrator = None
 
-		self.EmailFailsafeManager = EmailFailsafeManager(self)
-
 		self.EmailExceptionHandlingStrategy = EmailExceptionHandlingStrategy(self, self.EmailOutputService)
 		self.APIExceptionHandlingStrategy = APIExceptionHandlingStrategy(self)
 
-		# Our Orchestrators
+		# Our Email Orchestrator's
 		self.SendEmailOrchestratorAPI = SendEmailOrchestrator(self, self.APIExceptionHandlingStrategy)
 		self.SendEmailOrchestratorKafka = SendEmailOrchestrator(self, self.EmailExceptionHandlingStrategy)
+		self.EmailFailsafeManager = EmailFailsafeManager(self)
 
 		self.RenderReportOrchestrator = RenderReportOrchestrator(self)
 
