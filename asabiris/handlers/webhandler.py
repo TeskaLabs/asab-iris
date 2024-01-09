@@ -146,7 +146,7 @@ class WebHandler(object):
 		"""
 
 		try:
-			await self.App.SendSlackOrchestrator.send_to_slack(json_data)
+			await self.App.SendSlackOrchestratorAPI.send_to_slack(json_data)
 		except Jinja2TemplateUndefinedError as e:
 			raise aiohttp.web.HTTPBadRequest(text=str(e))
 

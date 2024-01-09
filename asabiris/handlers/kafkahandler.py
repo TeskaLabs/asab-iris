@@ -83,8 +83,8 @@ class KafkaHandler(asab.Service):
 			except fastjsonschema.exceptions.JsonSchemaException as e:
 				L.warning("Invalid notification format: {}".format(e))
 				return
-			if self.App.SendSlackOrchestrator is not None:
-				await self.App.SendSlackOrchestrator.send_to_slack(msg)
+			if self.App.SendSlackOrchestratorKafka is not None:
+				await self.App.SendSlackOrchestratorKafka.send_to_slack(msg)
 			else:
 				L.warning("Slack is not configured, a notification is discarded")
 

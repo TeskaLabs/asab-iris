@@ -86,13 +86,13 @@ class SendSlackOrchestrator(object):
 			atts_gen = self.AttachmentRenderingService.render_attachment(attachments)
 			await self.SlackOutputService.send_files(output, atts_gen)
 		except Jinja2TemplateSyntaxError as e:
-			await self.ExceptionHandler.handle_exception(e)
+			await self._handle_exception(e)
 		except Jinja2TemplateUndefinedError as e:
-			await self.ExceptionHandler.handle_exception(e)
+			await self._handle_exception(e)
 		except PathError as e:
-			await self.ExceptionHandler.handle_exception(e)
+			await self._handle_exception(e)
 		except Exception as e:
-			await self.ExceptionHandler.handle_exception(e)
+			await self._handle_exception(e)
 
 
 	def get_file_name(self, attachment):

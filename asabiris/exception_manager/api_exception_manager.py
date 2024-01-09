@@ -6,5 +6,5 @@ class APIExceptionManager(ExceptionManager):
 	def __init__(self, app):
 		self.App = app
 
-	async def handle_exception(self, exception, _):
+	async def handle_exception(self, exception, notification_params=None):
 		raise exception
