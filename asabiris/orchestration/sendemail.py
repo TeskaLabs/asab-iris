@@ -10,7 +10,6 @@ Classes:
 """
 import os
 import re
-import datetime
 import logging
 from typing import List, Tuple, Dict
 
@@ -20,38 +19,6 @@ from ..exceptions import PathError, FormatError, Jinja2TemplateUndefinedError
 L = logging.getLogger(__name__)
 
 #
-
-
-class EmailFailsafeManager:
-	def __init__(self, smtp_service):
-		self.smtp_service = smtp_service
-
-	async def send_error_notification(self, error, email_from, email_to):
-		"""
-		Send an error notification email.
-
-		Args:
-			error: The exception that was raised.
-			original_recipients: List of recipients for the original email.
-		"""
-		error_message, error_subject = self._generate_error_message(str(error))
-
-		await self.smtp_service.send(
-			email_from=email_from,
-			email_to=email_to,
-			email_subject=error_subject,
-			body=error_message
-		)
-
-	def _generate_error_message(self, specific_error: str) -> Tuple[str, str]:
-		timestamp = datetime.datetime.now(tz=datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
-		error_message = (
-			"<p>Hello!</p>"
-			"<p>We encountered an issue while processing your request:<br><b>{}</b></p>"
-			"<p>Please review your input and try again.<p>"
-			"<p>Time: {} UTC</p>"
-			"<p>Best regards,<br>Your Team</p>").format(specific_error, timestamp)
-		return error_message, "Error when generating email"
 
 
 class SendEmailOrchestrator:
@@ -75,7 +42,6 @@ class SendEmailOrchestrator:
 		self.AttachmentRenderingService = app.get_service("AttachmentRenderingService")
 
 		self.SmtpService = app.get_service("SmtpService")
-		self.EmailFailsafeManager = EmailFailsafeManager(self.SmtpService)
 		# Our failsafe manager
 		self.ExceptionHandler = exception_handler
 

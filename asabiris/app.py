@@ -18,12 +18,17 @@ from .output.slack import SlackOutputService
 from .output.msteams import MSTeamsOutputService
 
 # orchestrators.
-from .orchestration.sendemail import SendEmailOrchestrator, EmailFailsafeManager
+from .orchestration.sendemail import SendEmailOrchestrator
 from .orchestration.render import RenderReportOrchestrator
 from .orchestration.sendmsteams import SendMSTeamsOrchestrator
 
+# exception handler's
 from .exception_handler import EmailExceptionHandlingStrategy
 from .exception_handler import APIExceptionHandlingStrategy
+
+# failsafe
+
+from .failsafe.email_failsafe import EmailFailsafeManager
 
 from .handlers.kafkahandler import KafkaHandler
 from .handlers.webhandler import WebHandler

@@ -1,4 +1,4 @@
-from .exception_handler import ExceptionHandlingStrategy
+from asabiris.exception_handler_abc import ExceptionHandlingStrategy
 
 
 class APIExceptionHandlingStrategy(ExceptionHandlingStrategy):
