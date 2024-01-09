@@ -14,61 +14,12 @@ L = logging.getLogger(__name__)
 #
 
 
-class SlackFailsafeManager:
-	"""
-	A manager class responsible for handling errors and executing fallback mechanisms for Slack notifications.
-
-	This class provides functionality to send error notifications via email when an issue occurs in processing
-	Slack-related requests. It acts as a failsafe mechanism to ensure that errors are communicated effectively.
-
-	Attributes:
-		SlackService: A service used to send slack messages.
-	"""
-	def __init__(self, slack_service):
-		"""
-		Initialize the SlackFailsafeManager with the necessary SMTP service.
-
-		Args:
-			SlackService: A service used to send Slack messages.
-		"""
-		self.SlackService = slack_service
-
-	async def send_error_notification(self, error):
-		"""
-		Send an error notification as a fallback mechanism.
-
-		This method is invoked when there is an error in processing Slack requests. It sends a Slack
-		notification detailing the error encountered.
-
-		Args:
-			error: The exception that was raised, indicating the nature of the error.
-		"""
-		error_message = self._generate_error_message_slack(str(error))
-		await self.SlackService.send_message(None, error_message)
-
-	def _generate_error_message_slack(self, specific_error: str) -> str:
-		timestamp = datetime.datetime.now(tz=datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
-		error_message = (
-			":warning: *Hello!*\n\n"
-			"We encountered an issue while processing your request:\n`{}`\n\n"
-			"Please review your input and try again.\n\n"
-			"*Time:* `{}` UTC\n\n"
-			"Best regards,\nASAB Iris :robot_face:"
-		).format(
-			specific_error,
-			timestamp
-		)
-		return error_message
-
-
-
-
 class SendSlackOrchestrator(object):
 
 	ValidationSchemaSlack = fastjsonschema.compile(slack_schema)
 
 
-	def __init__(self, app):
+	def __init__(self, app, exception_handler):
 		# formatters
 		self.JinjaService = app.get_service("JinjaService")
 		self.MarkdownFormatterService = app.get_service("MarkdownToHTMLService")
@@ -77,7 +28,7 @@ class SendSlackOrchestrator(object):
 		# output service
 		self.SlackOutputService = app.get_service("SlackOutputService")
 		# Our failsafe manager
-		self.SlackFailsafeManager = SlackFailsafeManager(self.SlackOutputService)
+		self.ExceptionHandler = exception_handler
 
 
 	async def send_to_slack(self, msg):
@@ -135,13 +86,13 @@ class SendSlackOrchestrator(object):
 			atts_gen = self.AttachmentRenderingService.render_attachment(attachments)
 			await self.SlackOutputService.send_files(output, atts_gen)
 		except Jinja2TemplateSyntaxError as e:
-			await self.SlackFailsafeManager.send_error_notification(str(e))
+			await self.ExceptionHandler.handle_exception(e)
 		except Jinja2TemplateUndefinedError as e:
-			await self.SlackFailsafeManager.send_error_notification(str(e))
+			await self.ExceptionHandler.handle_exception(e)
 		except PathError as e:
-			await self.SlackFailsafeManager.send_error_notification(str(e))
+			await self.ExceptionHandler.handle_exception(e)
 		except Exception as e:
-			await self.SlackFailsafeManager.send_error_notification(str(e))
+			await self.ExceptionHandler.handle_exception(e)
 
 
 	def get_file_name(self, attachment):
@@ -169,3 +120,6 @@ class SendSlackOrchestrator(object):
 		"""
 		content_type = mimetypes.guess_type('dummy' + file_extension)[0]
 		return content_type or 'application/octet-stream'
+
+	async def _handle_exception(self, exception):
+		await self.ExceptionHandler.handle_exception(exception)

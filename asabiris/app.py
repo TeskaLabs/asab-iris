@@ -25,6 +25,7 @@ from .orchestration.sendmsteams import SendMSTeamsOrchestrator
 # exception handler's
 from .exception_manager import EmailExceptionManager
 from .exception_manager import APIExceptionManager
+from .exception_manager import SlackExceptionManager
 
 # failsafe manager's
 from .failsafe.email_failsafe import EmailFailsafeManager
@@ -84,13 +85,17 @@ class ASABIRISApplication(asab.Application):
 		self.JinjaFormatterService = JinjaFormatterService(self)
 		self.AttachmentRenderingService = AttachmentRenderingService(self)
 
+		self.APIExceptionManager = APIExceptionManager(self)
+
 		# output services
 		self.EmailOutputService = EmailOutputService(self)
 
 		if 'slack' in asab.Config.sections():
 			self.SlackOutputService = SlackOutputService(self)
-			self.SendSlackOrchestrator = SendSlackOrchestrator(self)
 			self.SlackFailsafeManager = SlackFailsafeManager(self)
+			self.SlackExceptionManager = SlackExceptionManager(self, self.SlackOutputService)
+			self.SendSlackOrchestratorAPI = SendSlackOrchestrator(self, self.APIExceptionManager)
+			self.SendSlackOrchestratorKafka = SendSlackOrchestrator(self, self.SlackExceptionManager)
 		else:
 			self.SendSlackOrchestrator = None
 
@@ -100,12 +105,11 @@ class ASABIRISApplication(asab.Application):
 		else:
 			self.SendMSTeamsOrchestrator = None
 
-		self.EmailExceptionHandlingStrategy = EmailExceptionManager(self, self.EmailOutputService)
-		self.APIExceptionHandlingStrategy = APIExceptionManager(self)
+		self.EmailExceptionManager = EmailExceptionManager(self, self.EmailOutputService)
 
 		# Our Email Orchestrator's
-		self.SendEmailOrchestratorAPI = SendEmailOrchestrator(self, self.APIExceptionHandlingStrategy)
-		self.SendEmailOrchestratorKafka = SendEmailOrchestrator(self, self.EmailExceptionHandlingStrategy)
+		self.SendEmailOrchestratorAPI = SendEmailOrchestrator(self, self.APIExceptionManager)
+		self.SendEmailOrchestratorKafka = SendEmailOrchestrator(self, self.EmailExceptionManager)
 		self.EmailFailsafeManager = EmailFailsafeManager(self)
 
 		self.RenderReportOrchestrator = RenderReportOrchestrator(self)
