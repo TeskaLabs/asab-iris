@@ -2,7 +2,7 @@ import datetime
 import logging
 from typing import Tuple
 
-from asabiris.failsafe_abc import FailsafeHandler
+from asabiris.failsafe.failsafe_abc import FailsafeHandler
 
 #
 

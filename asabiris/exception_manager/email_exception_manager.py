@@ -1,4 +1,4 @@
-from asabiris.exception_manager_abc import ExceptionManager
+from asabiris.exception_manager.exception_manager_abc import ExceptionManager
 
 import logging
 
