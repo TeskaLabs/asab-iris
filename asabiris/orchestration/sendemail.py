@@ -126,18 +126,13 @@ class SendEmailOrchestrator:
 			L.info("Email sent successfully to: {}".format(', '.join(email_to)))
 
 		except Jinja2TemplateUndefinedError as e:
-			context = {'context': caller_context,'from_email': email_from, 'to_emails': email_to}
-			await self.EmailExceptionHandlingStrategy.handle_exception(e, context)
+			await self._handle_exception(e, caller_context, email_from, email_to)
 		except FormatError as e:
-			context = {'context': caller_context,'from_email': email_from, 'to_emails': email_to}
-			await self.EmailExceptionHandlingStrategy.handle_exception(e, context)
+			await self._handle_exception(e, caller_context, email_from, email_to)
 		except PathError as e:
-			context = {'context': caller_context,'from_email': email_from, 'to_emails': email_to}
-			await self.EmailExceptionHandlingStrategy.handle_exception(e, context)
+			await self._handle_exception(e, caller_context, email_from, email_to)
 		except Exception as e:
-			L.exception("Error occurred when preparing the email")
-			context = {'context': caller_context,'from_email': email_from, 'to_emails': email_to}
-			await self.EmailExceptionHandlingStrategy.handle_exception(e, context)
+			await self._handle_exception(e, caller_context, email_from, email_to)
 
 	async def _render_template(self, template: str, params: Dict) -> Tuple[str, str]:
 		if not template.startswith('/Templates/Email/'):
@@ -156,6 +151,15 @@ class SendEmailOrchestrator:
 
 		else:
 			raise FormatError(format=ext)
+
+
+	async def _handle_exception(self, exception, caller_context, email_from, email_to):
+		context = {
+			'context': caller_context,
+			'from_email': email_from,
+			'to_emails': email_to
+		}
+		await self.EmailExceptionHandlingStrategy.handle_exception(exception, context)
 
 
 def find_subject_in_html(body):
