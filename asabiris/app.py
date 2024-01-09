@@ -87,9 +87,6 @@ class ASABIRISApplication(asab.Application):
 
 		self.APIExceptionManager = APIExceptionManager(self)
 
-		# output services
-		self.EmailOutputService = EmailOutputService(self)
-
 		if 'slack' in asab.Config.sections():
 			self.SlackOutputService = SlackOutputService(self)
 			self.SlackFailsafeManager = SlackFailsafeManager(self)
@@ -106,9 +103,9 @@ class ASABIRISApplication(asab.Application):
 		else:
 			self.SendMSTeamsOrchestrator = None
 
-		self.EmailExceptionManager = EmailExceptionManager(self, self.EmailOutputService)
-
 		# Our Email Orchestrator's
+		self.EmailOutputService = EmailOutputService(self)
+		self.EmailExceptionManager = EmailExceptionManager(self, self.EmailOutputService)
 		self.SendEmailOrchestratorAPI = SendEmailOrchestrator(self, self.APIExceptionManager)
 		self.SendEmailOrchestratorKafka = SendEmailOrchestrator(self, self.EmailExceptionManager)
 		self.EmailFailsafeManager = EmailFailsafeManager(self)
