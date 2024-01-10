@@ -6,7 +6,7 @@ import fastjsonschema
 
 from ..exceptions import PathError, Jinja2TemplateUndefinedError, Jinja2TemplateSyntaxError
 from ..schemas import slack_schema
-
+from ..exception_manager import ExceptionManager
 #
 
 L = logging.getLogger(__name__)
@@ -19,7 +19,7 @@ class SendSlackOrchestrator(object):
 	ValidationSchemaSlack = fastjsonschema.compile(slack_schema)
 
 
-	def __init__(self, app, exception_handler):
+	def __init__(self, app, exception_handler: ExceptionManager):
 		# formatters
 		self.JinjaService = app.get_service("JinjaService")
 		self.MarkdownFormatterService = app.get_service("MarkdownToHTMLService")

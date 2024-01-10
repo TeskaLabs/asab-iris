@@ -14,6 +14,7 @@ import logging
 from typing import List, Tuple, Dict
 
 from ..exceptions import PathError, FormatError, Jinja2TemplateUndefinedError
+from ..exception_manager import ExceptionManager
 #
 
 L = logging.getLogger(__name__)
@@ -30,7 +31,7 @@ class SendEmailOrchestrator:
 
 	"""
 
-	def __init__(self, app, exception_handler):
+	def __init__(self, app, exception_handler: ExceptionManager):
 		"""
 		Initialize the SendEmailOrchestrator with necessary services.
 
