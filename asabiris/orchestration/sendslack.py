@@ -27,7 +27,7 @@ class SendSlackOrchestrator(object):
 
 		# output service
 		self.SlackOutputService = app.get_service("SlackOutputService")
-		# Our failsafe manager
+		# Our Exception manager
 		self.ExceptionHandler = exception_handler
 
 

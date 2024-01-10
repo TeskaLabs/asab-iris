@@ -96,7 +96,7 @@ class KafkaHandler(asab.Service):
 			# 	L.warning("Invalid notification format: {}".format(e))
 			# 	return
 			if self.App.SendMSTeamsOrchestrator is not None:
-				await self.App.SendMSTeamsOrchestrator.send_to_msteams(msg)
+				await self.App.SendMSTeamsOrchestratorKafka.send_to_msteams(msg)
 			else:
 				L.warning("MS Teams is not configured, a notification is discarded")
 

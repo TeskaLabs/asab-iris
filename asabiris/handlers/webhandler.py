@@ -181,7 +181,6 @@ class WebHandler(object):
 
 		```
 				{
-				"title": "Testing iris",
 				"body": {
 					"template": "/Templates/MSTeams/alert.md",
 					"params": {
@@ -196,7 +195,7 @@ class WebHandler(object):
 		"""
 
 		try:
-			await self.App.SendMSTeamsOrchestrator.send_to_msteams(json_data)
+			await self.App.SendMSTeamsOrchestratorAPI.send_to_msteams(json_data)
 		except Jinja2TemplateUndefinedError as e:
 			raise aiohttp.web.HTTPBadRequest(text=str(e))
 
