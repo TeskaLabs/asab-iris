@@ -3,7 +3,6 @@ from unittest.mock import patch, MagicMock
 import asyncio
 from asabiris.orchestration.sendslack import SendSlackOrchestrator  # Update the import path as necessary
 import asab
-from asabiris.exceptions import PathError
 
 
 class AsyncMock(MagicMock):
