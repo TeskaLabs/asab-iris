@@ -94,8 +94,7 @@ class ASABIRISApplication(asab.Application):
 			self.SendSlackOrchestratorAPI = SendSlackOrchestrator(self, self.APIExceptionManager)
 			self.SendSlackOrchestratorKafka = SendSlackOrchestrator(self, self.SlackExceptionManager)
 		else:
-			self.SendSlackOrchestratorAPI = None
-			self.SendSlackOrchestratorKafka = None
+			self.SendSlackOrchestratorAPI = self.SendSlackOrchestratorKafka = None
 
 		if 'msteams' in asab.Config.sections():
 			self.MSTeamsOutputService = MSTeamsOutputService(self)
