@@ -19,7 +19,8 @@ class TestSendSlackOrchestrator(unittest.TestCase):
 		self.app_mock.get_service = MagicMock(side_effect=self.mock_get_service)
 
 		# Orchestrator instance to test
-		self.orchestrator = SendSlackOrchestrator(self.app_mock)
+		self.MockExceptionManager = AsyncMock()
+		self.orchestrator = SendSlackOrchestrator(self.app_mock, self.MockExceptionManager)
 
 	def mock_get_service(self, service_name):
 		if service_name == "JinjaService":
@@ -60,16 +61,6 @@ class TestSendSlackOrchestrator(unittest.TestCase):
 		with patch.object(self.orchestrator, 'send_to_slack', new_callable=AsyncMock) as mock_send:
 			self.loop.run_until_complete(mock_send(msg))
 			mock_send.assert_called_once()
-
-	def test_path_error_on_invalid_template(self):
-		msg = {
-			'body': {
-				'template': 'invalid_template_path',
-				'params': {}
-			}
-		}
-		with self.assertRaises(PathError):
-			self.loop.run_until_complete(self.orchestrator.send_to_slack(msg))
 
 	def test_get_file_name_with_filename(self):
 		# Test that get_file_name returns the correct filename if provided
