@@ -28,9 +28,10 @@ class TestRenderMethod(unittest.TestCase):
 
         # Mocking the SmtpService as an AsyncMock
         self.MockSmtpService = AsyncMock()
+        self.MockExceptionManager = AsyncMock()
 
         # Creating an instance of the orchestrator with the mocked app
-        self.orchestrator = SendEmailOrchestrator(self.MockApp)
+        self.orchestrator = SendEmailOrchestrator(self.MockApp, self.MockExceptionManager)
 
     def _mock_get_service(self, service_name):
         if service_name == "JinjaService":
