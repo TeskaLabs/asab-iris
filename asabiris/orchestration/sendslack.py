@@ -81,7 +81,6 @@ class SendSlackOrchestrator(object):
 			return
 
 		# Sending attachments
-
 		output = self.MarkdownFormatterService.unformat(output)
 		atts_gen = self.AttachmentRenderingService.render_attachment(attachments)
 		await self.SlackOutputService.send_files(output, atts_gen)
