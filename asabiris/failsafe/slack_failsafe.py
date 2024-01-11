@@ -1,7 +1,7 @@
 import datetime
 import logging
 
-from asabiris.failsafe.failsafe_abc import FailsafeHandler
+from asabiris.failsafe.failsafe_abc import FailsafeManager
 #
 
 L = logging.getLogger(__name__)
@@ -9,7 +9,7 @@ L = logging.getLogger(__name__)
 #
 
 
-class SlackFailsafeManager(FailsafeHandler):
+class SlackFailsafeManager(FailsafeManager):
 	"""
 	A manager class responsible for handling errors and executing fallback mechanisms for Slack notifications.
 

@@ -2,7 +2,7 @@ import datetime
 import logging
 from typing import Tuple
 
-from asabiris.failsafe.failsafe_abc import FailsafeHandler
+from asabiris.failsafe.failsafe_abc import FailsafeManager
 
 #
 
@@ -11,7 +11,7 @@ L = logging.getLogger(__name__)
 #
 
 
-class EmailFailsafeManager(FailsafeHandler):
+class EmailFailsafeManager(FailsafeManager):
     def __init__(self, app):
         self.App = app
 

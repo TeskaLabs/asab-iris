@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 
 
-class FailsafeHandler(ABC):
+class FailsafeManager(ABC):
     @abstractmethod
     async def send_error_notification(self, error, sending_info):
         pass
