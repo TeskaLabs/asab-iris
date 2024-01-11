@@ -20,6 +20,7 @@ from .output.msteams import MSTeamsOutputService
 # orchestrators.
 from .orchestration.sendemail import SendEmailOrchestrator
 from .orchestration.render import RenderReportOrchestrator
+from .orchestration.sendslack import SendSlackOrchestrator
 from .orchestration.sendmsteams import SendMSTeamsOrchestrator
 
 # exception handler's
@@ -35,7 +36,6 @@ from .failsafe.msteams_failsafe import MSTeamsFailsafeManager
 
 from .handlers.kafkahandler import KafkaHandler
 from .handlers.webhandler import WebHandler
-from .orchestration.sendslack import SendSlackOrchestrator
 
 L = logging.getLogger(__name__)
 
@@ -81,14 +81,16 @@ class ASABIRISApplication(asab.Application):
 		if 'zookeeper' in asab.Config.sections():
 			self.ASABApiService.initialize_zookeeper()
 
-		# formatter
+		# formatter's
 		self.MarkdownFormatterService = MarkdownFormatterService(self)
 		self.PdfFormatterService = PdfFormatterService(self)
 		self.JinjaFormatterService = JinjaFormatterService(self)
 		self.AttachmentRenderingService = AttachmentRenderingService(self)
 
+		# API Exception manager
 		self.APIExceptionManager = APIExceptionManager(self)
 
+		# setup Slack service
 		if 'slack' in asab.Config.sections():
 			self.SlackOutputService = SlackOutputService(self)
 			self.SlackFailsafeManager = SlackFailsafeManager(self)
@@ -98,6 +100,7 @@ class ASABIRISApplication(asab.Application):
 		else:
 			self.SendSlackOrchestratorAPI = self.SendSlackOrchestratorKafka = None
 
+		# setup Email service
 		if 'msteams' in asab.Config.sections():
 			self.MSTeamsOutputService = MSTeamsOutputService(self)
 			self.MSTeamsFailsafeManager = MSTeamsFailsafeManager(self)
@@ -107,17 +110,17 @@ class ASABIRISApplication(asab.Application):
 		else:
 			self.SendMSTeamsOrchestratorKafka = self.SendMSTeamsOrchestratorAPI = None
 
-		# Our Email Orchestrator's
+		# Our Email Service
 		self.EmailOutputService = EmailOutputService(self)
 		self.EmailExceptionManager = EmailExceptionManager(self, self.EmailOutputService)
 		self.SendEmailOrchestratorAPI = SendEmailOrchestrator(self, self.APIExceptionManager)
 		self.SendEmailOrchestratorKafka = SendEmailOrchestrator(self, self.EmailExceptionManager)
 		self.EmailFailsafeManager = EmailFailsafeManager(self)
 
+		# Our render Service
 		self.RenderReportOrchestrator = RenderReportOrchestrator(self)
 
 		self.WebHandler = WebHandler(self)
-
 
 		# Apache Kafka API is conditional
 		if "kafka" in asab.Config.sections():
