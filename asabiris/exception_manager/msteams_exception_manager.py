@@ -24,4 +24,6 @@ class MSTeamsExceptionManager(ExceptionManager):
                 This could include details like channel, user mentions, etc.
 
         """
+        L.warning("Exception occurred: {}".format(exception))
+
         await self.MSTeamsFailsafeManager.send(str(exception), notification_params)

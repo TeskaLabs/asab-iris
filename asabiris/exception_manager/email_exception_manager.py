@@ -40,6 +40,8 @@ class EmailExceptionManager(ExceptionManager):
                 This should include 'from_email' and 'to_emails' keys.
 
         """
+        L.warning("Exception occurred: {}".format(exception))
+
         if notification_params:
             # Extract 'from_email' and 'to_emails' from the context
             from_email = notification_params.get('from_email')

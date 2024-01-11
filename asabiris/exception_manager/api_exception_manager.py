@@ -1,4 +1,11 @@
+import logging
+
 from asabiris.exception_manager.exception_manager_abc import ExceptionManager
+#
+
+L = logging.getLogger(__name__)
+
+#
 
 
 class APIExceptionManager(ExceptionManager):
@@ -21,4 +28,5 @@ class APIExceptionManager(ExceptionManager):
 		Raises:
 			exception: Re-raises the caught exception.
 		"""
+		L.warning("Exception occurred: {}".format(exception))
 		raise exception

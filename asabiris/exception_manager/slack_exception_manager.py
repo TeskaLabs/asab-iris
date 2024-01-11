@@ -38,4 +38,5 @@ class SlackExceptionManager(ExceptionManager):
                 This could include details like channel, user mentions, etc.
 
         """
+        L.warning("Exception occurred: {}".format(exception))
         await self.SlackFailsafeManager.send_error_notification(str(exception), notification_params)

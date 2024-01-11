@@ -24,6 +24,9 @@ class EmailFailsafeManager(FailsafeManager):
             notification_params: Dictionary containing notification parameters.
         """
         # Extract 'email_from' and 'email_to' from notification parameters
+
+        L.warning("Exception occurred: {}".format(error))
+
         email_from = notification_params.get('from_email')
         email_to = notification_params.get('to_emails')
 
