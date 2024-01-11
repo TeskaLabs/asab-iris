@@ -13,8 +13,10 @@ import re
 import logging
 from typing import List, Tuple, Dict
 
-from ..exceptions import PathError, FormatError, Jinja2TemplateUndefinedError, Jinja2TemplateSyntaxError
+from ..exceptions import PathError, FormatError
 from ..exception_manager import ExceptionManager
+
+from ..utils import handle_exceptions
 #
 
 L = logging.getLogger(__name__)
@@ -31,7 +33,7 @@ class SendEmailOrchestrator:
 
 	"""
 
-	def __init__(self, app, exception_handler: ExceptionManager):
+	def __init__(self, app, exception_manager: ExceptionManager):
 		"""
 		Initialize the SendEmailOrchestrator with necessary services.
 
@@ -44,9 +46,9 @@ class SendEmailOrchestrator:
 
 		self.SmtpService = app.get_service("SmtpService")
 		# Our failsafe manager
-		self.ExceptionHandler = exception_handler
+		self.ExceptionHandler = exception_manager
 
-
+	@handle_exceptions("ExceptionHandler")
 	async def send_email(
 		self,
 		email_to: List[str],
@@ -62,44 +64,33 @@ class SendEmailOrchestrator:
 		Send an email using specified parameters.
 		...
 		"""
-		try:
-			body_params = body_params or {}
-			attachments = attachments or []
-			email_cc = email_cc or []
-			email_bcc = email_bcc or []
+		body_params = body_params or {}
+		attachments = attachments or []
+		email_cc = email_cc or []
+		email_bcc = email_bcc or []
 
-			# Rendering the template
-			body_html, email_subject_body = await self._render_template(body_template, body_params)
+		# Rendering the template
+		body_html, email_subject_body = await self._render_template(body_template, body_params)
 
-			# If email_subject is not provided or is empty use email_subject_body
-			if email_subject is None or email_subject == '':
-				email_subject = email_subject_body
+		# If email_subject is not provided or is empty use email_subject_body
+		if email_subject is None or email_subject == '':
+			email_subject = email_subject_body
 
-			# Processing attachments
-			atts_gen = self.AttachmentRenderingService.render_attachment(attachments)
+		# Processing attachments
+		atts_gen = self.AttachmentRenderingService.render_attachment(attachments)
 
-			# Sending the email
-			await self.SmtpService.send(
-				email_from=email_from,
-				email_to=email_to,
-				email_cc=email_cc,
-				email_bcc=email_bcc,
-				email_subject=email_subject,
-				body=body_html,
-				attachments=atts_gen,
-			)
-			L.info("Email sent successfully to: {}".format(', '.join(email_to)))
+		# Sending the email
+		await self.SmtpService.send(
+			email_from=email_from,
+			email_to=email_to,
+			email_cc=email_cc,
+			email_bcc=email_bcc,
+			email_subject=email_subject,
+			body=body_html,
+			attachments=atts_gen,
+		)
+		L.info("Email sent successfully to: {}".format(', '.join(email_to)))
 
-		except Jinja2TemplateUndefinedError as e:
-			await self._handle_exception(e, email_from, email_to)
-		except Jinja2TemplateSyntaxError as e:
-			await self._handle_exception(e, email_from, email_to)
-		except FormatError as e:
-			await self._handle_exception(e, email_from, email_to)
-		except PathError as e:
-			await self._handle_exception(e, email_from, email_to)
-		except Exception as e:
-			await self._handle_exception(e, email_from, email_to)
 
 	async def _render_template(self, template: str, params: Dict) -> Tuple[str, str]:
 		if not template.startswith('/Templates/Email/'):
@@ -118,14 +109,6 @@ class SendEmailOrchestrator:
 
 		else:
 			raise FormatError(format=ext)
-
-
-	async def _handle_exception(self, exception, email_from, email_to):
-		email_notification_params = {
-			'from_email': email_from,
-			'to_emails': email_to
-		}
-		await self.ExceptionHandler.handle_exception(exception, email_notification_params)
 
 
 def find_subject_in_html(body):

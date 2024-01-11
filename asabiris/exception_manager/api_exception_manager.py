@@ -19,6 +19,6 @@ class APIExceptionManager(ExceptionManager):
 				such as user details, context of the exception, etc. Defaults to None.
 
 		Raises:
-			exception: Reraises the caught exception.
+			exception: Re-raises the caught exception.
 		"""
 		raise exception
