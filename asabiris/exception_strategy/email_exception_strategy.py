@@ -1,4 +1,4 @@
-from asabiris.exception_manager.exception_manager_abc import ExceptionManager
+from asabiris.exception_strategy.exception_strategy_abc import ExceptionStrategy
 
 import logging
 import datetime
@@ -8,22 +8,21 @@ from typing import Tuple
 L = logging.getLogger(__name__)
 
 
-class EmailExceptionManager(ExceptionManager):
+class EmailExceptionStrategy(ExceptionStrategy):
     """
-    A subclass of ExceptionManager designed for handling exceptions by sending email notifications.
+    A subclass of ExceptionStrategy designed for handling exceptions by sending email notifications.
 
-    This class implements the abstract methods of ExceptionManager, providing a specific strategy
-    for dealing with exceptions by notifying relevant parties through email. It utilizes an
-    email failsafe manager to send these notifications.
+    This class provides a concrete implementation of `handle_exception` from ExceptionStrategy,
+    specifically handling exceptions by notifying relevant parties through emails using an
+    EmailOutputService instance.
 
     Attributes:
-        EmailFailsafeManager: An instance of a manager class responsible for sending email notifications.
+        EmailOutputService: An instance responsible for sending email notifications.
 
     Methods:
-        __init__: Initializes a new instance of EmailExceptionManager.
-        handle_exception: Asynchronously handles exceptions by sending email notifications.
+        __init__: Initializes a new instance with a reference to an EmailOutputService.
+        handle_exception: Overrides the abstract method to handle exceptions via email notifications.
     """
-
 
     def __init__(self, app):
         self.EmailOutputService = app.get_service("SmtpService")
@@ -32,16 +31,17 @@ class EmailExceptionManager(ExceptionManager):
         """
         Asynchronously handles an exception by sending an email notification.
 
-        This method overrides the abstract method from ExceptionManager. It checks for the presence
-        of notification parameters to send an email. If 'from_email' and 'to_emails' are provided
-        in the notification_params, it sends an email using the EmailFailsafeManager. If the
-        notification parameters are missing or incomplete, it logs an error message.
+        Overrides the abstract method from ExceptionStrategy. It sends an email using the
+        EmailOutputService if 'from_email' and 'to_emails' are provided in notification_params.
+        Logs an error message if the necessary parameters are missing.
 
         Args:
-            exception (Exception): The exception that needs to be handled.
-            notification_params (Optional[dict]): Additional parameters used for the email notification.
-                This should include 'from_email' and 'to_emails' keys.
+            exception (Exception): The exception to handle.
+            notification_params (Optional[dict]): Parameters for the email notification,
+                including 'from_email' and 'to_emails'.
 
+        Raises:
+            KeyError: If 'from_email' or 'to_emails' are missing in notification_params.
         """
         L.warning("Exception occurred: {}".format(exception))
 

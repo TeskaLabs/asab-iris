@@ -24,10 +24,10 @@ from .orchestration.sendslack import SendSlackOrchestrator
 from .orchestration.sendmsteams import SendMSTeamsOrchestrator
 
 # exception handler's
-from .exception_manager import EmailExceptionManager
-from .exception_manager import APIExceptionManager
-from .exception_manager import SlackExceptionManager
-from .exception_manager import MSTeamsExceptionManager
+from .exception_strategy import EmailExceptionStrategy
+from .exception_strategy import APIExceptionStrategy
+from .exception_strategy import SlackExceptionStrategy
+from .exception_strategy import MSTeamsExceptionStrategy
 
 
 from .handlers.kafkahandler import KafkaHandler
@@ -84,12 +84,12 @@ class ASABIRISApplication(asab.Application):
 		self.AttachmentRenderingService = AttachmentRenderingService(self)
 
 		# API Exception manager
-		self.APIExceptionManager = APIExceptionManager(self)
+		self.APIExceptionManager = APIExceptionStrategy(self)
 
 		# setup Slack service
 		if 'slack' in asab.Config.sections():
 			self.SlackOutputService = SlackOutputService(self)
-			self.SlackExceptionManager = SlackExceptionManager(self)
+			self.SlackExceptionManager = SlackExceptionStrategy(self)
 			self.SendSlackOrchestratorAPI = SendSlackOrchestrator(self, self.APIExceptionManager)
 			self.SendSlackOrchestratorKafka = SendSlackOrchestrator(self, self.SlackExceptionManager)
 		else:
@@ -98,15 +98,15 @@ class ASABIRISApplication(asab.Application):
 		# setup Email service
 		if 'msteams' in asab.Config.sections():
 			self.MSTeamsOutputService = MSTeamsOutputService(self)
-			self.EmailExceptionManager = MSTeamsExceptionManager(self)
+			self.MSTeamsExceptionStrategy = MSTeamsExceptionStrategy(self)
 			self.SendMSTeamsOrchestratorAPI = SendMSTeamsOrchestrator(self, self.APIExceptionManager)
-			self.SendMSTeamsOrchestratorKafka = SendMSTeamsOrchestrator(self, self.SlackExceptionManager)
+			self.SendMSTeamsOrchestratorKafka = SendMSTeamsOrchestrator(self, self.MSTeamsExceptionStrategy)
 		else:
 			self.SendMSTeamsOrchestratorKafka = self.SendMSTeamsOrchestratorAPI = None
 
 		# Our Email Service
 		self.EmailOutputService = EmailOutputService(self)
-		self.EmailExceptionManager = EmailExceptionManager(self)
+		self.EmailExceptionManager = EmailExceptionStrategy(self)
 		self.SendEmailOrchestratorAPI = SendEmailOrchestrator(self, self.APIExceptionManager)
 		self.SendEmailOrchestratorKafka = SendEmailOrchestrator(self, self.EmailExceptionManager)
 

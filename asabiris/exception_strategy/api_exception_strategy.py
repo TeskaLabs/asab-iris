@@ -1,6 +1,6 @@
 import logging
 
-from asabiris.exception_manager.exception_manager_abc import ExceptionManager
+from asabiris.exception_strategy.exception_strategy_abc import ExceptionStrategy
 #
 
 L = logging.getLogger(__name__)
@@ -8,7 +8,7 @@ L = logging.getLogger(__name__)
 #
 
 
-class APIExceptionManager(ExceptionManager):
+class APIExceptionStrategy(ExceptionStrategy):
 
 	def __init__(self, app):
 		self.App = app
