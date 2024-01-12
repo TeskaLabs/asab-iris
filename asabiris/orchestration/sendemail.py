@@ -32,7 +32,7 @@ class SendEmailOrchestrator:
 
 	"""
 
-	def __init__(self, app, exception_manager: ExceptionStrategy):
+	def __init__(self, app):
 		"""
 		Initialize the SendEmailOrchestrator with necessary services.
 
@@ -45,7 +45,7 @@ class SendEmailOrchestrator:
 
 		self.SmtpService = app.get_service("SmtpService")
 		# Our failsafe manager
-		self.EmailExceptionStrategy = exception_manager
+		self.ExceptionStrategy = None
 
 	async def send_email(
 		self,
@@ -57,12 +57,14 @@ class SendEmailOrchestrator:
 		email_bcc=None,
 		email_subject=None,
 		attachments=None,
+		exception_strategy=None
 	):
 		"""
 		Send an email using specified parameters.
 		...
 		"""
 		try:
+			self.ExceptionStrategy = exception_strategy
 			body_params = body_params or {}
 			attachments = attachments or []
 			email_cc = email_cc or []
@@ -124,7 +126,7 @@ class SendEmailOrchestrator:
 			'from_email': email_from,
 			'to_emails': email_to
 		}
-		await self.EmailExceptionStrategy.handle_exception(exception, context)
+		await self.ExceptionStrategy.handle_exception(exception, context)
 
 
 

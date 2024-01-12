@@ -6,7 +6,6 @@ import fastjsonschema
 
 from ..exceptions import PathError, Jinja2TemplateSyntaxError, Jinja2TemplateUndefinedError
 from ..schemas import slack_schema
-from ..exception_strategy import ExceptionStrategy
 #
 
 L = logging.getLogger(__name__)
@@ -19,7 +18,7 @@ class SendSlackOrchestrator(object):
 	ValidationSchemaSlack = fastjsonschema.compile(slack_schema)
 
 
-	def __init__(self, app, exception_handler: ExceptionStrategy):
+	def __init__(self, app):
 		# formatters
 		self.JinjaService = app.get_service("JinjaService")
 		self.MarkdownFormatterService = app.get_service("MarkdownToHTMLService")
@@ -28,10 +27,11 @@ class SendSlackOrchestrator(object):
 		# output service
 		self.SlackOutputService = app.get_service("SlackOutputService")
 		# Our Exception manager
-		self.ExceptionHandler = exception_handler
+		self.ExceptionStrategy = None
 
-	async def send_to_slack(self, msg):
+	async def send_to_slack(self, msg, exception_strategy=None):
 		try:
+			self.ExceptionStrategy = exception_strategy
 			SendSlackOrchestrator.ValidationSchemaSlack(msg)
 		except fastjsonschema.exceptions.JsonSchemaException as e:
 			L.warning("Invalid notification format: {}".format(e))
@@ -118,4 +118,4 @@ class SendSlackOrchestrator(object):
 		return content_type or 'application/octet-stream'
 
 	async def _handle_exception(self, exception):
-		await self.ExceptionHandler.handle_exception(exception)
+		await self.ExceptionStrategy.handle_exception(exception)

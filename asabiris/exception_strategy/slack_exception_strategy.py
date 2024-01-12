@@ -40,7 +40,7 @@ class SlackExceptionStrategy(ExceptionStrategy):
         """
         L.warning("Exception occurred: {}".format(exception))
         error_message = self._generate_error_message_slack(str(exception))
-        await self.SlackOutputService.send_message(str(error_message), notification_params)
+        await self.SlackOutputService.send_message(None, str(error_message))
 
     def _generate_error_message_slack(self, exception: str) -> str:
         """

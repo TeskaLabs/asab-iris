@@ -95,7 +95,7 @@ class WebHandler(object):
 		"""
 
 		try:
-			await self.App.SendEmailOrchestratorAPI.send_email(
+			await self.App.SendEmailOrchestrator.send_email(
 				email_to=json_data["to"],
 				body_template=json_data["body"]["template"],
 				email_cc=json_data.get("cc", []),  # Optional
@@ -103,7 +103,8 @@ class WebHandler(object):
 				email_subject=json_data.get("subject", None),  # Optional
 				email_from=json_data.get("from"),
 				body_params=json_data["body"].get("params", {}),  # Optional
-				attachments=json_data.get("attachments", []),  # Optional
+				attachments=json_data.get("attachments", []),
+				exception_strategy=self.App.APIExceptionStrategy# Optional
 			)
 		except KeyError as e:
 			raise aiohttp.web.HTTPNotFound(text="{}".format(e))
@@ -146,7 +147,7 @@ class WebHandler(object):
 		"""
 
 		try:
-			await self.App.SendSlackOrchestratorAPI.send_to_slack(json_data)
+			await self.App.SendSlackOrchestrator.send_to_slack(json_data, exception_strategy=self.App.APIExceptionStrategy)
 		except Jinja2TemplateUndefinedError as e:
 			raise aiohttp.web.HTTPBadRequest(text=str(e))
 
@@ -195,7 +196,7 @@ class WebHandler(object):
 		"""
 
 		try:
-			await self.App.SendMSTeamsOrchestratorAPI.send_to_msteams(json_data)
+			await self.App.SendMSTeamsOrchestrator.send_to_msteams(json_data, exception_strategy=self.App.APIExceptionStrategy)
 		except Jinja2TemplateUndefinedError as e:
 			raise aiohttp.web.HTTPBadRequest(text=str(e))
 

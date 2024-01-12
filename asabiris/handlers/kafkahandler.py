@@ -85,7 +85,7 @@ class KafkaHandler(asab.Service):
 				L.warning("Invalid notification format: {}".format(e))
 				return
 			if self.App.SendSlackOrchestratorKafka is not None:
-				await self.App.SendSlackOrchestratorKafka.send_to_slack(msg)
+				await self.App.SendSlackOrchestrator.send_to_slack(msg, exception_strategy=self.App.SlackExceptionStrategy)
 			else:
 				L.warning("Slack is not configured, a notification is discarded")
 
@@ -97,7 +97,7 @@ class KafkaHandler(asab.Service):
 			# 	L.warning("Invalid notification format: {}".format(e))
 			# 	return
 			if self.App.SendMSTeamsOrchestrator is not None:
-				await self.App.SendMSTeamsOrchestratorKafka.send_to_msteams(msg)
+				await self.App.SendMSTeamsOrchestrator.send_to_msteams(msg, exception_strategy=self.App.MSTeamsExceptionStrategy)
 			else:
 				L.warning("MS Teams is not configured, a notification is discarded")
 
@@ -106,7 +106,7 @@ class KafkaHandler(asab.Service):
 
 
 	async def send_email(self, json_data):
-		await self.App.SendEmailOrchestratorKafka.send_email(
+		await self.App.SendEmailOrchestrator.send_email(
 			email_to=json_data["to"],
 			body_template=json_data["body"]["template"],
 			email_cc=json_data.get("cc", []),  # Optional
@@ -115,4 +115,5 @@ class KafkaHandler(asab.Service):
 			email_from=json_data.get("from"),
 			body_params=json_data["body"].get("params", {}),  # Optional
 			attachments=json_data.get("attachments", []),  # Optional
+			exception_strategy=self.App.E
 		)

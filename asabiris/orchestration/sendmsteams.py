@@ -24,15 +24,15 @@ class SendMSTeamsOrchestrator(object):
 		MSTeamsOutputService (object): The MSTeamsOutputService object.
 	"""
 
-	def __init__(self, app, exception_handler: ExceptionStrategy):
+	def __init__(self, app):
 		self.JinjaService = app.get_service("JinjaService")
 		self.MSTeamsOutputService = app.get_service("MSTeamsOutputService")
 
 		# Our Exception manager
-		self.ExceptionHandler = exception_handler
+		self.ExceptionStrategy = None
 
 
-	async def send_to_msteams(self, msg):
+	async def send_to_msteams(self, msg, exception_strategy=None):
 		"""
 		Sends a message to MS Teams.
 
@@ -46,6 +46,7 @@ class SendMSTeamsOrchestrator(object):
 			None
 		"""
 		try:
+			self.ExceptionStrategy = exception_strategy
 			SendMSTeamsOrchestrator.ValidationSchemaMSTeams(msg)
 		except fastjsonschema.exceptions.JsonSchemaException as e:
 			L.warning("Invalid notification format: {}".format(e))
@@ -72,4 +73,4 @@ class SendMSTeamsOrchestrator(object):
 
 
 	async def _handle_exception(self, exception):
-		await self.ExceptionHandler.handle_exception(exception)
+		await self.ExceptionStrategy.handle_exception(exception)

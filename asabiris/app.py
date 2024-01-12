@@ -84,31 +84,28 @@ class ASABIRISApplication(asab.Application):
 		self.AttachmentRenderingService = AttachmentRenderingService(self)
 
 		# API Exception manager
-		self.APIExceptionManager = APIExceptionStrategy(self)
+		self.APIExceptionStrategy = APIExceptionStrategy(self)
 
 		# setup Slack service
 		if 'slack' in asab.Config.sections():
 			self.SlackOutputService = SlackOutputService(self)
-			self.SlackExceptionManager = SlackExceptionStrategy(self)
-			self.SendSlackOrchestratorAPI = SendSlackOrchestrator(self, self.APIExceptionManager)
-			self.SendSlackOrchestratorKafka = SendSlackOrchestrator(self, self.SlackExceptionManager)
+			self.SlackExceptionStrategy = SlackExceptionStrategy(self)
+			self.SendSlackOrchestrator = SendSlackOrchestrator(self)
 		else:
-			self.SendSlackOrchestratorAPI = self.SendSlackOrchestratorKafka = None
+			self.SendSlackOrchestrator = None
 
 		# setup Email service
 		if 'msteams' in asab.Config.sections():
 			self.MSTeamsOutputService = MSTeamsOutputService(self)
 			self.MSTeamsExceptionStrategy = MSTeamsExceptionStrategy(self)
-			self.SendMSTeamsOrchestratorAPI = SendMSTeamsOrchestrator(self, self.APIExceptionManager)
-			self.SendMSTeamsOrchestratorKafka = SendMSTeamsOrchestrator(self, self.MSTeamsExceptionStrategy)
+			self.SendMSTeamsOrchestrator = SendMSTeamsOrchestrator(self)
 		else:
-			self.SendMSTeamsOrchestratorKafka = self.SendMSTeamsOrchestratorAPI = None
+			self.SendMSTeamsOrchestrator = None
 
 		# Our Email Service
 		self.EmailOutputService = EmailOutputService(self)
-		self.EmailExceptionManager = EmailExceptionStrategy(self)
-		self.SendEmailOrchestratorAPI = SendEmailOrchestrator(self, self.APIExceptionManager)
-		self.SendEmailOrchestratorKafka = SendEmailOrchestrator(self, self.EmailExceptionManager)
+		self.EmailExceptionStrategy = EmailExceptionStrategy(self)
+		self.SendEmailOrchestrator = SendEmailOrchestrator(self)
 
 		# Our render Service
 		self.RenderReportOrchestrator = RenderReportOrchestrator(self)
