@@ -67,4 +67,3 @@ class SlackExceptionStrategy(ExceptionStrategy):
             timestamp
         )
         return error_message
-

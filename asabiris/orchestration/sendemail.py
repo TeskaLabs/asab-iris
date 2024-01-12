@@ -16,7 +16,6 @@ from typing import List, Tuple, Dict
 from ..exceptions import PathError, FormatError, Jinja2TemplateUndefinedError, Jinja2TemplateSyntaxError
 from ..exception_strategy import ExceptionStrategy
 
-from ..utils import handle_exceptions
 #
 
 L = logging.getLogger(__name__)
@@ -91,6 +90,8 @@ class SendEmailOrchestrator:
 			)
 			L.info("Email sent successfully to: {}".format(', '.join(email_to)))
 		except Jinja2TemplateUndefinedError as e:
+			await self._handle_exception(e, email_from, email_to)
+		except Jinja2TemplateSyntaxError as e:
 			await self._handle_exception(e, email_from, email_to)
 		except FormatError as e:
 			await self._handle_exception(e, email_from, email_to)

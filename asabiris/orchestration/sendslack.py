@@ -5,7 +5,6 @@ import mimetypes
 import fastjsonschema
 
 from ..exceptions import PathError, Jinja2TemplateSyntaxError, Jinja2TemplateUndefinedError
-from ..utils import handle_exceptions
 from ..schemas import slack_schema
 from ..exception_strategy import ExceptionStrategy
 #
