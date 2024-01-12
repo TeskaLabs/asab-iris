@@ -18,8 +18,7 @@ class TestSendSlackOrchestrator(unittest.TestCase):
 		self.app_mock.get_service = MagicMock(side_effect=self.mock_get_service)
 
 		# Orchestrator instance to test
-		self.MockExceptionManager = AsyncMock()
-		self.orchestrator = SendSlackOrchestrator(self.app_mock, self.MockExceptionManager)
+		self.orchestrator = SendSlackOrchestrator(self.app_mock)
 
 	def mock_get_service(self, service_name):
 		if service_name == "JinjaService":
