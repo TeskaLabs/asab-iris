@@ -104,7 +104,7 @@ class ASABIRISApplication(asab.Application):
 
 		# Our Email Service
 		self.EmailOutputService = EmailOutputService(self)
-		self.EmailExceptionStrategy = ExceptionEmailNotifierStrategy(self)
+		self.ExceptionEmailNotifierStrategy = ExceptionEmailNotifierStrategy(self)
 		self.SendEmailOrchestrator = SendEmailOrchestrator(self)
 
 		# Our render Service
