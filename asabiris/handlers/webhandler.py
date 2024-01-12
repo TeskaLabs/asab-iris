@@ -103,8 +103,8 @@ class WebHandler(object):
 				email_subject=json_data.get("subject", None),  # Optional
 				email_from=json_data.get("from"),
 				body_params=json_data["body"].get("params", {}),  # Optional
-				attachments=json_data.get("attachments", []),
-				exception_strategy=self.App.APIExceptionStrategy# Optional
+				attachments=json_data.get("attachments", []),  # Optional
+				exception_strategy=self.App.APIExceptionStrategy
 			)
 		except KeyError as e:
 			raise aiohttp.web.HTTPNotFound(text="{}".format(e))

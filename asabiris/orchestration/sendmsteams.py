@@ -4,7 +4,6 @@ import fastjsonschema
 from ..schemas import slack_schema
 
 from ..exceptions import PathError, Jinja2TemplateSyntaxError, Jinja2TemplateUndefinedError
-from ..exception_strategy import ExceptionStrategy
 
 L = logging.getLogger(__name__)
 

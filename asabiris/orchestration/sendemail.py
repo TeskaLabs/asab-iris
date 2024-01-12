@@ -14,7 +14,6 @@ import logging
 from typing import List, Tuple, Dict
 
 from ..exceptions import PathError, FormatError, Jinja2TemplateUndefinedError, Jinja2TemplateSyntaxError
-from ..exception_strategy import ExceptionStrategy
 
 #
 
