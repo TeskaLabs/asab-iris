@@ -1,6 +1,9 @@
 from asabiris.exception_manager.exception_manager_abc import ExceptionManager
 
 import logging
+import datetime
+
+from typing import Tuple
 
 L = logging.getLogger(__name__)
 
@@ -22,8 +25,8 @@ class EmailExceptionManager(ExceptionManager):
     """
 
 
-    def __init__(self, _, email_failsafe_manager):
-        self.EmailFailsafeManager = email_failsafe_manager
+    def __init__(self, app):
+        self.EmailOutputService = app.get_service("SmtpService")
 
     async def handle_exception(self, exception, notification_params=None):
         """
@@ -44,12 +47,38 @@ class EmailExceptionManager(ExceptionManager):
 
         if notification_params:
             # Extract 'from_email' and 'to_emails' from the context
-            from_email = notification_params.get('from_email')
-            to_emails = notification_params.get('to_emails')
+            email_from = notification_params.get('from_email')
+            email_to = notification_params.get('to_emails')
 
-            # Send error notification via Email Failsafe Manager
-            if from_email and to_emails:
-                await self.EmailFailsafeManager.send_error_notification(
-                    str(exception), from_email, to_emails)
         else:
-            L.error("Failed to send error notification")
+            L.error("Failed to send error notification to email. Missing To/From email address or both.")
+            raise KeyError("Failed to send error notification to email. Missing To/From email address or both.")
+
+        error_message, error_subject = self._generate_error_message(str(exception))
+
+        # Send the email
+        await self.EmailOutputService.send(
+            email_from=email_from,
+            email_to=email_to,
+            email_subject=error_subject,
+            body=error_message
+        )
+
+    def _generate_error_message(self, specific_error: str) -> Tuple[str, str]:
+        """
+        Generates an error message and subject for the email.
+
+        Args:
+            specific_error: The specific error message.
+
+        Returns:
+            Tuple containing the error message and subject.
+        """
+        timestamp = datetime.datetime.now(tz=datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+        error_message = (
+            "<p>Hello!</p>"
+            "<p>We encountered an issue while processing your request:<br><b>{}</b></p>"
+            "<p>Please review your input and try again.<p>"
+            "<p>Time: {} UTC</p>"
+            "<p>Best regards,<br>Your Team</p>").format(specific_error, timestamp)
+        return error_message, "Error when generating email"

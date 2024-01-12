@@ -29,10 +29,6 @@ from .exception_manager import APIExceptionManager
 from .exception_manager import SlackExceptionManager
 from .exception_manager import MSTeamsExceptionManager
 
-# failsafe manager's
-from .failsafe.email_failsafe import EmailFailsafeManager
-from .failsafe.slack_failsafe import SlackFailsafeManager
-from .failsafe.msteams_failsafe import MSTeamsFailsafeManager
 
 from .handlers.kafkahandler import KafkaHandler
 from .handlers.webhandler import WebHandler
@@ -93,8 +89,7 @@ class ASABIRISApplication(asab.Application):
 		# setup Slack service
 		if 'slack' in asab.Config.sections():
 			self.SlackOutputService = SlackOutputService(self)
-			self.SlackFailsafeManager = SlackFailsafeManager(self)
-			self.SlackExceptionManager = SlackExceptionManager(self, self.SlackOutputService)
+			self.SlackExceptionManager = SlackExceptionManager(self)
 			self.SendSlackOrchestratorAPI = SendSlackOrchestrator(self, self.APIExceptionManager)
 			self.SendSlackOrchestratorKafka = SendSlackOrchestrator(self, self.SlackExceptionManager)
 		else:
@@ -103,8 +98,7 @@ class ASABIRISApplication(asab.Application):
 		# setup Email service
 		if 'msteams' in asab.Config.sections():
 			self.MSTeamsOutputService = MSTeamsOutputService(self)
-			self.MSTeamsFailsafeManager = MSTeamsFailsafeManager(self)
-			self.MSTeamsFailsafeManager = MSTeamsExceptionManager(self, self.MSTeamsOutputService)
+			self.EmailExceptionManager = MSTeamsExceptionManager(self)
 			self.SendMSTeamsOrchestratorAPI = SendMSTeamsOrchestrator(self, self.APIExceptionManager)
 			self.SendMSTeamsOrchestratorKafka = SendMSTeamsOrchestrator(self, self.SlackExceptionManager)
 		else:
@@ -112,10 +106,9 @@ class ASABIRISApplication(asab.Application):
 
 		# Our Email Service
 		self.EmailOutputService = EmailOutputService(self)
-		self.EmailExceptionManager = EmailExceptionManager(self, self.EmailOutputService)
+		self.EmailExceptionManager = EmailExceptionManager(self)
 		self.SendEmailOrchestratorAPI = SendEmailOrchestrator(self, self.APIExceptionManager)
 		self.SendEmailOrchestratorKafka = SendEmailOrchestrator(self, self.EmailExceptionManager)
-		self.EmailFailsafeManager = EmailFailsafeManager(self)
 
 		# Our render Service
 		self.RenderReportOrchestrator = RenderReportOrchestrator(self)
