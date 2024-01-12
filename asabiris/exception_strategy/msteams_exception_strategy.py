@@ -6,7 +6,7 @@ import datetime
 L = logging.getLogger(__name__)
 
 
-class MSTeamsExceptionStrategy(ExceptionStrategy):
+class ExceptionMSTeamsNotifierStrategy(ExceptionStrategy):
 
     def __init__(self, app):
         self.MSTeamsOutputService = app.get_service("MSTeamsOutputService")

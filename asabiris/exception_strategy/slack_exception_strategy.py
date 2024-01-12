@@ -6,7 +6,7 @@ import datetime
 L = logging.getLogger(__name__)
 
 
-class SlackExceptionStrategy(ExceptionStrategy):
+class ExceptionSlackNotifierStrategy(ExceptionStrategy):
     """
     A subclass of ExceptionStrategy for handling exceptions by sending notifications through Slack.
 

@@ -24,10 +24,10 @@ from .orchestration.sendslack import SendSlackOrchestrator
 from .orchestration.sendmsteams import SendMSTeamsOrchestrator
 
 # exception handler's
-from .exception_strategy import EmailExceptionStrategy
+from .exception_strategy import ExceptionEmailNotifierStrategy
 from .exception_strategy import APIExceptionStrategy
-from .exception_strategy import SlackExceptionStrategy
-from .exception_strategy import MSTeamsExceptionStrategy
+from .exception_strategy import ExceptionSlackNotifierStrategy
+from .exception_strategy import ExceptionMSTeamsNotifierStrategy
 
 
 from .handlers.kafkahandler import KafkaHandler
@@ -89,7 +89,7 @@ class ASABIRISApplication(asab.Application):
 		# setup Slack service
 		if 'slack' in asab.Config.sections():
 			self.SlackOutputService = SlackOutputService(self)
-			self.SlackExceptionStrategy = SlackExceptionStrategy(self)
+			self.ExceptionSlackNotifierStrategy = ExceptionSlackNotifierStrategy(self)
 			self.SendSlackOrchestrator = SendSlackOrchestrator(self)
 		else:
 			self.SendSlackOrchestrator = None
@@ -97,14 +97,14 @@ class ASABIRISApplication(asab.Application):
 		# setup Email service
 		if 'msteams' in asab.Config.sections():
 			self.MSTeamsOutputService = MSTeamsOutputService(self)
-			self.MSTeamsExceptionStrategy = MSTeamsExceptionStrategy(self)
+			self.ExceptionMSTeamsNotifierStrategy = ExceptionMSTeamsNotifierStrategy(self)
 			self.SendMSTeamsOrchestrator = SendMSTeamsOrchestrator(self)
 		else:
 			self.SendMSTeamsOrchestrator = None
 
 		# Our Email Service
 		self.EmailOutputService = EmailOutputService(self)
-		self.EmailExceptionStrategy = EmailExceptionStrategy(self)
+		self.EmailExceptionStrategy = ExceptionEmailNotifierStrategy(self)
 		self.SendEmailOrchestrator = SendEmailOrchestrator(self)
 
 		# Our render Service

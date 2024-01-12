@@ -8,7 +8,7 @@ from typing import Tuple
 L = logging.getLogger(__name__)
 
 
-class EmailExceptionStrategy(ExceptionStrategy):
+class ExceptionEmailNotifierStrategy(ExceptionStrategy):
     """
     A subclass of ExceptionStrategy designed for handling exceptions by sending email notifications.
 
