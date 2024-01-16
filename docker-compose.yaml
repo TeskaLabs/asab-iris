@@ -1,0 +1,9 @@
+version: "3.8"
+services:
+  lm02-asab-iris:
+    image: asab-iris
+    volumes:
+      - ./etc:/conf
+    ports:
+      - "8082:8082"
+    restart: always
