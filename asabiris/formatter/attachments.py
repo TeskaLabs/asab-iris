@@ -6,7 +6,7 @@ import dataclasses
 
 import asab
 
-from ..exceptions import PathError, FormatError
+from ..errors import ASABIrisError, ErrorCode
 from ..utils import normalize_body
 
 
@@ -103,7 +103,16 @@ class AttachmentRenderingService(asab.Service):
 					)
 
 				else:
-					raise FormatError(format=fmt)
+					raise ASABIrisError(
+						ErrorCode.INVALID_PATH,
+						tech_message="Incorrect template path '{}'. Move templates to '/Templates/Email/".format(
+							template),
+						error_i18n_key="Incorrect template path '{}'. Please move your templates to '/Templates/Email/".format(
+							template),
+						error_dict={
+							"incorrect_path": template,
+						}
+					)
 
 			else:
 				raise RuntimeError("Unknown attachment in API call")
@@ -122,6 +131,14 @@ class AttachmentRenderingService(asab.Service):
 
 	async def _render_template(self, template, params):
 		if not template.startswith('/Templates/Attachment/'):
-			raise PathError(use_case='Attachment', invalid_path=template)
+			raise ASABIrisError(
+				ErrorCode.INVALID_PATH,
+				tech_message="Incorrect template path '{}'. Move templates to '/Templates/Attachment/".format(template),
+				error_i18n_key="Incorrect template path '{}'. Please move your templates to '/Templates/Attachment/".format(
+					template),
+				error_dict={
+					"incorrect_path": template,
+				}
+			)
 
 		return await self.JinjaService.format(template, params)

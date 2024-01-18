@@ -12,6 +12,8 @@ from ..schemas.slackschema import slack_schema
 from ..schemas.teamsschema import teams_schema
 
 from ..exceptions import SMTPDeliverError, PathError, FormatError, Jinja2TemplateUndefinedError
+from ..errors import ASABIrisError
+
 import slack_sdk.errors
 #
 
@@ -108,17 +110,20 @@ class WebHandler(object):
 		except KeyError as e:
 			raise aiohttp.web.HTTPNotFound(text="{}".format(e))
 
+		except ASABIrisError as e:
+			response = {
+				"result": "ERROR",
+				"error": e.Errori18nKey,
+				"error_dict": e.ErrorDict,
+				"tech_err": e.TechMessage
+			}
+			return aiohttp.web.json_response(response, status=400)
+
 		except jinja2.exceptions.UndefinedError as e:
 			raise aiohttp.web.HTTPBadRequest(text="Jinja2 error: {}".format(e))
 
 		except SMTPDeliverError:
 			raise aiohttp.web.HTTPServiceUnavailable(text="SMTP error")
-
-		except PathError as e:
-			raise aiohttp.web.HTTPNotFound(text="{}".format(e))
-
-		except FormatError as e:
-			raise aiohttp.web.HTTPBadRequest(text="{}".format(e))
 
 		# More specific exception handling goes here so that the service provides nice output
 		return asab.web.rest.json_response(request, {"result": "OK"})
