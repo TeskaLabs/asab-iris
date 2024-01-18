@@ -15,7 +15,7 @@ import datetime
 import logging
 from typing import List, Tuple, Dict
 
-from ..exceptions import PathError, FormatError
+from ..error import ASABIrisError, ErrorCode
 
 #
 
@@ -107,7 +107,16 @@ class SendEmailOrchestrator:
 
 	async def _render_template(self, template: str, params: Dict) -> Tuple[str, str]:
 		if not template.startswith('/Templates/Email/'):
-			raise PathError(use_case='Email', invalid_path=template)
+			#raise PathError(use_case='Email', invalid_path=template)
+			raise ASABIrisError(
+				ErrorCode.INVALID_PATH,
+				tech_message="The entered path '{}' is not correct.",
+				error_i18n_key="Please move your files to '{{suggested_path}}",
+				error_dict={
+					"incorrect_path": template,
+					"suggested_path": "/Templates/Email/"
+				}
+			)
 
 		jinja_output = await self.JinjaService.format(template, params)
 
@@ -121,8 +130,14 @@ class SendEmailOrchestrator:
 			return body, subject
 
 		else:
-			raise FormatError(format=ext)
-
+			raise ASABIrisError(
+				ErrorCode.INVALID_FORMAT,
+				tech_message="Unsupported conversion format '{}'.",
+				error_i18n_key="unsupported_conversion_format_error",
+				error_dict={
+					"invalid_format": format
+				}
+			)
 
 	def _generate_error_message(self, specific_error: str) -> Tuple[str, str]:
 		timestamp = datetime.datetime.now(tz=datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
