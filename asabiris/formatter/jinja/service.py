@@ -99,6 +99,16 @@ class JinjaFormatterService(asab.Service, FormatterABC):
 					"template_path": template_path
 				}
 			)
+		except jinja2.TemplateSyntaxError as e:
+			raise ASABIrisError(
+				ErrorCode.TEMPLATE_SYNTAX_ERROR,
+				tech_message="Syntax error in Jinja2 template '{}': {}.".format(template_path, str(e)),
+				error_i18n_key="template_syntax_error",
+				error_dict={
+					"syntax_error": str(e),
+					"template_path": template_path
+				}
+			)
 
 
 def construct_context(context, *other_dicts):
