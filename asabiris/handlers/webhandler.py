@@ -122,8 +122,14 @@ class WebHandler(object):
 		except jinja2.exceptions.UndefinedError as e:
 			raise aiohttp.web.HTTPBadRequest(text="Jinja2 error: {}".format(e))
 
-		except SMTPDeliverError:
-			raise aiohttp.web.HTTPServiceUnavailable(text="SMTP error")
+		except SMTPDeliverError as e:
+			response = {
+				"result": "ERROR",
+				"error": "smtp_connection_error",
+				"error_dict": {"message": e},
+				"tech_err": str(e)
+			}
+			return aiohttp.web.json_response(response, status=503)
 
 		# More specific exception handling goes here so that the service provides nice output
 		return asab.web.rest.json_response(request, {"result": "OK"})
