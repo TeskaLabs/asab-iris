@@ -123,7 +123,7 @@ class WebHandler(object):
 			response = {
 				"result": "ERROR",
 				"error": "smtp_connection_error",
-				"error_dict": {"message": e},
+				"error_dict": {"message": str(e)},
 				"tech_err": str(e)
 			}
 			return aiohttp.web.json_response(response, status=503)
