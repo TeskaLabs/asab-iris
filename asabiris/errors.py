@@ -19,7 +19,7 @@ class ErrorCode(enum.Enum):
 
 	def get_i18n_name(self):
 		"""
-		Adds a prefix to an error name, e.g. bs-query|SCHEMAS_DONT_MATCH (internationalization)
+		Adds a prefix to an error name.
 		"""
 		return 'asab-iris|{}'.format(self.name)
 
