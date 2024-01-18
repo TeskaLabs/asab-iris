@@ -119,9 +119,6 @@ class WebHandler(object):
 			}
 			return aiohttp.web.json_response(response, status=400)
 
-		except jinja2.exceptions.UndefinedError as e:
-			raise aiohttp.web.HTTPBadRequest(text="Jinja2 error: {}".format(e))
-
 		except SMTPDeliverError as e:
 			response = {
 				"result": "ERROR",
