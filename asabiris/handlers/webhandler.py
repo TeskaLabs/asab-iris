@@ -108,7 +108,13 @@ class WebHandler(object):
 				attachments=json_data.get("attachments", []),  # Optional
 			)
 		except KeyError as e:
-			raise aiohttp.web.HTTPNotFound(text="{}".format(e))
+			response = {
+				"result": "ERROR",
+				"error": "{{message}}",
+				"error_dict": {"message": str(e)},
+				"tech_err": str(e)
+			}
+			return aiohttp.web.json_response(response, status=404)
 
 		except ASABIrisError as e:
 			response = {
@@ -122,7 +128,7 @@ class WebHandler(object):
 		except SMTPDeliverError as e:
 			response = {
 				"result": "ERROR",
-				"error": "smtp_connection_error",
+				"error": "{{message}}",
 				"error_dict": {"message": str(e)},
 				"tech_err": str(e)
 			}
