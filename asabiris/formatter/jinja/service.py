@@ -75,8 +75,7 @@ class JinjaFormatterService(asab.Service, FormatterABC):
 			raise ASABIrisError(
 				ErrorCode.TEMPLATE_NOT_FOUND,
 				tech_message="Incorrect template path '{}'. Move templates to '/Templates/Email/".format(template_path),
-				error_i18n_key="Incorrect template path '{}'. Please move your templates to '/Templates/Email/".format(
-					template_path),
+				error_i18n_key="Incorrect template path '{{incorrect_path}}'. Please move your templates to '/Templates/Email/",
 				error_dict={
 					"incorrect_path": template_path,
 				}
@@ -93,7 +92,7 @@ class JinjaFormatterService(asab.Service, FormatterABC):
 			raise ASABIrisError(
 				ErrorCode.TEMPLATE_VARIABLE_UNDEFINED,
 				tech_message="'{}' is undefined in Jinja2 template '{}'.".format(template_path, e),
-				error_i18n_key="template_variable_undefined_error",
+				error_i18n_key="Undefined variable: '{{variable_name}}' found in template path: '{{template_path}}'.",
 				error_dict={
 					"variable_name": str(e),
 					"template_path": template_path
@@ -102,8 +101,8 @@ class JinjaFormatterService(asab.Service, FormatterABC):
 		except jinja2.TemplateSyntaxError as e:
 			raise ASABIrisError(
 				ErrorCode.TEMPLATE_SYNTAX_ERROR,
-				tech_message="Syntax error in Jinja2 template '{}': {}.".format(template_path, str(e)),
-				error_i18n_key="template_syntax_error",
+				tech_message="Syntax error '{}' in Jinja2 template '{}'.".format(str(e), template_path),
+				error_i18n_key="Syntax Error: '{{syntax_error}}' found in template path: '{{template_path}}'.",
 				error_dict={
 					"syntax_error": str(e),
 					"template_path": template_path
