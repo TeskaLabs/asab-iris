@@ -36,7 +36,7 @@ class KafkaHandler(asab.Service):
 			group_id = asab.Config.get("kafka", "group_id")
 			bootstrap_servers = list(asab.Config.get("kafka", "bootstrap_servers").split(","))
 		except configparser.NoOptionError:
-			L.error("Configuration missing required parameters: Kafka/group_id/bootstrap_servers")
+			L.error("Configuration missing. Required parameters: Kafka/group_id/bootstrap_servers")
 			exit()
 
 		self.Consumer = AIOKafkaConsumer(
