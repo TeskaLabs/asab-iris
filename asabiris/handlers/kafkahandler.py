@@ -1,4 +1,5 @@
 import asyncio
+import configparser
 import json
 import logging
 
@@ -30,9 +31,14 @@ class KafkaHandler(asab.Service):
 
 		self.Task = None
 		self.JinjaService = app.get_service("JinjaService")
-		topic = asab.Config.get("kafka", "topic")
-		group_id = asab.Config.get("kafka", "group_id")
-		bootstrap_servers = list(asab.Config.get("kafka", "bootstrap_servers").split(","))
+		try:
+			topic = asab.Config.get("kafka", "topic")
+			group_id = asab.Config.get("kafka", "group_id")
+			bootstrap_servers = list(asab.Config.get("kafka", "bootstrap_servers").split(","))
+		except configparser.NoOptionError:
+			L.error("Configuration missing required parameters: Kafka/group_id/bootstrap_servers")
+			exit()
+
 		self.Consumer = AIOKafkaConsumer(
 			topic,
 			group_id=group_id,

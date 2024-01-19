@@ -107,15 +107,6 @@ class WebHandler(object):
 				body_params=json_data["body"].get("params", {}),  # Optional
 				attachments=json_data.get("attachments", []),  # Optional
 			)
-		except KeyError as e:
-			response = {
-				"result": "ERROR",
-				"error": "{{message}}",
-				"error_dict": {"message": str(e)},
-				"tech_err": str(e)
-			}
-			return aiohttp.web.json_response(response, status=404)
-
 		except ASABIrisError as e:
 			response = {
 				"result": "ERROR",
@@ -124,6 +115,15 @@ class WebHandler(object):
 				"tech_err": e.TechMessage
 			}
 			return aiohttp.web.json_response(response, status=400)
+
+		except KeyError as e:
+			response = {
+				"result": "ERROR",
+				"error": "{{message}}",
+				"error_dict": {"message": str(e)},
+				"tech_err": str(e)
+			}
+			return aiohttp.web.json_response(response, status=404)
 
 		except SMTPDeliverError as e:
 			response = {
