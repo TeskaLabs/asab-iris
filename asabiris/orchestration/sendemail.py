@@ -95,7 +95,7 @@ class SendEmailOrchestrator:
 			raise ASABIrisError(
 				ErrorCode.INVALID_PATH,
 				tech_message="Incorrect template path '{}'. Move templates to '/Templates/Email/".format(template),
-				error_i18n_key="Incorrect template path '{}'. Please move your templates to '/Templates/Email/".format(template),
+				error_i18n_key="Incorrect template path '{{incorrect_path}}'. Please move your templates to '/Templates/Email/",
 				error_dict={
 					"incorrect_path": template,
 				}
@@ -116,10 +116,9 @@ class SendEmailOrchestrator:
 			raise ASABIrisError(
 				ErrorCode.INVALID_FORMAT,
 				tech_message="Unsupported conversion format '{}' for template '{}'".format(ext, template),
-				error_i18n_key="The format '{}' is not supported".format(ext),
+				error_i18n_key="The format '{{invalid_format}}' is not supported",
 				error_dict={
 					"invalid_format": ext,
-					"template_path": template
 				}
 			)
 
