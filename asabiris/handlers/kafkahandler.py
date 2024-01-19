@@ -11,6 +11,7 @@ import asab
 
 from asabiris.schemas.emailschema import email_schema
 from asabiris.schemas.slackschema import slack_schema
+
 #
 
 L = logging.getLogger(__name__)
@@ -18,12 +19,20 @@ L = logging.getLogger(__name__)
 
 #
 
+def check_config(config, section, parameter):
+	try:
+		value = config.get(section, parameter)
+		return value
+	except configparser.NoOptionError:
+		L.error("Configuration parameter '{}' is missing in section '{}'.".format(parameter, section))
+		exit()
+
 
 class KafkaHandler(asab.Service):
-
 	# validate slack and email messages
 	ValidationSchemaMail = fastjsonschema.compile(email_schema)
 	ValidationSchemaSlack = fastjsonschema.compile(slack_schema)
+
 	# TODO: ValidationSchemaMSTeams = fastjsonschema.compile(msteams_schema)
 
 	def __init__(self, app, service_name="KafkaHandler"):
@@ -32,9 +41,9 @@ class KafkaHandler(asab.Service):
 		self.Task = None
 		self.JinjaService = app.get_service("JinjaService")
 		try:
-			topic = asab.Config.get("kafka", "topic")
-			group_id = asab.Config.get("kafka", "group_id")
-			bootstrap_servers = list(asab.Config.get("kafka", "bootstrap_servers").split(","))
+			topic = check_config(asab.Config, "kafka", "topic")
+			group_id = check_config(asab.Config, "kafka", "group_id")
+			bootstrap_servers = check_config(asab.Config, "kafka", "bootstrap_servers").split(",")
 		except configparser.NoOptionError:
 			L.error("Configuration missing. Required parameters: Kafka/group_id/bootstrap_servers")
 			exit()
@@ -108,7 +117,6 @@ class KafkaHandler(asab.Service):
 
 		else:
 			L.warning("Message type '{}' not implemented.".format(msg_type))
-
 
 	async def send_email(self, json_data):
 		await self.App.SendEmailOrchestrator.send_email(
