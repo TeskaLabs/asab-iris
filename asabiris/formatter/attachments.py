@@ -104,13 +104,11 @@ class AttachmentRenderingService(asab.Service):
 
 				else:
 					raise ASABIrisError(
-						ErrorCode.INVALID_PATH,
-						tech_message="Incorrect template path '{}'. Move templates to '/Templates/Email/".format(
-							template),
-						error_i18n_key="Incorrect template path '{}'. Please move your templates to '/Templates/Email/".format(
-							template),
+						ErrorCode.INVALID_FORMAT,
+						tech_message="Unsupported attachment format '{}' for template '{}'".format(fmt, template),
+						error_i18n_key="The format '{{invalid_format}}' is not supported for attachment",
 						error_dict={
-							"incorrect_path": template,
+							"invalid_format": fmt,
 						}
 					)
 
