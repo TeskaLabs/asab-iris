@@ -108,6 +108,16 @@ class JinjaFormatterService(asab.Service, FormatterABC):
 					"template_path": template_path
 				}
 			)
+		except jinja2.exceptions.TemplateError as e:
+			raise ASABIrisError(
+				ErrorCode.JINJA2_ERROR,
+				tech_message="Jinja2 error '{}' occurred in template '{}'.".format(str(e), template_path),
+				error_i18n_key="Jinja2 error: '{{jinja2_error}}' occurred in template path: '{{template_path}}'.",
+				error_dict={
+					"jinja2_error": str(e),
+					"template_path": template_path
+				}
+			)
 
 
 def construct_context(context, *other_dicts):
