@@ -118,6 +118,16 @@ class JinjaFormatterService(asab.Service, FormatterABC):
 					"template_path": template_path
 				}
 			)
+		except Exception as e:
+			raise ASABIrisError(
+				ErrorCode.GENERAL_ERROR,  # Assuming you have a GENERAL_ERROR code defined
+				tech_message="General error in Jinja2 template '{}': {}".format(template_path, str(e)),
+				error_i18n_key="General error occurred in template path: '{{template_path}}'.",
+				error_dict={
+					"template_path": template_path,
+					"error_message": str(e)
+				}
+			)
 
 
 def construct_context(context, *other_dicts):
