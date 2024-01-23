@@ -76,7 +76,7 @@ class WebHandler(object):
 		}
 
 		```
-		Attached will be retrieved from request.content when rendering the email is not required.
+		Attached will be retrieved from request. Content when rendering the email is not required.
 
 		Example of the email body template:
 		```
