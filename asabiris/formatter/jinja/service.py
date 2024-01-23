@@ -74,8 +74,8 @@ class JinjaFormatterService(asab.Service, FormatterABC):
 		if template_io is None:
 			raise ASABIrisError(
 				ErrorCode.TEMPLATE_NOT_FOUND,
-				tech_message="Incorrect template path '{}'. Move templates to '/Templates/Email/".format(template_path),
-				error_i18n_key="Incorrect template path '{{incorrect_path}}'. Please move your templates to '/Templates/Email/",
+				tech_message="Failed to render. Reason : Template {} does not exist".format(template_path),
+				error_i18n_key="Failed to render. Reason : Template '{{incorrect_path}}' does not exist",
 				error_dict={
 					"incorrect_path": template_path,
 				}
