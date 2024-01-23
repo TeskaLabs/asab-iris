@@ -101,7 +101,7 @@ class JinjaFormatterService(asab.Service, FormatterABC):
 		except jinja2.TemplateSyntaxError as e:
 			raise ASABIrisError(
 				ErrorCode.TEMPLATE_SYNTAX_ERROR,
-				tech_message="Syntax error '{}' in Jinja2 template '{}'.".format(str(e), template_path),
+				tech_message="Syntax error: '{}' in Jinja2 template '{}'.".format(str(e), template_path),
 				error_i18n_key="Syntax Error: '{{syntax_error}}' found in template path: '{{template_path}}'.",
 				error_dict={
 					"syntax_error": str(e),
