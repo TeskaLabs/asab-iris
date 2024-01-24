@@ -132,7 +132,7 @@ class AttachmentRenderingService(asab.Service):
 			raise ASABIrisError(
 				ErrorCode.INVALID_PATH,
 				tech_message="Cannot render attachment: Invalid template path for '{}'. Move it to '/Templates/Attachment/'.".format(template),
-				error_i18n_key="Incorrect template path '{{incorrect_path}}'. Please move your templates to '/Templates/Attachment/",
+				error_i18n_key="Incorrect template path '{{incorrect_path}}'. Please move your templates to '/Templates/Attachment/'.",
 				error_dict={
 					"incorrect_path": template,
 				}
