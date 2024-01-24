@@ -112,7 +112,7 @@ class JinjaFormatterService(asab.Service, FormatterABC):
 			raise ASABIrisError(
 				ErrorCode.JINJA2_ERROR,
 				tech_message="Jinja2 error '{}' occurred in template '{}'.".format(str(e), template_path),
-				error_i18n_key="Jinja2 error: '{{jinja2_error}}' occurred in template: '{{template_path}}'.",
+				error_i18n_key="We encountered a problem '{{jinja2_error}}' located at: '{{template_path}}'.",
 				error_dict={
 					"jinja2_error": str(e),
 					"template_path": template_path
