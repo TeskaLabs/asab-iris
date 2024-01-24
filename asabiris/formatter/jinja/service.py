@@ -74,7 +74,7 @@ class JinjaFormatterService(asab.Service, FormatterABC):
 		if template_io is None:
 			raise ASABIrisError(
 				ErrorCode.TEMPLATE_NOT_FOUND,
-				tech_message="Failed to render. Reason : Template {} does not exist".format(template_path),
+				tech_message="Failed to render. Reason: Template {} does not exist".format(template_path),
 				error_i18n_key="Template '{{incorrect_path}}' does not exist",
 				error_dict={
 					"incorrect_path": template_path,
