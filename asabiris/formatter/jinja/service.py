@@ -75,7 +75,7 @@ class JinjaFormatterService(asab.Service, FormatterABC):
 			raise ASABIrisError(
 				ErrorCode.TEMPLATE_NOT_FOUND,
 				tech_message="Failed to render. Reason : Template {} does not exist".format(template_path),
-				error_i18n_key="Failed to render. Reason : Template '{{incorrect_path}}' does not exist",
+				error_i18n_key="Template '{{incorrect_path}}' does not exist",
 				error_dict={
 					"incorrect_path": template_path,
 				}
@@ -122,7 +122,7 @@ class JinjaFormatterService(asab.Service, FormatterABC):
 			raise ASABIrisError(
 				ErrorCode.GENERAL_ERROR,
 				tech_message="Error rendering template '{}': {}".format(template_path, str(e)),
-				error_i18n_key="Error rendering '{{template_path}}': {{error_message}}.",
+				error_i18n_key="Error rendering '{{template_path}}': '{{error_message}}'.",
 				error_dict={
 					"template_path": template_path,
 					"error_message": str(e)
