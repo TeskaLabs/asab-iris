@@ -15,7 +15,7 @@ import datetime
 import logging
 from typing import List, Tuple, Dict
 
-from ..exceptions import PathError, FormatError
+from ..errors import ASABIrisError, ErrorCode
 
 #
 
@@ -62,52 +62,44 @@ class SendEmailOrchestrator:
 		Send an email using specified parameters.
 		...
 		"""
-		try:
-			body_params = body_params or {}
-			attachments = attachments or []
-			email_cc = email_cc or []
-			email_bcc = email_bcc or []
+		body_params = body_params or {}
+		attachments = attachments or []
+		email_cc = email_cc or []
+		email_bcc = email_bcc or []
 
-			# Rendering the template
-			body_html, email_subject_body = await self._render_template(body_template, body_params)
+		# Rendering the template
+		body_html, email_subject_body = await self._render_template(body_template, body_params)
 
-			# If email_subject is not provided or is empty use email_subject_body
-			if email_subject is None or email_subject == '':
-				email_subject = email_subject_body
+		# If email_subject is not provided or is empty use email_subject_body
+		if email_subject is None or email_subject == '':
+			email_subject = email_subject_body
 
-			# Processing attachments
-			atts_gen = self.AttachmentRenderingService.render_attachment(attachments)
+		# Processing attachments
+		atts_gen = self.AttachmentRenderingService.render_attachment(attachments)
 
-			# Sending the email
-			await self.SmtpService.send(
-				email_from=email_from,
-				email_to=email_to,
-				email_cc=email_cc,
-				email_bcc=email_bcc,
-				email_subject=email_subject,
-				body=body_html,
-				attachments=atts_gen,
-			)
-			L.info("Email sent successfully to: {}".format(', '.join(email_to)))
-
-		# TODO: Capture common exceptions and print useful error messages
-		except Exception as e:
-			L.exception("Error occurred when preparing the email")
-
-			error_message, error_subject = self._generate_error_message(str(e))
-			await self.SmtpService.send(
-				email_from=email_from,
-				email_to=email_to,
-				email_cc=email_cc,
-				email_bcc=email_bcc,
-				email_subject=error_subject,
-				body=error_message
-			)
+		# Sending the email
+		await self.SmtpService.send(
+			email_from=email_from,
+			email_to=email_to,
+			email_cc=email_cc,
+			email_bcc=email_bcc,
+			email_subject=email_subject,
+			body=body_html,
+			attachments=atts_gen,
+		)
+		L.info("Email sent successfully to: {}".format(', '.join(email_to)))
 
 
 	async def _render_template(self, template: str, params: Dict) -> Tuple[str, str]:
 		if not template.startswith('/Templates/Email/'):
-			raise PathError(use_case='Email', invalid_path=template)
+			raise ASABIrisError(
+				ErrorCode.INVALID_PATH,
+				tech_message="Incorrect template path '{}'. Move templates to '/Templates/Email/".format(template),
+				error_i18n_key="Incorrect template path '{{incorrect_path}}'. Please move your templates to '/Templates/Email/",
+				error_dict={
+					"incorrect_path": template,
+				}
+			)
 
 		jinja_output = await self.JinjaService.format(template, params)
 
@@ -121,8 +113,14 @@ class SendEmailOrchestrator:
 			return body, subject
 
 		else:
-			raise FormatError(format=ext)
-
+			raise ASABIrisError(
+				ErrorCode.INVALID_FORMAT,
+				tech_message="Unsupported conversion format '{}' for template '{}'".format(ext, template),
+				error_i18n_key="The format '{{invalid_format}}' is not supported",
+				error_dict={
+					"invalid_format": ext,
+				}
+			)
 
 	def _generate_error_message(self, specific_error: str) -> Tuple[str, str]:
 		timestamp = datetime.datetime.now(tz=datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")

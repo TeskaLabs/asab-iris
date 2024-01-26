@@ -6,7 +6,7 @@ import pathlib
 import json
 import jinja2
 
-from ...exceptions import PathError, Jinja2TemplateUndefinedError
+from ...errors import ASABIrisError, ErrorCode
 from ...formater_abc import FormatterABC
 
 #
@@ -72,7 +72,14 @@ class JinjaFormatterService(asab.Service, FormatterABC):
 		# Load the template
 		template_io = await self.App.LibraryService.read(template_path)
 		if template_io is None:
-			raise PathError("Template '{}' not found".format(template_path))
+			raise ASABIrisError(
+				ErrorCode.TEMPLATE_NOT_FOUND,
+				tech_message="Failed to render. Reason: Template {} does not exist".format(template_path),
+				error_i18n_key="Template '{{incorrect_path}}' does not exist",
+				error_dict={
+					"incorrect_path": template_path,
+				}
+			)
 		try:
 			template = self.Environment.from_string(template_io.read().decode('utf-8'))
 
@@ -82,7 +89,45 @@ class JinjaFormatterService(asab.Service, FormatterABC):
 			# Do the rendering
 			return template.render(context)
 		except jinja2.exceptions.UndefinedError as e:
-			raise Jinja2TemplateUndefinedError(template_path=template_path, variable_name=str(e))
+			raise ASABIrisError(
+				ErrorCode.TEMPLATE_VARIABLE_UNDEFINED,
+				tech_message="'{}' is undefined in Jinja2 template '{}'.".format(template_path, e),
+				error_i18n_key="Undefined variable: '{{variable_name}}' found in template path: '{{template_path}}'.",
+				error_dict={
+					"variable_name": str(e),
+					"template_path": template_path
+				}
+			)
+		except jinja2.TemplateSyntaxError as e:
+			raise ASABIrisError(
+				ErrorCode.TEMPLATE_SYNTAX_ERROR,
+				tech_message="Syntax error: '{}' in Jinja2 template '{}'.".format(str(e), template_path),
+				error_i18n_key="Syntax Error: '{{syntax_error}}' found in template path: '{{template_path}}'.",
+				error_dict={
+					"syntax_error": str(e),
+					"template_path": template_path
+				}
+			)
+		except jinja2.exceptions.TemplateError as e:
+			raise ASABIrisError(
+				ErrorCode.JINJA2_ERROR,
+				tech_message="Jinja2 error '{}' occurred in template '{}'.".format(str(e), template_path),
+				error_i18n_key="We encountered a problem '{{jinja2_error}}' located at: '{{template_path}}'.",
+				error_dict={
+					"jinja2_error": str(e),
+					"template_path": template_path
+				}
+			)
+		except Exception as e:
+			raise ASABIrisError(
+				ErrorCode.GENERAL_ERROR,
+				tech_message="Error rendering template '{}': {}".format(template_path, str(e)),
+				error_i18n_key="Error rendering '{{template_path}}': '{{error_message}}'.",
+				error_dict={
+					"template_path": template_path,
+					"error_message": str(e)
+				}
+			)
 
 
 def construct_context(context, *other_dicts):

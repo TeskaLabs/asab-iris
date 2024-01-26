@@ -12,6 +12,8 @@ from ..schemas.slackschema import slack_schema
 from ..schemas.teamsschema import teams_schema
 
 from ..exceptions import SMTPDeliverError, PathError, FormatError, Jinja2TemplateUndefinedError
+from ..errors import ASABIrisError
+
 import slack_sdk.errors
 #
 
@@ -74,7 +76,7 @@ class WebHandler(object):
 		}
 
 		```
-		Attached will be retrieved from request.content when rendering the email is not required.
+		Attached will be retrieved from request. Content when rendering the email is not required.
 
 		Example of the email body template:
 		```
@@ -105,20 +107,32 @@ class WebHandler(object):
 				body_params=json_data["body"].get("params", {}),  # Optional
 				attachments=json_data.get("attachments", []),  # Optional
 			)
+		except ASABIrisError as e:
+			response = {
+				"result": "ERROR",
+				"error": e.Errori18nKey,
+				"error_dict": e.ErrorDict,
+				"tech_err": e.TechMessage
+			}
+			return aiohttp.web.json_response(response, status=400)
+
 		except KeyError as e:
-			raise aiohttp.web.HTTPNotFound(text="{}".format(e))
+			response = {
+				"result": "ERROR",
+				"error": "{{message}}",
+				"error_dict": {"message": str(e)},
+				"tech_err": str(e)
+			}
+			return aiohttp.web.json_response(response, status=404)
 
-		except jinja2.exceptions.UndefinedError as e:
-			raise aiohttp.web.HTTPBadRequest(text="Jinja2 error: {}".format(e))
-
-		except SMTPDeliverError:
-			raise aiohttp.web.HTTPServiceUnavailable(text="SMTP error")
-
-		except PathError as e:
-			raise aiohttp.web.HTTPNotFound(text="{}".format(e))
-
-		except FormatError as e:
-			raise aiohttp.web.HTTPBadRequest(text="{}".format(e))
+		except SMTPDeliverError as e:
+			response = {
+				"result": "ERROR",
+				"error": "{{message}}",
+				"error_dict": {"message": str(e)},
+				"tech_err": str(e)
+			}
+			return aiohttp.web.json_response(response, status=503)
 
 		# More specific exception handling goes here so that the service provides nice output
 		return asab.web.rest.json_response(request, {"result": "OK"})
