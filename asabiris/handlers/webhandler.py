@@ -302,7 +302,7 @@ class WebHandler(object):
 		elif error_code == ErrorCode.JINJA2_ERROR:
 			return 500  # Internal Server Error
 		elif error_code == ErrorCode.GENERAL_ERROR:
-			return 500  # Internal Server Error
+			return 503  # Internal Server Error
 		# Add other mappings as necessary
 		return 400  # Default to Bad Request for unspecified errors
 
