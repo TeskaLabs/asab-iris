@@ -12,7 +12,7 @@ from ..schemas.slackschema import slack_schema
 from ..schemas.teamsschema import teams_schema
 
 from ..exceptions import SMTPDeliverError, PathError, FormatError, Jinja2TemplateUndefinedError
-from ..errors import ASABIrisError
+from ..errors import ASABIrisError, ErrorCode
 
 import slack_sdk.errors
 #
@@ -108,13 +108,16 @@ class WebHandler(object):
 				attachments=json_data.get("attachments", []),  # Optional
 			)
 		except ASABIrisError as e:
+			# Map ErrorCode to HTTP status codes
+			status_code = self.map_error_code_to_status(e.ErrorCode)
+
 			response = {
 				"result": "ERROR",
 				"error": e.Errori18nKey,
 				"error_dict": e.ErrorDict,
 				"tech_err": e.TechMessage
 			}
-			return aiohttp.web.json_response(response, status=400)
+			return aiohttp.web.json_response(response, status=status_code)
 
 		except KeyError as e:
 			response = {
@@ -162,13 +165,16 @@ class WebHandler(object):
 		try:
 			await self.App.SendSlackOrchestrator.send_to_slack(json_data)
 		except ASABIrisError as e:
+			# Map ErrorCode to HTTP status codes
+			status_code = self.map_error_code_to_status(e.ErrorCode)
+
 			response = {
 				"result": "ERROR",
 				"error": e.Errori18nKey,
 				"error_dict": e.ErrorDict,
 				"tech_err": e.TechMessage
 			}
-			return aiohttp.web.json_response(response, status=400)
+			return aiohttp.web.json_response(response, status=status_code)
 
 		except slack_sdk.errors.SlackApiError as e:
 			raise aiohttp.web.HTTPServiceUnavailable(text="{}".format(e))
@@ -285,6 +291,20 @@ class WebHandler(object):
 			body=html if content_type == "text/html" else file_sender(pdf)
 		)
 
+	def map_error_code_to_status(self, error_code):
+		"""
+		Maps error codes to HTTP status codes.
+		"""
+		if error_code == ErrorCode.INVALID_FORMAT:
+			return 400  # Bad Request
+		elif error_code == ErrorCode.TEMPLATE_NOT_FOUND:
+			return 404  # Not Found
+		elif error_code == ErrorCode.JINJA2_ERROR:
+			return 500  # Internal Server Error
+		elif error_code == ErrorCode.GENERAL_ERROR:
+			return 500  # Internal Server Error
+		# Add other mappings as necessary
+		return 400  # Default to Bad Request for unspecified errors
 
 @aiohttp.payload_streamer.streamer
 async def file_sender(writer, pdf_content):
