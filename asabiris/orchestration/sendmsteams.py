@@ -1,15 +1,15 @@
 import logging
 import fastjsonschema
-from ..exceptions import PathError
 
-from ..schemas import slack_schema
+from ..schemas import teams_schema
+from ..errors import ASABIrisError, ErrorCode
 
 L = logging.getLogger(__name__)
 
 
 class SendMSTeamsOrchestrator(object):
 
-	ValidationSchemaMSTeams = fastjsonschema.compile(slack_schema)
+	ValidationSchemaMSTeams = fastjsonschema.compile(teams_schema)
 
 	"""
 	A class for sending messages to MS Teams.
@@ -50,7 +50,14 @@ class SendMSTeamsOrchestrator(object):
 		template = body["template"]
 
 		if not template.startswith("/Templates/MSTeams/"):
-			raise PathError(use_case='MSTeams', invalid_path=template)
+			raise ASABIrisError(
+				ErrorCode.INVALID_PATH,
+				tech_message="Incorrect template path '{}'. Move templates to '/Templates/MSTeams/".format(template),
+				error_i18n_key="Incorrect template path '{{incorrect_path}}'. Please move your templates to '/Templates/MSTeams/",
+				error_dict={
+					"incorrect_path": template,
+				}
+			)
 
 		params = body.get("params", {})
 		output = await self.JinjaService.format(template, params)

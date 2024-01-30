@@ -4,7 +4,7 @@ import mimetypes
 
 import fastjsonschema
 
-from ..exceptions import PathError
+from ..errors import ASABIrisError, ErrorCode
 from ..schemas import slack_schema
 
 #
@@ -46,7 +46,14 @@ class SendSlackOrchestrator(object):
 
 		# templates must be stores in /Templates/Slack
 		if not template.startswith("/Templates/Slack/"):
-			raise PathError(use_case='Slack', invalid_path=template)
+			raise ASABIrisError(
+				ErrorCode.INVALID_PATH,
+				tech_message="Incorrect template path '{}'. Move templates to '/Templates/Slack/".format(template),
+				error_i18n_key="Incorrect template path '{{incorrect_path}}'. Please move your templates to '/Templates/Slack/",
+				error_dict={
+					"incorrect_path": template,
+				}
+			)
 
 		params = body.get("params", {})
 		output = await self.JinjaService.format(template, params)

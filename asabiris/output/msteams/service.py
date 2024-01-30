@@ -7,6 +7,8 @@ import asab
 
 from ...output_abc import OutputABC
 
+from ...errors import ASABIrisError, ErrorCode
+
 #
 
 L = logging.getLogger(__name__)
@@ -49,14 +51,23 @@ class MSTeamsOutputService(asab.Service, OutputABC):
 				}
 			]
 		}
-
-		async with aiohttp.ClientSession() as session:
-			async with session.post(self.TeamsWebhookUrl, json=adaptive_card) as resp:
-				if resp.status == 200:
-					return True
-				else:
-					L.warning(
-						"Sending alert to Teams was NOT successful. Response status: {}, response: {}".format(
-							resp.status,
-							await resp.text())
-					)
+		try:
+			async with aiohttp.ClientSession() as session:
+				async with session.post(self.TeamsWebhookUrl, json=adaptive_card) as resp:
+					if resp.status == 200:
+						return True
+					else:
+						L.warning(
+							"Sending alert to Teams was NOT successful. Response status: {}, response: {}".format(
+								resp.status,
+								await resp.text())
+						)
+		except Exception as e:
+			raise ASABIrisError(
+				ErrorCode.GENERAL_ERROR,
+				tech_message="Error encountered sending message to MS Teams. Reason: {}".format( str(e)),
+				error_i18n_key="Error occurred while sending message to MS Teams.  Reason: '{{error_message}}'.",
+				error_dict={
+					"error_message": str(e)
+				}
+			)

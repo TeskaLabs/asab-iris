@@ -163,20 +163,14 @@ class WebHandler(object):
 			await self.App.SendSlackOrchestrator.send_to_slack(json_data)
 		except Jinja2TemplateUndefinedError as e:
 			raise aiohttp.web.HTTPBadRequest(text=str(e))
-
-		except jinja2.exceptions.TemplateSyntaxError as e:
-			# Catching Jinja2 syntax errors
-			raise aiohttp.web.HTTPBadRequest(text="Jinja2 SyntaxError: {}".format(e))
-
-		except jinja2.TemplateError as e:
-			# Catching any other Jinja2 template errors
-			raise aiohttp.web.HTTPBadRequest(text="Jinja2 TemplateError: {}".format(e))
-
-		except PathError as e:
-			raise aiohttp.web.HTTPNotFound(text="{}".format(e))
-
-		except FormatError as e:
-			raise aiohttp.web.HTTPBadRequest(text="{}".format(e))
+		except ASABIrisError as e:
+			response = {
+				"result": "ERROR",
+				"error": e.Errori18nKey,
+				"error_dict": e.ErrorDict,
+				"tech_err": e.TechMessage
+			}
+			return aiohttp.web.json_response(response, status=400)
 
 		except slack_sdk.errors.SlackApiError as e:
 			raise aiohttp.web.HTTPServiceUnavailable(text="{}".format(e))
