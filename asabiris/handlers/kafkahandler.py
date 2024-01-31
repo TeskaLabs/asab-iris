@@ -110,6 +110,7 @@ class KafkaHandler(asab.Service):
 				L.warning("Invalid notification format: {}".format(e))
 			except Exception as e:
 				L.exception("Failed to send slack message: {}".format(e))
+				await self.handle_slack_exception(e, msg)
 
 		elif msg_type == "msteams":
 			# TODO: Validation for MSTeams
