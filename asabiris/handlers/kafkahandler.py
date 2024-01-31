@@ -97,7 +97,7 @@ class KafkaHandler(asab.Service):
 				L.warning("Invalid notification format: {}".format(e))
 			except Exception as e:
 				L.exception("Failed to send email: {}".format(e))
-				await self.handle_exception(e, msg)
+				await self.handle_email_exception(e, msg)
 
 		elif msg_type == "slack":
 			try:
@@ -136,7 +136,7 @@ class KafkaHandler(asab.Service):
 			attachments=json_data.get("attachments", []),  # Optional
 		)
 
-	async def handle_exception(self, exception, msg):
+	async def handle_email_exception(self, exception, msg):
 		"""
 		Asynchronously handles an exception by sending an email notification.
 
@@ -183,3 +183,46 @@ class KafkaHandler(asab.Service):
 			"<p>Time: {} UTC</p>"
 			"<p>Best regards,<br>Your Team</p>").format(specific_error, timestamp)
 		return error_message, "Error when generating email"
+
+
+	async def handle_slack_exception(self, exception):
+		"""
+		Generates a formatted error message suitable for Slack.
+
+		This internal method formats an error message with the provided exception details,
+		including a timestamp. The message is styled for Slack with markdown-like syntax.
+
+		Args:
+			exception (str): The specific exception message.
+		Returns:
+			str: The formatted error message for Slack.
+		"""
+		L.warning("Exception occurred: {}".format(exception))
+		error_message = self._generate_error_message_slack(str(exception))
+		await self.SlackOutputService.send_message(None, str(error_message))
+
+	def _generate_error_message_slack(self, exception: str) -> str:
+		"""
+		Generates a formatted error message suitable for Slack.
+
+		This internal method formats an error message with the provided exception details,
+		including a timestamp. The message is styled appropriately for Slack.
+
+		Args:
+			exception (str): The specific exception message.
+
+		Returns:
+			str: The formatted error message for Slack.
+		"""
+		timestamp = datetime.datetime.now(tz=datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+		error_message = (
+			":warning: *Hello!*\n\n"
+			"We encountered an issue while processing your request:\n`{}`\n\n"
+			"Please review your input and try again.\n\n"
+			"*Time:* `{}` UTC\n\n"
+			"Best regards,\nASAB Iris :robot_face:"
+		).format(
+			exception,
+			timestamp
+		)
+		return error_message
