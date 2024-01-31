@@ -2,6 +2,7 @@ import asyncio
 import configparser
 import json
 import logging
+import datetime
 
 from aiokafka import AIOKafkaConsumer
 import aiokafka.errors
@@ -11,6 +12,8 @@ import asab
 
 from asabiris.schemas.emailschema import email_schema
 from asabiris.schemas.slackschema import slack_schema
+
+from typing import Tuple
 
 #
 
@@ -40,6 +43,8 @@ class KafkaHandler(asab.Service):
 
 		self.Task = None
 		self.JinjaService = app.get_service("JinjaService")
+		# output services
+		self.EmailOutputService = app.get_service("SmtpService")
 		try:
 			topic = check_config(asab.Config, "kafka", "topic")
 			group_id = check_config(asab.Config, "kafka", "group_id")
@@ -92,6 +97,7 @@ class KafkaHandler(asab.Service):
 				L.warning("Invalid notification format: {}".format(e))
 			except Exception as e:
 				L.exception("Failed to send email: {}".format(e))
+				await self.handle_exception(e, msg)
 
 		elif msg_type == "slack":
 			try:
@@ -129,3 +135,51 @@ class KafkaHandler(asab.Service):
 			body_params=json_data["body"].get("params", {}),  # Optional
 			attachments=json_data.get("attachments", []),  # Optional
 		)
+
+	async def handle_exception(self, exception, msg):
+		"""
+		Asynchronously handles an exception by sending an email notification.
+
+		Overrides the abstract method from ExceptionStrategy. It sends an email using the
+		EmailOutputService if 'from_email' and 'to_emails' are provided in notification_params.
+		Logs an error message if the necessary parameters are missing.
+
+		Args:
+			exception (Exception): The exception to handle.
+			notification_params (Optional[dict]): Parameters for the email notification,
+			including 'from_email' and 'to_emails'.
+
+		Raises:
+			KeyError: If 'from_email' or 'to_emails' are missing in notification_params.
+		"""
+		L.warning("Exception occurred: {}".format(exception))
+
+		error_message, error_subject = self._generate_error_message(str(exception))
+
+		# Send the email
+		await self.EmailOutputService.send(
+			email_from=msg['from'],
+			email_to=msg['to'],
+			email_subject=error_subject,
+			body=error_message
+		)
+
+	def _generate_error_message(self, specific_error: str) -> Tuple[str, str]:
+		"""
+		Generates an error message and subject for the email.
+
+		Args:
+			specific_error: The specific error message.
+
+		Returns:
+			Tuple containing the error message and subject.
+		"""
+		timestamp = datetime.datetime.now(tz=datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+
+		error_message = (
+			"<p>Hello!</p>"
+			"<p>We encountered an issue while processing your request:<br><b>{}</b></p>"
+			"<p>Please review your input and try again.<p>"
+			"<p>Time: {} UTC</p>"
+			"<p>Best regards,<br>Your Team</p>").format(specific_error, timestamp)
+		return error_message, "Error when generating email"
