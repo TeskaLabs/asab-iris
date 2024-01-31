@@ -87,33 +87,33 @@ class KafkaHandler(asab.Service):
 		if msg_type == "email":
 			try:
 				KafkaHandler.ValidationSchemaMail(msg)
+				await self.send_email(msg)
 			except fastjsonschema.exceptions.JsonSchemaException as e:
 				L.warning("Invalid notification format: {}".format(e))
-				return
-			await self.send_email(msg)
+			except Exception as e:
+				L.exception("Failed to send email: {}".format(e))
 
 		elif msg_type == "slack":
 			try:
 				KafkaHandler.ValidationSchemaSlack(msg)
+				if self.App.SendSlackOrchestrator is not None:
+					await self.App.SendSlackOrchestrator.send_to_slack(msg)
+				else:
+					L.warning("Slack is not configured, a notification is discarded")
 			except fastjsonschema.exceptions.JsonSchemaException as e:
 				L.warning("Invalid notification format: {}".format(e))
-				return
-			if self.App.SendSlackOrchestrator is not None:
-				await self.App.SendSlackOrchestrator.send_to_slack(msg)
-			else:
-				L.warning("Slack is not configured, a notification is discarded")
+			except Exception as e:
+				L.exception("Failed to send slack message: {}".format(e))
 
 		elif msg_type == "msteams":
-			# TODO: This ...
-			# try:
-			# 	KafkaHandler.ValidationSchemaMSTeams(msg)
-			# except fastjsonschema.exceptions.JsonSchemaException as e:
-			# 	L.warning("Invalid notification format: {}".format(e))
-			# 	return
-			if self.App.SendMSTeamsOrchestrator is not None:
-				await self.App.SendMSTeamsOrchestrator.send_to_msteams(msg)
-			else:
-				L.warning("MS Teams is not configured, a notification is discarded")
+			# TODO: Validation for MSTeams
+			try:
+				if self.App.SendMSTeamsOrchestrator is not None:
+					await self.App.SendMSTeamsOrchestrator.send_to_msteams(msg)
+				else:
+					L.warning("MS Teams is not configured, a notification is discarded")
+			except Exception as e:
+				L.exception("Failed to send MS Teams message: {}".format(e))
 
 		else:
 			L.warning("Message type '{}' not implemented.".format(msg_type))
