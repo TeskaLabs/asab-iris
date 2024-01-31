@@ -110,7 +110,7 @@ class KafkaHandler(asab.Service):
 				L.warning("Invalid notification format: {}".format(e))
 			except Exception as e:
 				L.exception("Failed to send slack message: {}".format(e))
-				await self.handle_slack_exception(e, msg)
+				await self.handle_slack_exception(e)
 
 		elif msg_type == "msteams":
 			# TODO: Validation for MSTeams
@@ -121,6 +121,7 @@ class KafkaHandler(asab.Service):
 					L.warning("MS Teams is not configured, a notification is discarded")
 			except Exception as e:
 				L.exception("Failed to send MS Teams message: {}".format(e))
+				self.handle_msteams_exception(e)
 
 		else:
 			L.warning("Message type '{}' not implemented.".format(msg_type))
@@ -222,6 +223,48 @@ class KafkaHandler(asab.Service):
 			"Please review your input and try again.\n\n"
 			"*Time:* `{}` UTC\n\n"
 			"Best regards,\nASAB Iris :robot_face:"
+		).format(
+			exception,
+			timestamp
+		)
+		return error_message
+
+	async def handle_msteams_exception(self, exception):
+		"""
+		Asynchronously handles an exception by sending a notification to Microsoft Teams.
+
+		Overrides the abstract method from ExceptionStrategy. It formats and sends a message
+		to Microsoft Teams about the exception using the MSTeamsOutputService. The notification
+		can include additional context or parameters specified in notification_params.
+
+		Args:
+			exception (Exception): The exception to handle.
+		"""
+		L.warning("Exception occurred: {}".format(exception))
+
+		error_message = self._generate_error_message_msteams(str(exception))
+		await self.MSTeamsOutputService.send(error_message)
+
+	def _generate_error_message_msteams(self, exception: str) -> str:
+		"""
+		Generates a formatted error message suitable for Microsoft Teams.
+
+		This internal method formats an error message with the provided exception details,
+		including a timestamp. The message is styled appropriately for Microsoft Teams.
+
+		Args:
+			exception (str): The specific exception message.
+
+		Returns:
+			str: The formatted error message for Microsoft Teams.
+		"""
+		timestamp = datetime.datetime.now(tz=datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+		error_message = (
+			"Warning: *Hello!\n\n"
+			"We encountered an issue while processing your request:\n`{}`\n\n"
+			"Please review your input and try again.\n\n"
+			"Time: `{}` UTC\n\n"
+			"Best regards,\nASAB Iris"
 		).format(
 			exception,
 			timestamp
