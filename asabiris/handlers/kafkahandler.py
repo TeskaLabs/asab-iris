@@ -38,8 +38,8 @@ class KafkaHandler(asab.Service):
         self.Task = None
         self.JinjaService = app.get_service("JinjaService")
         self.EmailOutputService = app.get_service("SmtpService")
-        self.SlackOutputService = app.get_service("SlackService")  # Assuming a Slack service exists
-        self.MSTeamsOutputService = app.get_service("MSTeamsService")  # Assuming an MS Teams service exists
+        self.SlackOutputService = app.get_service("SlackService")
+        self.MSTeamsOutputService = app.get_service("MSTeamsService")
         try:
             topic = check_config(asab.Config, "kafka", "topic")
             group_id = check_config(asab.Config, "kafka", "group_id")
