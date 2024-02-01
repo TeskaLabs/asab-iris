@@ -65,7 +65,7 @@ class MSTeamsOutputService(asab.Service, OutputABC):
 		except Exception as e:
 			raise ASABIrisError(
 				ErrorCode.GENERAL_ERROR,
-				tech_message="Error encountered sending message to MS Teams. Reason: {}".format( str(e)),
+				tech_message="Error encountered sending message to MS Teams. Reason: {}".format(str(e)),
 				error_i18n_key="Error occurred while sending message to MS Teams.  Reason: '{{error_message}}'.",
 				error_dict={
 					"error_message": str(e)

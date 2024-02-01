@@ -306,6 +306,7 @@ class WebHandler(object):
 		# Add other mappings as necessary
 		return 400  # Default to Bad Request for unspecified errors
 
+
 @aiohttp.payload_streamer.streamer
 async def file_sender(writer, pdf_content):
 	"""
