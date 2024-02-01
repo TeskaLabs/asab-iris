@@ -209,24 +209,17 @@ class WebHandler(object):
 
 		try:
 			await self.App.SendMSTeamsOrchestrator.send_to_msteams(json_data)
-		except Jinja2TemplateUndefinedError as e:
-			raise aiohttp.web.HTTPBadRequest(text=str(e))
+		except ASABIrisError as e:
+			# Map ErrorCode to HTTP status codes
+			status_code = self.map_error_code_to_status(e.ErrorCode)
 
-		except jinja2.exceptions.TemplateSyntaxError as e:
-			# Catching Jinja2 syntax errors
-			raise aiohttp.web.HTTPBadRequest(text="Jinja2 SyntaxError: {}".format(e))
-
-		except jinja2.TemplateError as e:
-			# Catching any other Jinja2 template errors
-			raise aiohttp.web.HTTPBadRequest(text="Jinja2 TemplateError: {}".format(e))
-
-		except PathError as e:
-			raise aiohttp.web.HTTPNotFound(text="{}".format(e))
-
-		except FormatError as e:
-			raise aiohttp.web.HTTPBadRequest(text="{}".format(e))
-
-		# More specific exception handling goes here so that the service provides nice output
+			response = {
+				"result": "ERROR",
+				"error": e.Errori18nKey,
+				"error_dict": e.ErrorDict,
+				"tech_err": e.TechMessage
+			}
+			return aiohttp.web.json_response(response, status=status_code)
 
 		return asab.web.rest.json_response(request, {"result": "OK"})
 
@@ -295,13 +288,11 @@ class WebHandler(object):
 		"""
 		Maps error codes to HTTP status codes.
 		"""
-		if error_code == ErrorCode.INVALID_FORMAT:
-			return 400  # Bad Request
-		elif error_code == ErrorCode.JINJA2_ERROR:
+		if error_code in [ErrorCode.INVALID_FORMAT, ErrorCode.JINJA2_ERROR, ErrorCode.GENERAL_ERROR]:
 			return 400  # Bad Request
 		elif error_code == ErrorCode.TEMPLATE_NOT_FOUND:
 			return 404  # Not Found
-		elif error_code == ErrorCode.GENERAL_ERROR:
+		elif error_code == ErrorCode.SERVER_ERROR:
 			return 503  # Internal Server Error
 		# Add other mappings as necessary
 		return 400  # Default to Bad Request for unspecified errors
