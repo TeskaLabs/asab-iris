@@ -145,7 +145,7 @@ class KafkaHandler(asab.Service):
         elif service_type == 'msteams':
             await self.MSTeamsOutputService.send_message(error_message)
 
-    def generate_error_message(self, specific_error: str, service_type: str) -> Tuple[str, str]:
+    def generate_error_message(self, specific_error: str, service_type: str):
         timestamp = datetime.datetime.now(tz=datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 
         if service_type == 'email':
@@ -164,7 +164,6 @@ class KafkaHandler(asab.Service):
                              "*Time:* `{}` UTC\n\n"
                              "Best regards,\nYour Team :robot_face:").format(specific_error, timestamp)
             return error_message
-
         elif service_type == 'msteams':
             error_message = ("Warning: *Hello!\n\n"
                              "We encountered an issue while processing your request:\n`{}`\n\n"
