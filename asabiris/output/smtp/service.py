@@ -8,6 +8,7 @@ import aiosmtplib
 
 from ...output_abc import OutputABC
 from ...exceptions import SMTPDeliverError
+from ...errors import ASABIrisError, ErrorCode
 
 #
 
@@ -142,25 +143,58 @@ class EmailOutputService(asab.Service, OutputABC):
 			)
 
 		except aiosmtplib.errors.SMTPConnectError as e:
-			L.error("Connection failed: {}".format(e), struct_data={"host": self.Host, "port": self.Port})
-			raise SMTPDeliverError("SMTP delivery failed.Reason: {}".format(e))
-
+			L.info("Connection failed: {}".format(e), struct_data={"host": self.Host, "port": self.Port})
+			raise ASABIrisError(
+				ErrorCode.SERVER_ERROR,
+				tech_message="SMTP connection failed: {}.".format(str(e)),
+				error_i18n_key="smtp_connection_error",
+				error_dict={
+					"host": self.Host,
+					"port": self.Port
+				}
+			)
 		except aiosmtplib.errors.SMTPAuthenticationError as e:
-			L.exception("Generic error: {}".format(e), struct_data={"host": self.Host})
-			raise SMTPDeliverError("SMTP delivery failed.Reason: {}".format(e))
-
+			L.exception("SMTP error: {}".format(e), struct_data={"host": self.Host})
+			raise ASABIrisError(
+				ErrorCode.SERVER_ERROR,
+				tech_message="SMTP authentication error: {}.".format(str(e)),
+				error_i18n_key="smtp_authentication_error",
+				error_dict={
+					"host": self.Host
+				}
+			)
 		except aiosmtplib.errors.SMTPResponseException as e:
 			L.error("SMTP Error", struct_data={"message": e.message, "code": e.code, "host": self.Host})
-			raise SMTPDeliverError("SMTP delivery failed.Reason: {}".format(e))
-
+			raise ASABIrisError(
+				ErrorCode.SERVER_ERROR,
+				tech_message="SMTP response exception: Code {}, Message '{}'.".format(e.code, e.message),
+				error_i18n_key="smtp_response_exception",
+				error_dict={
+					"message": e.message,
+					"code": e.code,
+					"host": self.Host
+				}
+			)
 		except aiosmtplib.errors.SMTPServerDisconnected as e:
 			L.error("Server disconnected: {}; check the SMTP credentials".format(e), struct_data={"host": self.Host})
-			raise SMTPDeliverError("SMTP delivery failed.Reason: {}".format(e))
-
+			raise ASABIrisError(
+				ErrorCode.SERVER_ERROR,
+				tech_message="SMTP server disconnected: {}.".format(str(e)),
+				error_i18n_key="smtp_server_disconnected",
+				error_dict={
+					"host": self.Host
+				}
+			)
 		except Exception as e:
-			L.error("Generic error: {}; check credentials".format(e), struct_data={"host": self.Host})
-			raise SMTPDeliverError("SMTP delivery failed.Reason: {}".format(e))
-
+			L.error("SMTP error: {}; check credentials".format(e), struct_data={"host": self.Host})
+			raise ASABIrisError(
+				ErrorCode.SERVER_ERROR,
+				tech_message="Generic error occurred: {}.".format(str(e)),
+				error_i18n_key="generic_error",
+				error_dict={
+					"host": self.Host
+				}
+			)
 		L.log(asab.LOG_NOTICE, "Email sent", struct_data={'result': result[1], "host": self.Host})
 
 

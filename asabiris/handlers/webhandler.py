@@ -128,16 +128,6 @@ class WebHandler(object):
 			}
 			return aiohttp.web.json_response(response, status=404)
 
-		except SMTPDeliverError as e:
-			response = {
-				"result": "ERROR",
-				"error": "{{message}}",
-				"error_dict": {"message": str(e)},
-				"tech_err": str(e)
-			}
-			return aiohttp.web.json_response(response, status=503)
-
-		# More specific exception handling goes here so that the service provides nice output
 		return asab.web.rest.json_response(request, {"result": "OK"})
 
 
