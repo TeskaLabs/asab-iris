@@ -110,7 +110,7 @@ class KafkaHandler(asab.Service):
 				L.warning("Invalid notification format: {}".format(e))
 			except Exception as e:
 				L.exception("Failed to send slack message: {}".format(e))
-				await self.handle_slack_exception(e)
+				await self.handle_slack_exception(str(e))
 
 		elif msg_type == "msteams":
 			# TODO: Validation for MSTeams
@@ -121,7 +121,7 @@ class KafkaHandler(asab.Service):
 					L.warning("MS Teams is not configured, a notification is discarded")
 			except Exception as e:
 				L.exception("Failed to send MS Teams message: {}".format(e))
-				self.handle_msteams_exception(e)
+				await self.handle_msteams_exception(e)
 
 		else:
 			L.warning("Message type '{}' not implemented.".format(msg_type))
@@ -148,7 +148,6 @@ class KafkaHandler(asab.Service):
 
 		Args:
 			exception (Exception): The exception to handle.
-			notification_params (Optional[dict]): Parameters for the email notification,
 			including 'from_email' and 'to_emails'.
 
 		Raises:
