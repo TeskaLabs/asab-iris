@@ -120,7 +120,7 @@ class JinjaFormatterService(asab.Service, FormatterABC):
 			)
 		except Exception as e:
 			raise ASABIrisError(
-				ErrorCode.GENERAL_ERROR,
+				ErrorCode.JINJA2_RENDERING_ERROR,
 				tech_message="Error rendering template '{}': {}".format(template_path, str(e)),
 				error_i18n_key="Error rendering '{{template_path}}': '{{error_message}}'.",
 				error_dict={
