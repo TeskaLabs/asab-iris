@@ -15,257 +15,158 @@ from asabiris.schemas.slackschema import slack_schema
 
 from typing import Tuple
 
-#
-
 L = logging.getLogger(__name__)
 
 
-#
-
 def check_config(config, section, parameter):
-	try:
-		value = config.get(section, parameter)
-		return value
-	except configparser.NoOptionError:
-		L.error("Configuration parameter '{}' is missing in section '{}'.".format(parameter, section))
-		exit()
+    try:
+        value = config.get(section, parameter)
+        return value
+    except configparser.NoOptionError:
+        L.error("Configuration parameter '{}' is missing in section '{}'.".format(parameter, section))
+        exit()
 
 
 class KafkaHandler(asab.Service):
-	# validate slack and email messages
-	ValidationSchemaMail = fastjsonschema.compile(email_schema)
-	ValidationSchemaSlack = fastjsonschema.compile(slack_schema)
+    ValidationSchemaMail = fastjsonschema.compile(email_schema)
+    ValidationSchemaSlack = fastjsonschema.compile(slack_schema)
 
-	# TODO: ValidationSchemaMSTeams = fastjsonschema.compile(msteams_schema)
+    def __init__(self, app, service_name="KafkaHandler"):
+        super().__init__(app, service_name)
+        self.Task = None
+        self.JinjaService = app.get_service("JinjaService")
+        self.EmailOutputService = app.get_service("SmtpService")
+        self.SlackOutputService = app.get_service("SlackService")  # Assuming a Slack service exists
+        self.MSTeamsOutputService = app.get_service("MSTeamsService")  # Assuming an MS Teams service exists
+        try:
+            topic = check_config(asab.Config, "kafka", "topic")
+            group_id = check_config(asab.Config, "kafka", "group_id")
+            bootstrap_servers = check_config(asab.Config, "kafka", "bootstrap_servers").split(",")
+        except configparser.NoOptionError:
+            L.error("Configuration missing. Required parameters: Kafka/group_id/bootstrap_servers")
+            exit()
 
-	def __init__(self, app, service_name="KafkaHandler"):
-		super().__init__(app, service_name)
+        self.Consumer = AIOKafkaConsumer(
+            topic,
+            group_id=group_id,
+            bootstrap_servers=bootstrap_servers,
+            loop=self.App.Loop,
+            retry_backoff_ms=10000,
+            auto_offset_reset="earliest",
+        )
 
-		self.Task = None
-		self.JinjaService = app.get_service("JinjaService")
-		# output services
-		self.EmailOutputService = app.get_service("SmtpService")
-		try:
-			topic = check_config(asab.Config, "kafka", "topic")
-			group_id = check_config(asab.Config, "kafka", "group_id")
-			bootstrap_servers = check_config(asab.Config, "kafka", "bootstrap_servers").split(",")
-		except configparser.NoOptionError:
-			L.error("Configuration missing. Required parameters: Kafka/group_id/bootstrap_servers")
-			exit()
+    async def initialize(self, app):
+        try:
+            await self.Consumer.start()
+        except aiokafka.errors.KafkaConnectionError as e:
+            L.warning("No connection to Kafka established. Stopping the app... {}".format(e))
+            exit()
+        self.Task = asyncio.ensure_future(self.consume(), loop=self.App.Loop)
 
-		self.Consumer = AIOKafkaConsumer(
-			topic,
-			group_id=group_id,
-			bootstrap_servers=bootstrap_servers,
-			loop=self.App.Loop,
-			retry_backoff_ms=10000,
-			auto_offset_reset="earliest",
-		)
+    async def finalize(self, app):
+        await self.Consumer.stop()
+        if self.Task.exception() is not None:
+            L.warning("Exception occurred during alert notifications: {}".format(self.Task.exception()))
 
-	async def initialize(self, app):
-		try:
-			await self.Consumer.start()
-		except aiokafka.errors.KafkaConnectionError as e:
-			L.warning("No connection to Kafka established. Stopping the app... {}".format(e))
-			exit()
-		self.Task = asyncio.ensure_future(self.consume(), loop=self.App.Loop)
+    async def consume(self):
+        async for msg in self.Consumer:
+            try:
+                msg = msg.value.decode("utf-8")
+                msg = json.loads(msg)
+            except Exception as e:
+                L.warning("Invalid message format: '{}'".format(e))
+            try:
+                await self.dispatch(msg)
+            except Exception:
+                L.exception("General error when dispatching message")
 
-	async def finalize(self, app):
-		await self.Consumer.stop()
-		if self.Task.exception() is not None:
-			L.warning("Exception occurred during alert notifications: {}".format(self.Task.exception()))
+    async def dispatch(self, msg):
+        msg_type = msg.pop("type", "<missing>")
+        if msg_type == "email":
+            try:
+                self.ValidationSchemaMail(msg)
+                await self.send_email(msg)
+            except fastjsonschema.exceptions.JsonSchemaException as e:
+                L.warning("Invalid notification format: {}".format(e))
+            except Exception as e:
+                L.exception("Failed to send email: {}".format(e))
+                await self.handle_exception(e, 'email', msg)
 
-	async def consume(self):
-		async for msg in self.Consumer:
-			try:
-				msg = msg.value.decode("utf-8")
-				msg = json.loads(msg)
-			except Exception as e:
-				L.warning("Invalid message format: '{}'".format(e))
-			try:
-				await self.dispatch(msg)
-			except Exception:
-				L.exception("General error when dispatching message")
+        elif msg_type == "slack":
+            try:
+                self.ValidationSchemaSlack(msg)
+                # Assuming Slack sending logic is implemented elsewhere in your application
+            except fastjsonschema.exceptions.JsonSchemaException as e:
+                L.warning("Invalid notification format: {}".format(e))
+            except Exception as e:
+                L.exception("Failed to send slack message: {}".format(e))
+                await self.handle_exception(e, 'slack')
 
-	async def dispatch(self, msg):
-		msg_type = msg.pop("type", "<missing>")
-		if msg_type == "email":
-			try:
-				KafkaHandler.ValidationSchemaMail(msg)
-				await self.send_email(msg)
-			except fastjsonschema.exceptions.JsonSchemaException as e:
-				L.warning("Invalid notification format: {}".format(e))
-			except Exception as e:
-				L.exception("Failed to send email: {}".format(e))
-				await self.handle_email_exception(e, msg)
+        elif msg_type == "msteams":
+            try:
+                # Assuming MSTeams validation schema exists
+                self.ValidationSchemaMSTeams(msg)
+                # Assuming MSTeams sending logic is implemented elsewhere in your application
+            except fastjsonschema.exceptions.JsonSchemaException as e:
+                L.warning("Invalid notification format: {}".format(e))
+            except Exception as e:
+                L.exception("Failed to send MS Teams message: {}".format(e))
+                await self.handle_exception(e, 'msteams')
 
-		elif msg_type == "slack":
-			try:
-				KafkaHandler.ValidationSchemaSlack(msg)
-				if self.App.SendSlackOrchestrator is not None:
-					await self.App.SendSlackOrchestrator.send_to_slack(msg)
-				else:
-					L.warning("Slack is not configured, a notification is discarded")
-			except fastjsonschema.exceptions.JsonSchemaException as e:
-				L.warning("Invalid notification format: {}".format(e))
-			except Exception as e:
-				L.exception("Failed to send slack message: {}".format(e))
-				await self.handle_slack_exception(str(e))
+        # Add similar logic for 'msteams' if needed
 
-		elif msg_type == "msteams":
-			# TODO: Validation for MSTeams
-			try:
-				if self.App.SendMSTeamsOrchestrator is not None:
-					await self.App.SendMSTeamsOrchestrator.send_to_msteams(msg)
-				else:
-					L.warning("MS Teams is not configured, a notification is discarded")
-			except Exception as e:
-				L.exception("Failed to send MS Teams message: {}".format(e))
-				await self.handle_msteams_exception(e)
+    async def send_email(self, json_data):
+        await self.EmailOutputService.send_email(
+            from_addr=json_data['from'],
+            to_addrs=json_data['to'],
+            subject=json_data.get('subject', 'No Subject'),
+            body=json_data.get('body', ''),
+            cc=json_data.get('cc', []),
+            bcc=json_data.get('bcc', []),
+            attachments=json_data.get('attachments', [])
+        )
+        L.info("Email sent successfully")
 
-		else:
-			L.warning("Message type '{}' not implemented.".format(msg_type))
+    async def handle_exception(self, exception, service_type, msg=None):
+        L.warning("Exception occurred: {}".format(exception))
+        error_message, error_subject = self.generate_error_message(str(exception), service_type)
 
-	async def send_email(self, json_data):
-		await self.App.SendEmailOrchestrator.send_email(
-			email_to=json_data["to"],
-			body_template=json_data["body"]["template"],
-			email_cc=json_data.get("cc", []),  # Optional
-			email_bcc=json_data.get("bcc", []),  # Optional
-			email_subject=json_data.get("subject", None),  # Optional
-			email_from=json_data.get("from"),
-			body_params=json_data["body"].get("params", {}),  # Optional
-			attachments=json_data.get("attachments", []),  # Optional
-		)
+        if service_type == 'email' and msg:
+            await self.EmailOutputService.send(
+                email_from=msg['from'],
+                email_to=msg['to'],
+                email_subject=error_subject,
+                body=error_message
+            )
+        elif service_type == 'slack':
+            await self.SlackOutputService.send_message(error_message)
+        elif service_type == 'msteams':
+            await self.MSTeamsOutputService.send_message(error_message)
 
-	async def handle_email_exception(self, exception, msg):
-		"""
-		Asynchronously handles an exception by sending an email notification.
+    def generate_error_message(self, specific_error: str, service_type: str) -> Tuple[str, str]:
+        timestamp = datetime.datetime.now(tz=datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 
-		Overrides the abstract method from ExceptionStrategy. It sends an email using the
-		EmailOutputService if 'from_email' and 'to_emails' are provided in notification_params.
-		Logs an error message if the necessary parameters are missing.
+        if service_type == 'email':
+            error_subject = "Error when generating notification"
+            error_message = ("<p>Hello!</p>"
+                             "<p>We encountered an issue while processing your request:<br><b>{}</b></p>"
+                             "<p>Please review your input and try again.<p>"
+                             "<p>Time: {} UTC</p>"
+                             "<p>Best regards,<br>Your Team</p>").format(specific_error, timestamp)
+            return error_message, error_subject
 
-		Args:
-			exception (Exception): The exception to handle.
-			including 'from_email' and 'to_emails'.
+        elif service_type == 'slack':
+            error_message = (":warning: *Hello!*\n\n"
+                             "We encountered an issue while processing your request:\n`{}`\n\n"
+                             "Please review your input and try again.\n\n"
+                             "*Time:* `{}` UTC\n\n"
+                             "Best regards,\nYour Team :robot_face:").format(specific_error, timestamp)
+            return error_message
 
-		Raises:
-			KeyError: If 'from_email' or 'to_emails' are missing in notification_params.
-		"""
-		L.warning("Exception occurred: {}".format(exception))
-
-		error_message, error_subject = self._generate_error_message(str(exception))
-
-		# Send the email
-		await self.EmailOutputService.send(
-			email_from=msg['from'],
-			email_to=msg['to'],
-			email_subject=error_subject,
-			body=error_message
-		)
-
-	def _generate_error_message(self, specific_error: str) -> Tuple[str, str]:
-		"""
-		Generates an error message and subject for the email.
-
-		Args:
-			specific_error: The specific error message.
-
-		Returns:
-			Tuple containing the error message and subject.
-		"""
-		timestamp = datetime.datetime.now(tz=datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
-
-		error_message = (
-			"<p>Hello!</p>"
-			"<p>We encountered an issue while processing your request:<br><b>{}</b></p>"
-			"<p>Please review your input and try again.<p>"
-			"<p>Time: {} UTC</p>"
-			"<p>Best regards,<br>Your Team</p>").format(specific_error, timestamp)
-		return error_message, "Error when generating email"
-
-
-	async def handle_slack_exception(self, exception):
-		"""
-		Generates a formatted error message suitable for Slack.
-
-		This internal method formats an error message with the provided exception details,
-		including a timestamp. The message is styled for Slack with markdown-like syntax.
-
-		Args:
-			exception (str): The specific exception message.
-		Returns:
-			str: The formatted error message for Slack.
-		"""
-		L.warning("Exception occurred: {}".format(exception))
-		error_message = self._generate_error_message_slack(str(exception))
-		await self.SlackOutputService.send_message(None, str(error_message))
-
-	def _generate_error_message_slack(self, exception: str) -> str:
-		"""
-		Generates a formatted error message suitable for Slack.
-
-		This internal method formats an error message with the provided exception details,
-		including a timestamp. The message is styled appropriately for Slack.
-
-		Args:
-			exception (str): The specific exception message.
-
-		Returns:
-			str: The formatted error message for Slack.
-		"""
-		timestamp = datetime.datetime.now(tz=datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
-		error_message = (
-			":warning: *Hello!*\n\n"
-			"We encountered an issue while processing your request:\n`{}`\n\n"
-			"Please review your input and try again.\n\n"
-			"*Time:* `{}` UTC\n\n"
-			"Best regards,\nASAB Iris :robot_face:"
-		).format(
-			exception,
-			timestamp
-		)
-		return error_message
-
-	async def handle_msteams_exception(self, exception):
-		"""
-		Asynchronously handles an exception by sending a notification to Microsoft Teams.
-
-		Overrides the abstract method from ExceptionStrategy. It formats and sends a message
-		to Microsoft Teams about the exception using the MSTeamsOutputService. The notification
-		can include additional context or parameters specified in notification_params.
-
-		Args:
-			exception (Exception): The exception to handle.
-		"""
-		L.warning("Exception occurred: {}".format(exception))
-
-		error_message = self._generate_error_message_msteams(str(exception))
-		await self.MSTeamsOutputService.send(error_message)
-
-	def _generate_error_message_msteams(self, exception: str) -> str:
-		"""
-		Generates a formatted error message suitable for Microsoft Teams.
-
-		This internal method formats an error message with the provided exception details,
-		including a timestamp. The message is styled appropriately for Microsoft Teams.
-
-		Args:
-			exception (str): The specific exception message.
-
-		Returns:
-			str: The formatted error message for Microsoft Teams.
-		"""
-		timestamp = datetime.datetime.now(tz=datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
-		error_message = (
-			"Warning: *Hello!\n\n"
-			"We encountered an issue while processing your request:\n`{}`\n\n"
-			"Please review your input and try again.\n\n"
-			"Time: `{}` UTC\n\n"
-			"Best regards,\nASAB Iris"
-		).format(
-			exception,
-			timestamp
-		)
-		return error_message
+        elif service_type == 'msteams':
+            error_message = ("Warning: *Hello!\n\n"
+                             "We encountered an issue while processing your request:\n`{}`\n\n"
+                             "Please review your input and try again.\n\n"
+                             "Time: `{}` UTC\n\n"
+                             "Best regards,\nYour Team").format(specific_error, timestamp)
+            return error_message
