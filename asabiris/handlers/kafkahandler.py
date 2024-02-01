@@ -12,6 +12,7 @@ import asab
 
 from asabiris.schemas.emailschema import email_schema
 from asabiris.schemas.slackschema import slack_schema
+from asabiris.schemas.teamsschema import teams_schema
 
 from typing import Tuple
 
@@ -30,6 +31,7 @@ def check_config(config, section, parameter):
 class KafkaHandler(asab.Service):
     ValidationSchemaMail = fastjsonschema.compile(email_schema)
     ValidationSchemaSlack = fastjsonschema.compile(slack_schema)
+    ValidationSchemaMSTeams = fastjsonschema.compile(teams_schema)
 
     def __init__(self, app, service_name="KafkaHandler"):
         super().__init__(app, service_name)
@@ -95,7 +97,6 @@ class KafkaHandler(asab.Service):
         elif msg_type == "slack":
             try:
                 self.ValidationSchemaSlack(msg)
-                # Assuming Slack sending logic is implemented elsewhere in your application
             except fastjsonschema.exceptions.JsonSchemaException as e:
                 L.warning("Invalid notification format: {}".format(e))
             except Exception as e:
@@ -104,9 +105,7 @@ class KafkaHandler(asab.Service):
 
         elif msg_type == "msteams":
             try:
-                # Assuming MSTeams validation schema exists
                 self.ValidationSchemaMSTeams(msg)
-                # Assuming MSTeams sending logic is implemented elsewhere in your application
             except fastjsonschema.exceptions.JsonSchemaException as e:
                 L.warning("Invalid notification format: {}".format(e))
             except Exception as e:
