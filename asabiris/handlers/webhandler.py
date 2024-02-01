@@ -297,10 +297,10 @@ class WebHandler(object):
 		"""
 		if error_code == ErrorCode.INVALID_FORMAT:
 			return 400  # Bad Request
+		elif error_code == ErrorCode.JINJA2_ERROR:
+			return 400  # Bad Request
 		elif error_code == ErrorCode.TEMPLATE_NOT_FOUND:
 			return 404  # Not Found
-		elif error_code == ErrorCode.JINJA2_ERROR:
-			return 500  # Internal Server Error
 		elif error_code == ErrorCode.GENERAL_ERROR:
 			return 503  # Internal Server Error
 		# Add other mappings as necessary
