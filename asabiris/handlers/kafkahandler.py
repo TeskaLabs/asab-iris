@@ -90,6 +90,7 @@ class KafkaHandler(asab.Service):
                 await self.send_email(msg)
             except fastjsonschema.exceptions.JsonSchemaException as e:
                 L.warning("Invalid notification format: {}".format(e))
+                return
             except Exception as e:
                 L.exception("Failed to send email: {}".format(e))
                 await self.handle_exception(e, 'email', msg)
@@ -99,6 +100,7 @@ class KafkaHandler(asab.Service):
                 self.ValidationSchemaSlack(msg)
             except fastjsonschema.exceptions.JsonSchemaException as e:
                 L.warning("Invalid notification format: {}".format(e))
+                return
             except Exception as e:
                 L.exception("Failed to send slack message: {}".format(e))
                 await self.handle_exception(e, 'slack')
@@ -108,6 +110,7 @@ class KafkaHandler(asab.Service):
                 self.ValidationSchemaMSTeams(msg)
             except fastjsonschema.exceptions.JsonSchemaException as e:
                 L.warning("Invalid notification format: {}".format(e))
+                return
             except Exception as e:
                 L.exception("Failed to send MS Teams message: {}".format(e))
                 await self.handle_exception(e, 'msteams')
