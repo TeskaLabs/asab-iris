@@ -35,7 +35,7 @@ asab.Config.add_defaults({
 		"body_max_size": 31457280  # maximum size of the request body that the web server can handle.
 	},
 	"kafka": {
-		"topic": "asab-notifications",
+		"topic": "notifications",
 		"group_id": "asab-iris",
 	}
 })
