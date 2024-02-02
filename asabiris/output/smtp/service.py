@@ -7,7 +7,6 @@ import asab
 import aiosmtplib
 
 from ...output_abc import OutputABC
-from ...exceptions import SMTPDeliverError
 from ...errors import ASABIrisError, ErrorCode
 
 #
@@ -141,7 +140,6 @@ class EmailOutputService(asab.Service, OutputABC):
 				use_tls=self.SSL,
 				start_tls=self.StartTLS
 			)
-
 		except aiosmtplib.errors.SMTPConnectError as e:
 			L.info("Connection failed: {}".format(e), struct_data={"host": self.Host, "port": self.Port})
 			raise ASABIrisError(
@@ -195,6 +193,7 @@ class EmailOutputService(asab.Service, OutputABC):
 					"host": self.Host
 				}
 			)
+
 		L.log(asab.LOG_NOTICE, "Email sent", struct_data={'result': result[1], "host": self.Host})
 
 

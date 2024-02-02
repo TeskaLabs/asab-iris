@@ -11,7 +11,7 @@ from ..schemas.emailschema import email_schema
 from ..schemas.slackschema import slack_schema
 from ..schemas.teamsschema import teams_schema
 
-from ..exceptions import SMTPDeliverError, PathError, FormatError, Jinja2TemplateUndefinedError
+from ..exceptions import PathError, Jinja2TemplateUndefinedError
 from ..errors import ASABIrisError, ErrorCode
 
 import slack_sdk.errors
