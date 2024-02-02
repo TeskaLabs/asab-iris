@@ -278,16 +278,22 @@ class WebHandler(object):
 		"""
 		Maps error codes to HTTP status codes.
 		"""
-		if error_code in [ErrorCode.INVALID_FORMAT, ErrorCode.JINJA2_ERROR, ErrorCode.JINJA2_RENDERING_ERROR]:
-			return 400  # Bad Request
-		elif error_code == ErrorCode.SLACK_API_ERROR:
-			return 401  # Unauthorized
-		elif error_code == ErrorCode.TEMPLATE_NOT_FOUND:
-			return 404  # Not Found
-		elif error_code == ErrorCode.SERVER_ERROR:
-			return 503  # Internal Server Error
-		# Add other mappings as necessary
-		return 400  # Default to Bad Request for unspecified errors
+		error_code_mapping = {
+			ErrorCode.INVALID_FORMAT: 400,
+			ErrorCode.JINJA2_ERROR: 400,
+			ErrorCode.JINJA2_RENDERING_ERROR: 400,
+			ErrorCode.TEMPLATE_NOT_FOUND: 404,
+			ErrorCode.SERVER_ERROR: 503,
+			ErrorCode.SLACK_API_ERROR: 401,
+			ErrorCode.SMTP_CONNECTION_ERROR: 503,
+			ErrorCode.SMTP_AUTHENTICATION_ERROR: 401,
+			ErrorCode.SMTP_RESPONSE_ERROR: 500,
+			ErrorCode.SMTP_SERVER_DISCONNECTED: 503,
+			ErrorCode.SMTP_GENERIC_ERROR: 500,
+			# Add additional mappings as necessary
+		}
+
+		return error_code_mapping.get(error_code, 400)  # Default to 400 Bad Request
 
 
 @aiohttp.payload_streamer.streamer

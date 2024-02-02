@@ -143,7 +143,7 @@ class EmailOutputService(asab.Service, OutputABC):
 		except aiosmtplib.errors.SMTPConnectError as e:
 			L.info("Connection failed: {}".format(e), struct_data={"host": self.Host, "port": self.Port})
 			raise ASABIrisError(
-				ErrorCode.SERVER_ERROR,
+				ErrorCode.SMTP_CONNECTION_ERROR,
 				tech_message="SMTP connection failed: {}.".format(str(e)),
 				error_i18n_key="smtp_connection_error",
 				error_dict={
@@ -154,7 +154,7 @@ class EmailOutputService(asab.Service, OutputABC):
 		except aiosmtplib.errors.SMTPAuthenticationError as e:
 			L.exception("SMTP error: {}".format(e), struct_data={"host": self.Host})
 			raise ASABIrisError(
-				ErrorCode.SERVER_ERROR,
+				ErrorCode.SMTP_AUTHENTICATION_ERROR,
 				tech_message="SMTP authentication error: {}.".format(str(e)),
 				error_i18n_key="smtp_authentication_error",
 				error_dict={
@@ -164,7 +164,7 @@ class EmailOutputService(asab.Service, OutputABC):
 		except aiosmtplib.errors.SMTPResponseException as e:
 			L.error("SMTP Error", struct_data={"message": e.message, "code": e.code, "host": self.Host})
 			raise ASABIrisError(
-				ErrorCode.SERVER_ERROR,
+				ErrorCode.SMTP_RESPONSE_ERROR,
 				tech_message="SMTP response exception: Code {}, Message '{}'.".format(e.code, e.message),
 				error_i18n_key="smtp_response_exception",
 				error_dict={
@@ -176,7 +176,7 @@ class EmailOutputService(asab.Service, OutputABC):
 		except aiosmtplib.errors.SMTPServerDisconnected as e:
 			L.error("Server disconnected: {}; check the SMTP credentials".format(e), struct_data={"host": self.Host})
 			raise ASABIrisError(
-				ErrorCode.SERVER_ERROR,
+				ErrorCode.SMTP_SERVER_DISCONNECTED,
 				tech_message="SMTP server disconnected: {}.".format(str(e)),
 				error_i18n_key="smtp_server_disconnected",
 				error_dict={
@@ -186,7 +186,7 @@ class EmailOutputService(asab.Service, OutputABC):
 		except Exception as e:
 			L.error("SMTP error: {}; check credentials".format(e), struct_data={"host": self.Host})
 			raise ASABIrisError(
-				ErrorCode.SERVER_ERROR,
+				ErrorCode.SMTP_GENERIC_ERROR,
 				tech_message="Generic error occurred: {}.".format(str(e)),
 				error_i18n_key="generic_error",
 				error_dict={
