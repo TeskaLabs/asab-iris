@@ -57,10 +57,32 @@ class MSTeamsOutputService(asab.Service, OutputABC):
 					if resp.status == 200:
 						return True
 					else:
+						error_message = await resp.text()
 						L.warning(
 							"Sending alert to Teams was NOT successful. Response status: {}, response: {}".format(
-								resp.status,
-								await resp.text())
+								resp.status, error_message)
+						)
+
+						# Mapping specific status codes to error codes
+						if resp.status == 400:  # Bad Request
+							error_code = ErrorCode.INVALID_SERVICE_CONFIGURATION
+						elif resp.status == 404:  # Not Found
+							error_code = ErrorCode.TEMPLATE_NOT_FOUND
+						elif resp.status == 503:  # Service Unavailable
+							error_code = ErrorCode.SERVER_ERROR  # You might create a specific error code for this if needed
+						# Add more mappings as necessary for other status codes
+						else:
+							error_code = ErrorCode.SERVER_ERROR  # General server error for other cases
+
+						raise ASABIrisError(
+							error_code,
+							tech_message="Error encountered sending message to MS Teams. Status: {}, Reason: {}".format(
+								resp.status, error_message),
+							error_i18n_key="Error occurred while sending message to MS Teams. Reason: '{{error_message}}'.",
+							error_dict={
+								"error_message": error_message,
+								"status_code": resp.status
+							}
 						)
 		except Exception as e:
 			raise ASABIrisError(
