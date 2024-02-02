@@ -22,9 +22,12 @@ class MSTeamsOutputService(asab.Service, OutputABC):
 		super().__init__(app, service_name)
 		try:
 			self.TeamsWebhookUrl = asab.Config.get("msteams", "webhook_url")
-		except (configparser.NoOptionError, configparser.NoSectionError) as e:
-			L.error("Please provide webhook_url in slack configuration section.")
-			raise e
+		except configparser.NoOptionError:
+			L.error("Please provide webhook_url in msteams configuration section.")
+			exit()
+		except configparser.NoSectionError:
+			L.warning("Configuration section 'msteams' is not provided.")
+			self.TeamsWebhookUrl = None
 
 
 	async def send(self, body):
