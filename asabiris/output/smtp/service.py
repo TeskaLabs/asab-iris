@@ -152,7 +152,7 @@ class EmailOutputService(asab.Service, OutputABC):
 				}
 			)
 		except aiosmtplib.errors.SMTPAuthenticationError as e:
-			L.exception("SMTP error: {}".format(e), struct_data={"host": self.Host})
+			L.info("SMTP error: {}".format(e), struct_data={"host": self.Host})
 			raise ASABIrisError(
 				ErrorCode.SMTP_AUTHENTICATION_ERROR,
 				tech_message="SMTP authentication error: {}.".format(str(e)),
@@ -162,7 +162,7 @@ class EmailOutputService(asab.Service, OutputABC):
 				}
 			)
 		except aiosmtplib.errors.SMTPResponseException as e:
-			L.error("SMTP Error", struct_data={"message": e.message, "code": e.code, "host": self.Host})
+			L.info("SMTP Error", struct_data={"message": e.message, "code": e.code, "host": self.Host})
 			raise ASABIrisError(
 				ErrorCode.SMTP_RESPONSE_ERROR,
 				tech_message="SMTP response exception: Code {}, Message '{}'.".format(e.code, e.message),
@@ -174,7 +174,7 @@ class EmailOutputService(asab.Service, OutputABC):
 				}
 			)
 		except aiosmtplib.errors.SMTPServerDisconnected as e:
-			L.error("Server disconnected: {}; check the SMTP credentials".format(e), struct_data={"host": self.Host})
+			L.info("Server disconnected: {}; check the SMTP credentials".format(e), struct_data={"host": self.Host})
 			raise ASABIrisError(
 				ErrorCode.SMTP_SERVER_DISCONNECTED,
 				tech_message="SMTP server disconnected: {}.".format(str(e)),
@@ -184,7 +184,7 @@ class EmailOutputService(asab.Service, OutputABC):
 				}
 			)
 		except Exception as e:
-			L.error("SMTP error: {}; check credentials".format(e), struct_data={"host": self.Host})
+			L.warning("SMTP error: {}; check credentials".format(e), struct_data={"host": self.Host})
 			raise ASABIrisError(
 				ErrorCode.SMTP_GENERIC_ERROR,
 				tech_message="Generic error occurred: {}.".format(str(e)),
