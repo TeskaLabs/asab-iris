@@ -288,6 +288,7 @@ class WebHandler(object):
 			ErrorCode.SMTP_RESPONSE_ERROR: 500,
 			ErrorCode.SMTP_SERVER_DISCONNECTED: 503,
 			ErrorCode.SMTP_GENERIC_ERROR: 500,
+			ErrorCode.INVALID_SERVICE_CONFIGURATION: 400
 		}
 
 		return error_code_mapping.get(error_code, 400)  # Default to 400 Bad Request
