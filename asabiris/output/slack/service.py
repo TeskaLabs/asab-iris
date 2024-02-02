@@ -1,7 +1,9 @@
 import logging
 import configparser
+import slack_sdk.errors
 
 from slack_sdk import WebClient
+from ...errors import ASABIrisError, ErrorCode
 
 import asab
 
@@ -36,22 +38,31 @@ class SlackOutputService(asab.Service, OutputABC):
 		See https://api.slack.com/methods/chat.postMessage
 
 		"""
-
 		if self.Channel is None:
 			raise ValueError("Cannot send message to Slack. Reason: Missing Slack channel")
 
 		if self.SlackWebhookUrl is None:
 			raise ValueError("Cannot send message to Slack. Reason: Missing Webhook URL or token")
 
-		channel_id = self.get_channel_id(self.Channel)
 
 		# TODO: This could be a blocking operation, launch it in the proactor service
-		self.Client.chat_postMessage(
-			channel=channel_id,
-			text=fallback_message,
-			blocks=blocks
-		)
-
+		try:
+			channel_id = self.get_channel_id(self.Channel)
+			self.Client.chat_postMessage(
+				channel=channel_id,
+				text=fallback_message,
+				blocks=blocks
+			)
+		except slack_sdk.errors.SlackApiError as e:
+			L.warning("Failed to send message to Slack: {}".format(e))
+			raise ASABIrisError(
+				ErrorCode.SLACK_API_ERROR,
+				tech_message="Slack API error occurred: {}".format(str(e)),
+				error_i18n_key="Error occurred while sending message to Slack. Reason: '{{error_message}}'.",
+				error_dict={
+					"error_message": str(e)
+				}
+			)
 
 	async def send_files(self, body: str, atts_gen):
 		"""
@@ -64,14 +75,24 @@ class SlackOutputService(asab.Service, OutputABC):
 			raise ValueError("Cannot send message to Slack. Reason: Missing Webhook URL or token")
 
 		channel_id = self.get_channel_id(self.Channel)
-
-		async for attachment in atts_gen:
-			# TODO: This could be a blocking operation, launch it in the proactor service
-			self.Client.files_upload_v2(
-				channel=channel_id,
-				file=attachment.Content,
-				filename=attachment.FileName,
-				initial_comment=body if attachment.Position == 0 else None
+		try:
+			async for attachment in atts_gen:
+				# TODO: This could be a blocking operation, launch it in the proactor service
+				self.Client.files_upload_v2(
+					channel=channel_id,
+					file=attachment.Content,
+					filename=attachment.FileName,
+					initial_comment=body if attachment.Position == 0 else None
+				)
+		except slack_sdk.errors.SlackApiError as e:
+			L.warning("Failed to upload files to Slack: {}".format(e))
+			raise ASABIrisError(
+				ErrorCode.SLACK_API_ERROR,
+				tech_message="Slack API error occurred: {}".format(str(e)),
+				error_i18n_key="Error occurred while uploading files to Slack. Reason: '{{error_message}}'.",
+				error_dict={
+					"error_message": str(e)
+				}
 			)
 
 

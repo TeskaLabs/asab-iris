@@ -280,6 +280,8 @@ class WebHandler(object):
 		"""
 		if error_code in [ErrorCode.INVALID_FORMAT, ErrorCode.JINJA2_ERROR, ErrorCode.JINJA2_RENDERING_ERROR]:
 			return 400  # Bad Request
+		elif error_code == ErrorCode.SLACK_API_ERROR:
+			return 401  # Unauthorized
 		elif error_code == ErrorCode.TEMPLATE_NOT_FOUND:
 			return 404  # Not Found
 		elif error_code == ErrorCode.SERVER_ERROR:
