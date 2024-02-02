@@ -13,21 +13,29 @@ from ...output_abc import OutputABC
 L = logging.getLogger(__name__)
 
 
+def check_config(config, section, parameter):
+    try:
+        value = config.get(section, parameter)
+        return value
+    except configparser.NoOptionError:
+        L.error("Configuration parameter '{}' is missing in section '{}'.".format(parameter, section ))
+        exit()
+
+
 class SlackOutputService(asab.Service, OutputABC):
 
 	def __init__(self, app, service_name="SlackOutputService"):
 		super().__init__(app, service_name)
 
 		try:
-			self.SlackWebhookUrl = asab.Config.get("slack", "token")
+			self.SlackWebhookUrl = check_config(asab.Config, "slack", "token")
+			self.Channel = check_config(asab.Config, "slack", "channel")
 			self.Client = WebClient(token=self.SlackWebhookUrl)
-			self.Channel = asab.Config.get("slack", "channel")
-
 		except configparser.NoOptionError as e:
 			L.error("Please provide token and channel in slack configuration section.")
-			raise e
-
+			exit()
 		except configparser.NoSectionError:
+			L.warning("Configuration section 'slack' is not provided.")
 			self.SlackWebhookUrl = None
 
 
