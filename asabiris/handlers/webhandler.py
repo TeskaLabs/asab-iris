@@ -5,13 +5,10 @@ import asab.web.rest
 import aiohttp.web
 import aiohttp.payload_streamer
 
-import jinja2
-
 from ..schemas.emailschema import email_schema
 from ..schemas.slackschema import slack_schema
 from ..schemas.teamsschema import teams_schema
 
-from ..exceptions import PathError, Jinja2TemplateUndefinedError
 from ..errors import ASABIrisError, ErrorCode
 
 import slack_sdk.errors

@@ -58,4 +58,3 @@ class RenderReportOrchestrator(object):
 				"invalid_format": extension,
 			}
 		)
-
