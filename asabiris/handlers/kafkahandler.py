@@ -93,11 +93,13 @@ class KafkaHandler(asab.Service):
 				return
 			except ASABIrisError as e:
 				# if it is a server error do not send notification.
-				if e.ErrorCode == 1007:
-					L.exception("Failed to send email: {}".format(e))
+				if e.ErrorCode in [1011, 1012, 1013, 1014, 1015, 1016]:
+					L.warning("Failed to send email: {}".format(e))
 					return
+				else:
+					await self.handle_exception(e, 'email', msg)
 			except Exception as e:
-				L.exception("Failed to send email: {}".format(e))
+				L.warning("Failed to send email: {}".format(e))
 				await self.handle_exception(e, 'email', msg)
 
 		elif msg_type == "slack":
@@ -108,11 +110,13 @@ class KafkaHandler(asab.Service):
 				return
 			except ASABIrisError as e:
 				# if it is a server error do not send notification.
-				if e.ErrorCode == 1007:
-					L.exception("Failed to send email: {}".format(e))
+				if e.ErrorCode == 1010:
+					L.warning("Failed to send notification to slack: {}".format(e))
 					return
+				else:
+					await self.handle_exception(e, 'slack')
 			except Exception as e:
-				L.exception("Failed to send slack message: {}".format(e))
+				L.warning("Failed to send notification to slack: {}".format(e))
 				await self.handle_exception(e, 'slack')
 
 		elif msg_type == "msteams":
@@ -121,8 +125,15 @@ class KafkaHandler(asab.Service):
 			except fastjsonschema.exceptions.JsonSchemaException as e:
 				L.warning("Invalid notification format: {}".format(e))
 				return
+			except ASABIrisError as e:
+				# if it is a server error do not send notification.
+				if e.ErrorCode == 1007:
+					L.warning("Failed to send notification to MSTeams: {}".format(e))
+					return
+				else:
+					await self.handle_exception(e, 'slack')
 			except Exception as e:
-				L.exception("Failed to send MS Teams message: {}".format(e))
+				L.warning("Failed to send MS Teams message: {}".format(e))
 				await self.handle_exception(e, 'msteams')
 
 	# Add similar logic for 'msteams' if needed
