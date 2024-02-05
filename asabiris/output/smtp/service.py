@@ -145,7 +145,7 @@ class EmailOutputService(asab.Service, OutputABC):
 			raise ASABIrisError(
 				ErrorCode.SMTP_CONNECTION_ERROR,
 				tech_message="SMTP connection failed: {}.".format(str(e)),
-				error_i18n_key="smtp_connection_error",
+				error_i18n_key="Could not connect to SMTP for '{{host}}' and '{{port}}'.",
 				error_dict={
 					"host": self.Host,
 					"port": self.Port
@@ -156,7 +156,7 @@ class EmailOutputService(asab.Service, OutputABC):
 			raise ASABIrisError(
 				ErrorCode.SMTP_AUTHENTICATION_ERROR,
 				tech_message="SMTP authentication error: {}.".format(str(e)),
-				error_i18n_key="smtp_authentication_error",
+				error_i18n_key="SMTP authentication failed for host '{{host}}'.",
 				error_dict={
 					"host": self.Host
 				}
@@ -166,7 +166,7 @@ class EmailOutputService(asab.Service, OutputABC):
 			raise ASABIrisError(
 				ErrorCode.SMTP_RESPONSE_ERROR,
 				tech_message="SMTP response exception: Code {}, Message '{}'.".format(e.code, e.message),
-				error_i18n_key="smtp_response_exception",
+				error_i18n_key="SMTP response issue encountered for '{{host}}': Code '{{code}}', Message '{{message}}'.",
 				error_dict={
 					"message": e.message,
 					"code": e.code,
@@ -178,7 +178,7 @@ class EmailOutputService(asab.Service, OutputABC):
 			raise ASABIrisError(
 				ErrorCode.SMTP_SERVER_DISCONNECTED,
 				tech_message="SMTP server disconnected: {}.".format(str(e)),
-				error_i18n_key="smtp_server_disconnected",
+				error_i18n_key="The SMTP server for '{{host}}' disconnected unexpectedly.",
 				error_dict={
 					"host": self.Host
 				}
@@ -188,7 +188,7 @@ class EmailOutputService(asab.Service, OutputABC):
 			raise ASABIrisError(
 				ErrorCode.SMTP_GENERIC_ERROR,
 				tech_message="Generic error occurred: {}.".format(str(e)),
-				error_i18n_key="generic_error",
+				error_i18n_key="A generic SMTP error occurred for host '{{host}}'.",
 				error_dict={
 					"host": self.Host
 				}
