@@ -119,14 +119,17 @@ class WebHandler(object):
 			}
 			return aiohttp.web.json_response(response, status=status_code)
 
-		except KeyError as e:
-			response = {
-				"result": "ERROR",
-				"error": "{{message}}",
-				"error_dict": {"message": str(e)},
-				"tech_err": str(e)
+		except Exception as e:
+			L.exception(str(e))
+			bad_response = {
+				"result": "FAILED",
+				"error": {
+					"message": str(e),
+					"error_code": "GENERAL_ERROR",
+				}
 			}
-			return aiohttp.web.json_response(response, status=404)
+			return asab.web.rest.json_response(request, bad_response, status=400)
+
 
 		return asab.web.rest.json_response(request, {"result": "OK"})
 
@@ -169,6 +172,17 @@ class WebHandler(object):
 		except slack_sdk.errors.SlackApiError as e:
 			raise aiohttp.web.HTTPServiceUnavailable(text="{}".format(e))
 		# More specific exception handling goes here so that the service provides nice output
+		except Exception as e:
+			L.exception(str(e))
+			bad_response = {
+				"result": "FAILED",
+				"error": {
+					"message": str(e),
+					"error_code": "GENERAL_ERROR",
+				}
+			}
+			return asab.web.rest.json_response(request, bad_response, status=400)
+
 
 		return asab.web.rest.json_response(request, {"result": "OK"})
 
@@ -210,6 +224,17 @@ class WebHandler(object):
 				"tech_err": e.TechMessage
 			}
 			return aiohttp.web.json_response(response, status=status_code)
+
+		except Exception as e:
+			L.exception(str(e))
+			bad_response = {
+				"result": "FAILED",
+				"error": {
+					"message": str(e),
+					"error_code": "GENERAL_ERROR",
+				}
+			}
+			return asab.web.rest.json_response(request, bad_response, status=400)
 
 		return asab.web.rest.json_response(request, {"result": "OK"})
 
@@ -257,6 +282,16 @@ class WebHandler(object):
 				"tech_err": e.TechMessage
 			}
 			return aiohttp.web.json_response(response, status=status_code)
+		except Exception as e:
+			L.exception(str(e))
+			bad_response = {
+				"result": "FAILED",
+				"error": {
+					"message": str(e),
+					"error_code": "GENERAL_ERROR",
+				}
+			}
+			return asab.web.rest.json_response(request, bad_response, status=400)
 
 		# get pdf from html if present.
 		if fmt == 'pdf':
