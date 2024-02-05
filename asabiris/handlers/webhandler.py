@@ -130,7 +130,6 @@ class WebHandler(object):
 			}
 			return asab.web.rest.json_response(request, bad_response, status=400)
 
-
 		return asab.web.rest.json_response(request, {"result": "OK"})
 
 
@@ -182,7 +181,6 @@ class WebHandler(object):
 				}
 			}
 			return asab.web.rest.json_response(request, bad_response, status=400)
-
 
 		return asab.web.rest.json_response(request, {"result": "OK"})
 
