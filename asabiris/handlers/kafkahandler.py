@@ -38,9 +38,6 @@ class KafkaHandler(asab.Service):
 		self.Task = None
 		self.JinjaService = app.get_service("JinjaService")
 		# output service's
-		self.EmailOutputService = app.get_service("SmtpService")
-		self.SlackOutputService = app.get_service("SlackService")
-		self.MSTeamsOutputService = app.get_service("MSTeamsService")
 		try:
 			topic = check_config(asab.Config, "kafka", "topic")
 			group_id = check_config(asab.Config, "kafka", "group_id")
@@ -117,11 +114,6 @@ class KafkaHandler(asab.Service):
 				await self.handle_exception(e, 'email', msg)
 
 		elif msg_type == "slack":
-			try:
-				self.ValidationSchemaSlack(msg)
-			except fastjsonschema.exceptions.JsonSchemaException as e:
-				L.warning("Invalid notification format: {}".format(e))
-				return
 
 			try:
 				if self.App.SendSlackOrchestrator is not None:
@@ -178,19 +170,20 @@ class KafkaHandler(asab.Service):
 
 	async def handle_exception(self, exception, service_type, msg=None):
 		L.warning("Exception occurred: {}".format(exception))
+
 		error_message, error_subject = self.generate_error_message(str(exception), service_type)
 
 		if service_type == 'email' and msg:
-			await self.EmailOutputService.send(
+			await self.App.EmailOutputService.send(
 				email_from=msg['from'],
 				email_to=msg['to'],
 				email_subject=error_subject,
 				body=error_message
 			)
 		elif service_type == 'slack':
-			await self.SlackOutputService.send_message(error_message)
+			await self.App.SlackOutputService.send_message(None, error_message)
 		elif service_type == 'msteams':
-			await self.MSTeamsOutputService.send_message(error_message)
+			await self.App.MSTeamsOutputService.send_message(error_message)
 
 	def generate_error_message(self, specific_error: str, service_type: str):
 		timestamp = datetime.datetime.now(tz=datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
@@ -214,7 +207,7 @@ class KafkaHandler(asab.Service):
 				"*Time:* `{}` UTC\n\n"
 				"Best regards,\nYour Team :robot_face:"
 			).format(specific_error, timestamp)
-			return error_message
+			return error_message, None
 
 		elif service_type == 'msteams':
 			error_message = (
@@ -224,4 +217,4 @@ class KafkaHandler(asab.Service):
 				"Time: `{}` UTC\n\n"
 				"Best regards,\nYour Team"
 			).format(specific_error, timestamp)
-			return error_message
+			return error_message, None
