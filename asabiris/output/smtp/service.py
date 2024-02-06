@@ -145,10 +145,9 @@ class EmailOutputService(asab.Service, OutputABC):
 			raise ASABIrisError(
 				ErrorCode.SMTP_CONNECTION_ERROR,
 				tech_message="SMTP connection failed: {}.".format(str(e)),
-				error_i18n_key="Could not connect to SMTP for '{{host}}' and '{{port}}'.",
+				error_i18n_key="Could not connect to SMTP for host '{{host}}'.",
 				error_dict={
 					"host": self.Host,
-					"port": self.Port
 				}
 			)
 		except aiosmtplib.errors.SMTPAuthenticationError as e:
