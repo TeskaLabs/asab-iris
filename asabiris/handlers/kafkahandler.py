@@ -106,7 +106,7 @@ class KafkaHandler(asab.Service):
 					return
 
 				else:
-					await self.handle_exception(e, 'email', msg)
+					await self.handle_exception(e.TechMessage, 'email', msg)
 			except Exception as e:
 				L.warning("Failed to send email: {}".format(e))
 				await self.handle_exception(e, 'email', msg)
@@ -123,7 +123,7 @@ class KafkaHandler(asab.Service):
 					L.warning("Failed to send notification to slack: {}".format(e))
 					return
 				else:
-					await self.handle_exception(e, 'slack')
+					await self.handle_exception(e.TechMessage, 'slack')
 			except Exception as e:
 				L.warning("Failed to send notification to slack: {}".format(e))
 				await self.handle_exception(e, 'slack')
@@ -140,7 +140,7 @@ class KafkaHandler(asab.Service):
 					L.warning("Failed to send notification to MSTeams: {}".format(e))
 					return
 				else:
-					await self.handle_exception(e, 'slack')
+					await self.handle_exception(e.TechMessage, 'slack')
 			except Exception as e:
 				L.warning("Failed to send MS Teams message: {}".format(e))
 				await self.handle_exception(e, 'msteams')
