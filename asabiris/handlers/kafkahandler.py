@@ -14,7 +14,7 @@ from asabiris.schemas.emailschema import email_schema
 from asabiris.schemas.slackschema import slack_schema
 from asabiris.schemas.teamsschema import teams_schema
 
-from ..errors import ASABIrisError
+from ..errors import ASABIrisError,ErrorCode
 
 L = logging.getLogger(__name__)
 
@@ -94,9 +94,17 @@ class KafkaHandler(asab.Service):
 				return
 			except ASABIrisError as e:
 				# if it is a server error do not send notification.
-				if e.ErrorCode in [1011, 1012, 1013, 1014, 1015, 1016]:
+				if e.ErrorCode in [
+					ErrorCode.SMTP_CONNECTION_ERROR,
+					ErrorCode.SMTP_AUTHENTICATION_ERROR,
+					ErrorCode.SMTP_RESPONSE_ERROR,
+					ErrorCode.SMTP_SERVER_DISCONNECTED,
+					ErrorCode.SMTP_GENERIC_ERROR,
+					ErrorCode.GENERAL_ERROR
+				]:
 					L.warning("Failed to send email: {}".format(e))
 					return
+
 				else:
 					await self.handle_exception(e, 'email', msg)
 			except Exception as e:
@@ -111,7 +119,7 @@ class KafkaHandler(asab.Service):
 				return
 			except ASABIrisError as e:
 				# if it is a server error do not send notification.
-				if e.ErrorCode == 1010:
+				if e.ErrorCode == ErrorCode.SLACK_API_ERROR:
 					L.warning("Failed to send notification to slack: {}".format(e))
 					return
 				else:
@@ -128,7 +136,7 @@ class KafkaHandler(asab.Service):
 				return
 			except ASABIrisError as e:
 				# if it is a server error do not send notification.
-				if e.ErrorCode == 1007:
+				if e.ErrorCode == ErrorCode.SERVER_ERROR:
 					L.warning("Failed to send notification to MSTeams: {}".format(e))
 					return
 				else:
