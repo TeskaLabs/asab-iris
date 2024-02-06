@@ -37,6 +37,7 @@ class KafkaHandler(asab.Service):
 		super().__init__(app, service_name)
 		self.Task = None
 		self.JinjaService = app.get_service("JinjaService")
+		# output service's
 		self.EmailOutputService = app.get_service("SmtpService")
 		self.SlackOutputService = app.get_service("SlackService")
 		self.MSTeamsOutputService = app.get_service("MSTeamsService")
