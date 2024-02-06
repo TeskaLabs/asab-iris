@@ -122,7 +122,7 @@ class JinjaFormatterService(asab.Service, FormatterABC):
 			raise ASABIrisError(
 				ErrorCode.JINJA2_RENDERING_ERROR,
 				tech_message="Error rendering template '{}': {}".format(template_path, str(e)),
-				error_i18n_key="Error rendering '{{template_path}}': '{{error_message}}'.",
+				error_i18n_key="Error occurred while rendering '{{template_path}}'. Reason: '{{error_message}}'.",
 				error_dict={
 					"template_path": template_path,
 					"error_message": str(e)
