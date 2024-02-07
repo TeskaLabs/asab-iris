@@ -117,7 +117,6 @@ asab-iris implements specific error handling strategies for the Kafka and Web ha
 
 - **Fallback Mechanism:** In case of errors during message processing, a fallback mechanism is triggered. This ensures that the system can still operate or recover gracefully when encountering issues.
 - **General Error Logging:** Any errors during message dispatching are logged as exceptions.
-- **Graceful Shutdown:** The application exits gracefully in case of Kafka connection errors during initialization.
 
 ### WebHandler Error Handling
 
