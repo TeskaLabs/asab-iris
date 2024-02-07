@@ -109,6 +109,22 @@ webhook_url=https://outlook.office.com/webhook/...
 - `webhook_url`: Your webhook URL.
 
 
+## Error Handling
+
+asab-iris implements specific error handling strategies for the Kafka and Web handlers to ensure robustness and reliability.
+
+### KafkaHandler Error Handling
+
+- **Fallback Mechanism:** In case of errors during message processing, a fallback mechanism is triggered. This ensures that the system can still operate or recover gracefully when encountering issues.
+- **General Error Logging:** Any errors during message dispatching are logged as exceptions.
+- **Graceful Shutdown:** The application exits gracefully in case of Kafka connection errors during initialization.
+
+### WebHandler Error Handling
+
+- **Error Responses:** Internal error codes are mapped to HTTP status codes, providing meaningful responses to clients.
+- **Exception Handling:** General exceptions are logged, and standardized error responses are sent to clients.
+
+
 ## 🛠 Supported Technologies
 
 - Inbound: HTTP REST API
