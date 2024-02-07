@@ -52,8 +52,8 @@ class SendMSTeamsOrchestrator(object):
 		if not template.startswith("/Templates/MSTeams/"):
 			raise ASABIrisError(
 				ErrorCode.INVALID_PATH,
-				tech_message="Incorrect template path '{}'. Move templates to '/Templates/MSTeams/".format(template),
-				error_i18n_key="Incorrect template path '{{incorrect_path}}'. Please move your templates to '/Templates/MSTeams/",
+				tech_message="Incorrect template path '{}'. Move templates to '/Templates/MSTeams/'.".format(template),
+				error_i18n_key="Incorrect template path '{{incorrect_path}}'. Please move your templates to '/Templates/MSTeams/'.",
 				error_dict={
 					"incorrect_path": template,
 				}

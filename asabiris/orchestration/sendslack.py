@@ -48,8 +48,8 @@ class SendSlackOrchestrator(object):
 		if not template.startswith("/Templates/Slack/"):
 			raise ASABIrisError(
 				ErrorCode.INVALID_PATH,
-				tech_message="Incorrect template path '{}'. Move templates to '/Templates/Slack/".format(template),
-				error_i18n_key="Incorrect template path '{{incorrect_path}}'. Please move your templates to '/Templates/Slack/",
+				tech_message="Incorrect template path '{}'. Move templates to '/Templates/Slack/'.".format(template),
+				error_i18n_key="Incorrect template path '{{incorrect_path}}'. Please move your templates to '/Templates/Slack/'.",
 				error_dict={
 					"incorrect_path": template,
 				}

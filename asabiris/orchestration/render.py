@@ -30,8 +30,8 @@ class RenderReportOrchestrator(object):
 		if not template.startswith("/Templates/General/"):
 			raise ASABIrisError(
 				ErrorCode.INVALID_PATH,
-				tech_message="Incorrect template path '{}'. Move templates to '/Templates/General/".format(template),
-				error_i18n_key="Incorrect template path '{{incorrect_path}}'. Please move your templates to '/Templates/General/",
+				tech_message="Incorrect template path '{}'. Move templates to '/Templates/General/'.".format(template),
+				error_i18n_key="Incorrect template path '{{incorrect_path}}'. Please move your templates to '/Templates/General/'.",
 				error_dict={
 					"incorrect_path": template,
 				}
