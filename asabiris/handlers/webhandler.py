@@ -309,7 +309,7 @@ class WebHandler(object):
 		error_code_mapping = {
 			ErrorCode.INVALID_FORMAT: 400,
 			ErrorCode.JINJA2_ERROR: 400,
-			ErrorCode.JINJA2_RENDERING_ERROR: 400,
+			ErrorCode.RENDERING_ERROR: 400,
 			ErrorCode.TEMPLATE_NOT_FOUND: 404,
 			ErrorCode.SERVER_ERROR: 503,
 			ErrorCode.SLACK_API_ERROR: 401,
