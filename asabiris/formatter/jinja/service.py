@@ -102,7 +102,7 @@ class JinjaFormatterService(asab.Service, FormatterABC):
 			raise ASABIrisError(
 				ErrorCode.TEMPLATE_SYNTAX_ERROR,
 				tech_message="Syntax error: '{}' in Jinja2 template '{}'.".format(str(e), template_path),
-				error_i18n_key="Syntax Error: '{{syntax_error}}' found in template path: '{{template_path}}'.",
+				error_i18n_key="There's an error in the structure of the template '{{template_path}}': '{{syntax_error}}'. Please check the template for any incorrect or misplaced elements and correct them.",
 				error_dict={
 					"syntax_error": str(e),
 					"template_path": template_path
