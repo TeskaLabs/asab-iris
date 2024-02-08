@@ -14,7 +14,7 @@ from asabiris.schemas.emailschema import email_schema
 from asabiris.schemas.slackschema import slack_schema
 from asabiris.schemas.teamsschema import teams_schema
 
-from ..errors import ASABIrisError,ErrorCode
+from ..errors import ASABIrisError, ErrorCode
 
 L = logging.getLogger(__name__)
 
@@ -104,7 +104,7 @@ class KafkaHandler(asab.Service):
 					ErrorCode.SMTP_GENERIC_ERROR,
 					ErrorCode.GENERAL_ERROR
 				]:
-					L.warning("Failed to send email: {}".format(e))
+					L.warning("Failed to send email: Reason {}".format(e))
 					return
 
 				else:
@@ -114,7 +114,6 @@ class KafkaHandler(asab.Service):
 				await self.handle_exception(e, 'email', msg)
 
 		elif msg_type == "slack":
-
 			try:
 				if self.App.SendSlackOrchestrator is not None:
 					await self.App.SendSlackOrchestrator.send_to_slack(msg)
@@ -123,12 +122,12 @@ class KafkaHandler(asab.Service):
 			except ASABIrisError as e:
 				# if it is a server error do not send notification.
 				if e.ErrorCode == ErrorCode.SLACK_API_ERROR:
-					L.warning("Failed to send notification to slack: {}".format(e))
+					L.warning("Failed to send notification to slack: Reason: {}".format(e))
 					return
 				else:
 					await self.handle_exception(e.TechMessage, 'slack')
 			except Exception as e:
-				L.warning("Failed to send notification to slack: {}".format(e))
+				L.warning("Failed to send notification to slack: Reason: {}".format(e))
 				await self.handle_exception(e, 'slack')
 
 		elif msg_type == "msteams":
@@ -157,16 +156,19 @@ class KafkaHandler(asab.Service):
 	# Add similar logic for 'msteams' if needed
 
 	async def send_email(self, json_data):
-		await self.EmailOutputService.send_email(
-			from_addr=json_data['from'],
-			to_addrs=json_data['to'],
-			subject=json_data.get('subject', 'No Subject'),
-			body=json_data.get('body', ''),
-			cc=json_data.get('cc', []),
-			bcc=json_data.get('bcc', []),
-			attachments=json_data.get('attachments', [])
-		)
-		L.info("Email sent successfully")
+		try:
+			await self.EmailOutputService.send_email(
+				from_addr=json_data['from'],
+				to_addrs=json_data['to'],
+				subject=json_data.get('subject', 'No Subject'),
+				body=json_data.get('body', ''),
+				cc=json_data.get('cc', []),
+				bcc=json_data.get('bcc', []),
+				attachments=json_data.get('attachments', [])
+			)
+			L.info("Email sent successfully")
+		except (ASABIrisError, Exception) as e:
+			L.warning("Failed to send error notification to Email. Reason: {}".format(e.TechMessage))
 
 	async def handle_exception(self, exception, service_type, msg=None):
 		L.warning("Exception occurred: {}".format(exception))
@@ -181,9 +183,17 @@ class KafkaHandler(asab.Service):
 				body=error_message
 			)
 		elif service_type == 'slack':
-			await self.App.SlackOutputService.send_message(None, error_message)
+			try:
+				await self.App.SlackOutputService.send_message(None, error_message)
+			except (ASABIrisError, Exception) as e:
+				L.warning("Failed to send error notification to slack. Reason: {}".format(e.TechMessage))
+				return
 		elif service_type == 'msteams':
-			await self.App.MSTeamsOutputService.send_message(error_message)
+			try:
+				await self.App.MSTeamsOutputService.send_message(error_message)
+			except (ASABIrisError, Exception) as e:
+				L.warning("Failed to send error notification MS Teams. Reason: {}".format(e.TechMessage))
+				return
 
 	def generate_error_message(self, specific_error: str, service_type: str):
 		timestamp = datetime.datetime.now(tz=datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
