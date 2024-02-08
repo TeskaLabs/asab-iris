@@ -3,7 +3,7 @@ from unittest.mock import patch, MagicMock
 import asyncio
 from asabiris.orchestration.sendslack import SendSlackOrchestrator  # Update the import path as necessary
 import asab
-from asabiris.exceptions import PathError
+from asabiris.errors import ASABIrisError
 
 
 class AsyncMock(MagicMock):
@@ -68,7 +68,7 @@ class TestSendSlackOrchestrator(unittest.TestCase):
 				'params': {}
 			}
 		}
-		with self.assertRaises(PathError):
+		with self.assertRaises(ASABIrisError):
 			self.loop.run_until_complete(self.orchestrator.send_to_slack(msg))
 
 	def test_get_file_name_with_filename(self):

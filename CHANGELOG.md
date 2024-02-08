@@ -61,6 +61,14 @@
 
 - Load variables from json file
 
+#### 16. 01. 2024 
+
+- Upgrade file.
+
+#### 26. 01. 2024 
+
+- Generate ASABIris error for Email
+
 
 ### Bugfix
 
@@ -97,3 +105,7 @@
 #### 14. 12. 2023
 
 - Handle better jinja2 exceptions in Handler
+
+### 14.12.2023
+
+- Fix cicd
