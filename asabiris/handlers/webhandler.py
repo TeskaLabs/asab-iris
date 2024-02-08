@@ -5,14 +5,11 @@ import asab.web.rest
 import aiohttp.web
 import aiohttp.payload_streamer
 
-import jinja2
-
 from ..schemas.emailschema import email_schema
 from ..schemas.slackschema import slack_schema
 from ..schemas.teamsschema import teams_schema
 
-from ..exceptions import SMTPDeliverError, PathError, FormatError, Jinja2TemplateUndefinedError
-from ..errors import ASABIrisError
+from ..errors import ASABIrisError, ErrorCode
 
 import slack_sdk.errors
 #
@@ -108,33 +105,28 @@ class WebHandler(object):
 				attachments=json_data.get("attachments", []),  # Optional
 			)
 		except ASABIrisError as e:
+			# Map ErrorCode to HTTP status codes
+			status_code = self.map_error_code_to_status(e.ErrorCode)
+
 			response = {
 				"result": "ERROR",
 				"error": e.Errori18nKey,
 				"error_dict": e.ErrorDict,
 				"tech_err": e.TechMessage
 			}
-			return aiohttp.web.json_response(response, status=400)
+			return aiohttp.web.json_response(response, status=status_code)
 
-		except KeyError as e:
-			response = {
-				"result": "ERROR",
-				"error": "{{message}}",
-				"error_dict": {"message": str(e)},
-				"tech_err": str(e)
+		except Exception as e:
+			L.exception(str(e))
+			bad_response = {
+				"result": "FAILED",
+				"error": {
+					"message": str(e),
+					"error_code": "GENERAL_ERROR",
+				}
 			}
-			return aiohttp.web.json_response(response, status=404)
+			return asab.web.rest.json_response(request, bad_response, status=400)
 
-		except SMTPDeliverError as e:
-			response = {
-				"result": "ERROR",
-				"error": "{{message}}",
-				"error_dict": {"message": str(e)},
-				"tech_err": str(e)
-			}
-			return aiohttp.web.json_response(response, status=503)
-
-		# More specific exception handling goes here so that the service provides nice output
 		return asab.web.rest.json_response(request, {"result": "OK"})
 
 
@@ -161,26 +153,31 @@ class WebHandler(object):
 
 		try:
 			await self.App.SendSlackOrchestrator.send_to_slack(json_data)
-		except Jinja2TemplateUndefinedError as e:
-			raise aiohttp.web.HTTPBadRequest(text=str(e))
+		except ASABIrisError as e:
+			# Map ErrorCode to HTTP status codes
+			status_code = self.map_error_code_to_status(e.ErrorCode)
 
-		except jinja2.exceptions.TemplateSyntaxError as e:
-			# Catching Jinja2 syntax errors
-			raise aiohttp.web.HTTPBadRequest(text="Jinja2 SyntaxError: {}".format(e))
-
-		except jinja2.TemplateError as e:
-			# Catching any other Jinja2 template errors
-			raise aiohttp.web.HTTPBadRequest(text="Jinja2 TemplateError: {}".format(e))
-
-		except PathError as e:
-			raise aiohttp.web.HTTPNotFound(text="{}".format(e))
-
-		except FormatError as e:
-			raise aiohttp.web.HTTPBadRequest(text="{}".format(e))
+			response = {
+				"result": "ERROR",
+				"error": e.Errori18nKey,
+				"error_dict": e.ErrorDict,
+				"tech_err": e.TechMessage
+			}
+			return aiohttp.web.json_response(response, status=status_code)
 
 		except slack_sdk.errors.SlackApiError as e:
 			raise aiohttp.web.HTTPServiceUnavailable(text="{}".format(e))
 		# More specific exception handling goes here so that the service provides nice output
+		except Exception as e:
+			L.exception(str(e))
+			response = {
+				"result": "FAILED",
+				"error": {
+					"message": str(e),
+					"error_code": "GENERAL_ERROR",
+				}
+			}
+			return aiohttp.web.json_response(response, status=400)
 
 		return asab.web.rest.json_response(request, {"result": "OK"})
 
@@ -211,24 +208,28 @@ class WebHandler(object):
 
 		try:
 			await self.App.SendMSTeamsOrchestrator.send_to_msteams(json_data)
-		except Jinja2TemplateUndefinedError as e:
-			raise aiohttp.web.HTTPBadRequest(text=str(e))
+		except ASABIrisError as e:
+			# Map ErrorCode to HTTP status codes
+			status_code = self.map_error_code_to_status(e.ErrorCode)
 
-		except jinja2.exceptions.TemplateSyntaxError as e:
-			# Catching Jinja2 syntax errors
-			raise aiohttp.web.HTTPBadRequest(text="Jinja2 SyntaxError: {}".format(e))
+			response = {
+				"result": "ERROR",
+				"error": e.Errori18nKey,
+				"error_dict": e.ErrorDict,
+				"tech_err": e.TechMessage
+			}
+			return aiohttp.web.json_response(response, status=status_code)
 
-		except jinja2.TemplateError as e:
-			# Catching any other Jinja2 template errors
-			raise aiohttp.web.HTTPBadRequest(text="Jinja2 TemplateError: {}".format(e))
-
-		except PathError as e:
-			raise aiohttp.web.HTTPNotFound(text="{}".format(e))
-
-		except FormatError as e:
-			raise aiohttp.web.HTTPBadRequest(text="{}".format(e))
-
-		# More specific exception handling goes here so that the service provides nice output
+		except Exception as e:
+			L.exception(str(e))
+			response = {
+				"result": "FAILED",
+				"error": {
+					"message": str(e),
+					"error_code": "GENERAL_ERROR",
+				}
+			}
+			return aiohttp.web.json_response(response, status=400)
 
 		return asab.web.rest.json_response(request, {"result": "OK"})
 
@@ -265,19 +266,27 @@ class WebHandler(object):
 		# Render a body
 		try:
 			html = await self.App.RenderReportOrchestrator.render(template, template_data)
-		except Jinja2TemplateUndefinedError as e:
-			raise aiohttp.web.HTTPBadRequest(text=str(e))
+		except ASABIrisError as e:
+			# Map ErrorCode to HTTP status codes
+			status_code = self.map_error_code_to_status(e.ErrorCode)
 
-		except jinja2.exceptions.TemplateSyntaxError as e:
-			# Catching Jinja2 syntax errors
-			raise aiohttp.web.HTTPBadRequest(text="Jinja2 SyntaxError: {}".format(e))
-
-		except jinja2.TemplateError as e:
-			# Catching any other Jinja2 template errors
-			raise aiohttp.web.HTTPBadRequest(text="Jinja2 TemplateError: {}".format(e))
-
-		except PathError as e:
-			raise aiohttp.web.HTTPNotFound(text="{}".format(e))
+			response = {
+				"result": "ERROR",
+				"error": e.Errori18nKey,
+				"error_dict": e.ErrorDict,
+				"tech_err": e.TechMessage
+			}
+			return aiohttp.web.json_response(response, status=status_code)
+		except Exception as e:
+			L.exception(str(e))
+			response = {
+				"result": "FAILED",
+				"error": {
+					"message": str(e),
+					"error_code": "GENERAL_ERROR",
+				}
+			}
+			return aiohttp.web.json_response(response, status=400)
 
 		# get pdf from html if present.
 		if fmt == 'pdf':
@@ -292,6 +301,27 @@ class WebHandler(object):
 			content_type=content_type,
 			body=html if content_type == "text/html" else file_sender(pdf)
 		)
+
+	def map_error_code_to_status(self, error_code):
+		"""
+		Maps error codes to HTTP status codes.
+		"""
+		error_code_mapping = {
+			ErrorCode.INVALID_FORMAT: 400,
+			ErrorCode.JINJA2_ERROR: 400,
+			ErrorCode.RENDERING_ERROR: 400,
+			ErrorCode.TEMPLATE_NOT_FOUND: 404,
+			ErrorCode.SERVER_ERROR: 503,
+			ErrorCode.SLACK_API_ERROR: 401,
+			ErrorCode.SMTP_CONNECTION_ERROR: 503,
+			ErrorCode.SMTP_AUTHENTICATION_ERROR: 401,
+			ErrorCode.SMTP_RESPONSE_ERROR: 500,
+			ErrorCode.SMTP_SERVER_DISCONNECTED: 503,
+			ErrorCode.SMTP_GENERIC_ERROR: 500,
+			ErrorCode.INVALID_SERVICE_CONFIGURATION: 400
+		}
+
+		return error_code_mapping.get(error_code, 400)  # Default to 400 Bad Request
 
 
 @aiohttp.payload_streamer.streamer

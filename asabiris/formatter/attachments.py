@@ -106,7 +106,7 @@ class AttachmentRenderingService(asab.Service):
 					raise ASABIrisError(
 						ErrorCode.INVALID_FORMAT,
 						tech_message="Unsupported attachment format '{}' for template '{}'".format(fmt, template),
-						error_i18n_key="The format '{{invalid_format}}' is not supported for attachment",
+						error_i18n_key="The format '{{invalid_format}}' is not supported for attachment. Supported formats are 'pdf', 'html', and 'md'.",
 						error_dict={
 							"invalid_format": fmt,
 						}

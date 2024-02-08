@@ -1,7 +1,7 @@
 import os
 import logging
 
-from .. exceptions import PathError, FormatError
+from ..errors import ASABIrisError, ErrorCode
 from .. import utils
 
 #
@@ -28,7 +28,14 @@ class RenderReportOrchestrator(object):
 		# - if it is not absolute path, it is file name - assume it's a file in Templates folder
 		# templates must be stores in /Templates/General
 		if not template.startswith("/Templates/General/"):
-			raise PathError(use_case='General', invalid_path=template)
+			raise ASABIrisError(
+				ErrorCode.INVALID_PATH,
+				tech_message="Incorrect template path '{}'. Move templates to '/Templates/General/'.".format(template),
+				error_i18n_key="Incorrect template path '{{incorrect_path}}'. Please move your templates to '/Templates/General/'.",
+				error_dict={
+					"incorrect_path": template,
+				}
+			)
 
 		html = await self.JinjaService.format(template, params)
 		_, extension = os.path.splitext(template)
@@ -43,4 +50,11 @@ class RenderReportOrchestrator(object):
 
 			return html
 
-		raise FormatError(format=extension)
+		raise ASABIrisError(
+			ErrorCode.INVALID_FORMAT,
+			tech_message="Unsupported attachment format '{}' for template '{}'".format(extension, template),
+			error_i18n_key="The format '{{invalid_format}}' is not supported for attachment",
+			error_dict={
+				"invalid_format": extension,
+			}
+		)
