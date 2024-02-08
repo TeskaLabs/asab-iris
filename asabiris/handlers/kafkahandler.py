@@ -90,10 +90,7 @@ class KafkaHandler(asab.Service):
 		if msg_type == "email":
 			try:
 				self.ValidationSchemaMail(msg)
-				if self.App.SendSlackOrchestrator is not None:
-					await self.send_email(msg)
-				else:
-					L.warning("Email is not configured, a notification is discarded")
+				await self.send_email(msg)
 			except fastjsonschema.exceptions.JsonSchemaException as e:
 				L.warning("Invalid notification format: {}".format(e))
 				return
