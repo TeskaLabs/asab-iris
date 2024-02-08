@@ -89,7 +89,7 @@ class KafkaHandler(asab.Service):
 
 		if msg_type == "email":
 			try:
-				self.ValidationSchemaMail(msg)
+				#self.ValidationSchemaMail(msg)
 				await self.send_email(msg)
 			except fastjsonschema.exceptions.JsonSchemaException as e:
 				L.warning("Invalid notification format: {}".format(e))
@@ -157,7 +157,7 @@ class KafkaHandler(asab.Service):
 
 	async def send_email(self, json_data):
 		try:
-			await self.EmailOutputService.send_email(
+			await self.App.SendEmailOrchestrator.send_email(
 				from_addr=json_data['from'],
 				to_addrs=json_data['to'],
 				subject=json_data.get('subject', 'No Subject'),
@@ -178,7 +178,7 @@ class KafkaHandler(asab.Service):
 		error_message, error_subject = self.generate_error_message(str(exception), service_type)
 
 		if service_type == 'email' and msg:
-			await self.App.EmailOutputService.send(
+			await self.App.SendEmailOrchestrator.send(
 				email_from=msg['from'],
 				email_to=msg['to'],
 				email_subject=error_subject,
