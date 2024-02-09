@@ -89,8 +89,8 @@ class KafkaHandler(asab.Service):
 
 		if msg_type == "email":
 			try:
-				# TODO: Validate(email,slack & MSteams msg's)
-				# self.ValidationSchemaMail(msg)
+				# TODO: Validate(slack & MSteams msg's)
+				KafkaHandler.ValidationSchemaMail(msg)
 				await self.send_email(msg)
 			# except fastjsonschema.exceptions.JsonSchemaException as e:
 			# L.warning("Invalid notification format: {}".format(e))
