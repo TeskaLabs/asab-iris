@@ -117,6 +117,7 @@ class KafkaHandler(asab.Service):
 		elif msg_type == "slack":
 			try:
 				if self.App.SendSlackOrchestrator is not None:
+					KafkaHandler.ValidationSchemaSlack(msg)
 					await self.App.SendSlackOrchestrator.send_to_slack(msg)
 				else:
 					L.warning("Slack is not configured, a notification is discarded")
@@ -133,13 +134,13 @@ class KafkaHandler(asab.Service):
 
 		elif msg_type == "msteams":
 			try:
-				self.ValidationSchemaMSTeams(msg)
+				KafkaHandler.ValidationSchemaMSTeams(msg)
 			except fastjsonschema.exceptions.JsonSchemaException as e:
 				L.warning("Invalid notification format: {}".format(e))
 				return
-
 			try:
 				if self.App.SendMSTeamsOrchestrator is not None:
+					print(msg)
 					await self.App.SendMSTeamsOrchestrator.send_to_msteams(msg)
 				else:
 					L.warning("MS Teams is not configured, a notification is discarded")
@@ -149,7 +150,7 @@ class KafkaHandler(asab.Service):
 					L.warning("Failed to send notification to MSTeams: {}".format(e))
 					return
 				else:
-					await self.handle_exception(e.TechMessage, 'slack')
+					await self.handle_exception(e.TechMessage, 'msteams')
 			except Exception as e:
 				L.warning("Failed to send MS Teams message: {}".format(e))
 				await self.handle_exception(e, 'msteams')
@@ -198,7 +199,7 @@ class KafkaHandler(asab.Service):
 
 		elif service_type == 'msteams':
 			try:
-				await self.App.MSTeamsOutputService.send_message(error_message)
+				await self.App.MSTeamsOutputService.send(error_message)
 			except ASABIrisError as e:
 				L.warning("Failed to send error notification to MS Teams. Reason: {}".format(e.TechMessage))
 			except Exception as e:
@@ -228,10 +229,11 @@ class KafkaHandler(asab.Service):
 			).format(specific_error, timestamp)
 			return error_message, None
 
+
 		elif service_type == 'msteams':
 			error_message = (
 				"Warning: *Hello!\n\n"
-				"We encountered an issue while processing your request:\n`{}`\n\n"
+				"We encountered an issue while processing your request:\n\n`{}`\n\n"
 				"Please review your input and try again.\n\n"
 				"Time: `{}` UTC\n\n"
 				"Best regards,\nYour Team"
