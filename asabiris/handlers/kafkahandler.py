@@ -171,6 +171,7 @@ class KafkaHandler(asab.Service):
 
 
 	async def handle_exception(self, exception, service_type, msg=None):
+		# Log the problem first and then send error notification accordingly
 		L.warning("Exception occurred: {}".format(exception))
 
 		error_message, error_subject = self.generate_error_message(str(exception), service_type)
