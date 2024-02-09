@@ -90,10 +90,11 @@ class KafkaHandler(asab.Service):
 		if msg_type == "email":
 			try:
 				KafkaHandler.ValidationSchemaMail(msg)
-				await self.send_email(msg)
 			except fastjsonschema.exceptions.JsonSchemaException as e:
 				L.warning("Invalid email notification format: {}".format(e))
 				return
+			try:
+				await self.send_email(msg)
 			except ASABIrisError as e:
 				# if it is a server error do not send notification.
 				if e.ErrorCode in [
@@ -106,7 +107,6 @@ class KafkaHandler(asab.Service):
 				]:
 					L.warning("Failed to send email: Reason {}".format(e))
 					return
-
 				else:
 					await self.handle_exception(e.TechMessage, 'email', msg)
 			except Exception as e:
@@ -180,9 +180,6 @@ class KafkaHandler(asab.Service):
 
 
 	async def handle_exception(self, exception, service_type, msg=None):
-		# Log the problem first and then send error notification accordingly
-		L.warning("Exception occurred: {}".format(exception))
-
 		error_message, error_subject = self.generate_error_message(str(exception), service_type)
 		if service_type == 'email' and msg:
 			try:
