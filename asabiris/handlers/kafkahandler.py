@@ -110,7 +110,6 @@ class KafkaHandler(asab.Service):
 				else:
 					await self.handle_exception(e.TechMessage, 'email', msg)
 			except Exception as e:
-				L.warning("Failed to send email: {}".format(e))
 				await self.handle_exception(e, 'email', msg)
 
 		elif msg_type == "slack":
@@ -134,7 +133,6 @@ class KafkaHandler(asab.Service):
 				else:
 					await self.handle_exception(e.TechMessage, 'slack')
 			except Exception as e:
-				L.warning("Failed to send notification to slack: Reason: {}".format(e))
 				await self.handle_exception(e, 'slack')
 
 		elif msg_type == "msteams":
@@ -157,7 +155,6 @@ class KafkaHandler(asab.Service):
 				else:
 					await self.handle_exception(e.TechMessage, 'msteams')
 			except Exception as e:
-				L.warning("Failed to send MS Teams message: {}".format(e))
 				await self.handle_exception(e, 'msteams')
 		else:
 			L.warning(
@@ -180,6 +177,9 @@ class KafkaHandler(asab.Service):
 
 
 	async def handle_exception(self, exception, service_type, msg=None):
+		# Log the problem first and then send error notification accordingly
+		L.warning("Following exception occurred while sending '{}'. \n{}".format(service_type, exception))
+
 		error_message, error_subject = self.generate_error_message(str(exception), service_type)
 		if service_type == 'email' and msg:
 			try:
