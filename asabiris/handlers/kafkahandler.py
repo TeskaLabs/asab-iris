@@ -159,7 +159,11 @@ class KafkaHandler(asab.Service):
 			except Exception as e:
 				L.warning("Failed to send MS Teams message: {}".format(e))
 				await self.handle_exception(e, 'msteams')
-
+		else:
+			L.warning(
+				"Notification sending failed: Unsupported message type '{}'. "
+				"Supported types are 'email', 'slack', and 'msteams'. ".format(msg_type)
+			)
 
 	async def send_email(self, json_data):
 		await self.App.SendEmailOrchestrator.send_email(
