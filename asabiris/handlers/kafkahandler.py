@@ -238,7 +238,7 @@ class KafkaHandler(asab.Service):
 		elif service_type == 'msteams':
 			error_message = (
 				"Warning: Hello!\n\n"
-				"We encountered an issue while processing your request:\n\n`{}`\n\n"
+				"We encountered following issue while processing your request.\n\n`{}`\n\n"
 				"Please review your input and try again.\n\n"
 				"Time: `{}` UTC\n\n"
 				"Best regards,\nYour Team"
