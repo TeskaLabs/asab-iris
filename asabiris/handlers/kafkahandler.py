@@ -2,6 +2,7 @@ import asyncio
 import configparser
 import json
 import logging
+import datetime
 
 from aiokafka import AIOKafkaConsumer
 import aiokafka.errors
@@ -11,13 +12,12 @@ import asab
 
 from asabiris.schemas.emailschema import email_schema
 from asabiris.schemas.slackschema import slack_schema
+from asabiris.schemas.teamsschema import teams_schema
 
-#
+from ..errors import ASABIrisError, ErrorCode
 
 L = logging.getLogger(__name__)
 
-
-#
 
 def check_config(config, section, parameter):
 	try:
@@ -29,17 +29,15 @@ def check_config(config, section, parameter):
 
 
 class KafkaHandler(asab.Service):
-	# validate slack and email messages
 	ValidationSchemaMail = fastjsonschema.compile(email_schema)
 	ValidationSchemaSlack = fastjsonschema.compile(slack_schema)
-
-	# TODO: ValidationSchemaMSTeams = fastjsonschema.compile(msteams_schema)
+	ValidationSchemaMSTeams = fastjsonschema.compile(teams_schema)
 
 	def __init__(self, app, service_name="KafkaHandler"):
 		super().__init__(app, service_name)
-
 		self.Task = None
 		self.JinjaService = app.get_service("JinjaService")
+		# output service's
 		try:
 			topic = check_config(asab.Config, "kafka", "topic")
 			group_id = check_config(asab.Config, "kafka", "group_id")
@@ -83,49 +81,166 @@ class KafkaHandler(asab.Service):
 				L.exception("General error when dispatching message")
 
 	async def dispatch(self, msg):
-		msg_type = msg.pop("type", "<missing>")
+		try:
+			msg_type = msg.pop("type", "<missing>")
+		except (AttributeError, Exception) as e:
+			L.warning("Error sending notification from kafka. Reason : {}".format(str(e)))
+			return
+
 		if msg_type == "email":
 			try:
 				KafkaHandler.ValidationSchemaMail(msg)
 			except fastjsonschema.exceptions.JsonSchemaException as e:
-				L.warning("Invalid notification format: {}".format(e))
+				L.warning("Invalid email notification format: {}".format(e))
 				return
-			await self.send_email(msg)
+			try:
+				await self.send_email(msg)
+			except ASABIrisError as e:
+				# if it is a server error do not send notification.
+				if e.ErrorCode in [
+					ErrorCode.SMTP_CONNECTION_ERROR,
+					ErrorCode.SMTP_AUTHENTICATION_ERROR,
+					ErrorCode.SMTP_RESPONSE_ERROR,
+					ErrorCode.SMTP_SERVER_DISCONNECTED,
+					ErrorCode.SMTP_GENERIC_ERROR,
+					ErrorCode.GENERAL_ERROR
+				]:
+					L.warning("Failed to send email: Reason {}".format(e))
+					return
+				else:
+					await self.handle_exception(e.TechMessage, 'email', msg)
+			except Exception as e:
+				await self.handle_exception(e, 'email', msg)
 
 		elif msg_type == "slack":
 			try:
 				KafkaHandler.ValidationSchemaSlack(msg)
 			except fastjsonschema.exceptions.JsonSchemaException as e:
-				L.warning("Invalid notification format: {}".format(e))
+				L.warning("Invalid slack notification format: {}".format(e))
 				return
-			if self.App.SendSlackOrchestrator is not None:
-				await self.App.SendSlackOrchestrator.send_to_slack(msg)
-			else:
-				L.warning("Slack is not configured, a notification is discarded")
+
+			try:
+				if self.App.SendSlackOrchestrator is not None:
+					await self.App.SendSlackOrchestrator.send_to_slack(msg)
+				else:
+					L.warning("Slack is not configured, a notification is discarded")
+					return
+			except ASABIrisError as e:
+				# if it is a server error do not send notification.
+				if e.ErrorCode == ErrorCode.SLACK_API_ERROR:
+					L.warning("Failed to send notification to slack: Reason: {}".format(e))
+					return
+				else:
+					await self.handle_exception(e.TechMessage, 'slack')
+			except Exception as e:
+				await self.handle_exception(e, 'slack')
 
 		elif msg_type == "msteams":
-			# TODO: This ...
-			# try:
-			# 	KafkaHandler.ValidationSchemaMSTeams(msg)
-			# except fastjsonschema.exceptions.JsonSchemaException as e:
-			# 	L.warning("Invalid notification format: {}".format(e))
-			# 	return
-			if self.App.SendMSTeamsOrchestrator is not None:
-				await self.App.SendMSTeamsOrchestrator.send_to_msteams(msg)
-			else:
-				L.warning("MS Teams is not configured, a notification is discarded")
-
+			try:
+				KafkaHandler.ValidationSchemaMSTeams(msg)
+			except fastjsonschema.exceptions.JsonSchemaException as e:
+				L.warning("Invalid notification format: {}".format(e))
+				return
+			try:
+				if self.App.SendMSTeamsOrchestrator is not None:
+					await self.App.SendMSTeamsOrchestrator.send_to_msteams(msg)
+				else:
+					L.warning("MS Teams is not configured, a notification is discarded")
+					return
+			except ASABIrisError as e:
+				# if it is a server error do not send notification.
+				if e.ErrorCode == ErrorCode.SERVER_ERROR:
+					L.warning("Failed to send notification to MSTeams: {}".format(e))
+					return
+				else:
+					await self.handle_exception(e.TechMessage, 'msteams')
+			except Exception as e:
+				await self.handle_exception(e, 'msteams')
 		else:
-			L.warning("Message type '{}' not implemented.".format(msg_type))
+			L.warning(
+				"Notification sending failed: Unsupported message type '{}'. "
+				"Supported types are 'email', 'slack', and 'msteams'. ".format(msg_type)
+			)
 
 	async def send_email(self, json_data):
 		await self.App.SendEmailOrchestrator.send_email(
-			email_to=json_data["to"],
-			body_template=json_data["body"]["template"],
-			email_cc=json_data.get("cc", []),  # Optional
-			email_bcc=json_data.get("bcc", []),  # Optional
-			email_subject=json_data.get("subject", None),  # Optional
-			email_from=json_data.get("from"),
-			body_params=json_data["body"].get("params", {}),  # Optional
-			attachments=json_data.get("attachments", []),  # Optional
+			email_from=json_data['from'],
+			email_to=json_data['to'],
+			email_subject=json_data.get('subject', None),
+			body_template=json_data['body']['template'],
+			body_params=json_data['body']['params'],
+			email_cc=json_data.get('cc', []),
+			email_bcc=json_data.get('bcc', []),
+			attachments=json_data.get('attachments', [])
 		)
+		L.info("Email sent successfully")
+
+
+	async def handle_exception(self, exception, service_type, msg=None):
+		# Log the problem first and then send error notification accordingly
+		L.warning("Following exception occurred while sending '{}'. \n{}".format(service_type, exception))
+
+		error_message, error_subject = self.generate_error_message(str(exception), service_type)
+		if service_type == 'email' and msg:
+			try:
+				await self.App.EmailOutputService.send(
+					email_from=msg['from'],
+					email_to=msg['to'],
+					email_subject=error_subject,
+					body=error_message
+				)
+			except ASABIrisError as e:
+				L.warning("Failed to send error notification to email. Reason: {}".format(e.TechMessage))
+			except Exception as e:
+				L.warning("Failed to send error notification to email. Reason: {}".format(str(e)))
+
+		elif service_type == 'slack':
+			try:
+				await self.App.SlackOutputService.send_message(None, error_message)
+			except ASABIrisError as e:
+				L.warning("Failed to send error notification to slack. Reason: {}".format(e.TechMessage))
+			except Exception as e:
+				L.warning("Failed to send error notification to slack. Reason: {}".format(str(e)))
+
+		elif service_type == 'msteams':
+			try:
+				await self.App.MSTeamsOutputService.send(error_message)
+			except ASABIrisError as e:
+				L.warning("Failed to send error notification to MS Teams. Reason: {}".format(e.TechMessage))
+			except Exception as e:
+				L.warning("Failed to send error notification to MS Teams. Reason: {}".format(str(e)))
+
+	def generate_error_message(self, specific_error: str, service_type: str):
+		timestamp = datetime.datetime.now(tz=datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+
+		if service_type == 'email':
+			error_subject = "Error when generating notification"
+			error_message = (
+				"<p>Hello!</p>"
+				"<p>We encountered an issue while processing your request:<br><b>{}</b></p>"
+				"<p>Please review your input and try again.<p>"
+				"<p>Time: {} UTC</p>"
+				"<p>Best regards,<br>Your Team</p>"
+			).format(specific_error, timestamp)
+			return error_message, error_subject
+
+		elif service_type == 'slack':
+			error_message = (
+				":warning: *Hello!*\n\n"
+				"We encountered an issue while processing your request:\n`{}`\n\n"
+				"Please review your input and try again.\n\n"
+				"*Time:* `{}` UTC\n\n"
+				"Best regards,\nYour Team :robot_face:"
+			).format(specific_error, timestamp)
+			return error_message, None
+
+
+		elif service_type == 'msteams':
+			error_message = (
+				"Warning: Hello!\n\n"
+				"We encountered following issue while processing your request.\n\n`{}`\n\n"
+				"Please review your input and try again.\n\n"
+				"Time: `{}` UTC\n\n"
+				"Best regards,\nYour Team"
+			).format(specific_error, timestamp)
+			return error_message, None

@@ -29,7 +29,6 @@ class MSTeamsOutputService(asab.Service, OutputABC):
 			L.warning("Configuration section 'msteams' is not provided.")
 			self.TeamsWebhookUrl = None
 
-
 	async def send(self, body):
 		if self.TeamsWebhookUrl is None:
 			return
@@ -46,14 +45,27 @@ class MSTeamsOutputService(asab.Service, OutputABC):
 						"version": "1.2",
 						"body": [
 							{
-								"type": "TextBlock",
-								"text": body
+								"type": "ColumnSet",
+								"columns": [
+									{
+										"type": "Column",
+										"width": "stretch",
+										"items": [
+											{
+												"type": "TextBlock",
+												"text": body,
+												"wrap": True
+											}
+										]
+									}
+								]
 							}
 						]
 					}
 				}
 			]
 		}
+
 		async with aiohttp.ClientSession() as session:
 			async with session.post(self.TeamsWebhookUrl, json=adaptive_card) as resp:
 				if resp.status == 200:
