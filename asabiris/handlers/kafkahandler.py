@@ -190,25 +190,25 @@ class KafkaHandler(asab.Service):
 					body=error_message
 				)
 			except ASABIrisError as e:
-				L.warning("Failed to send error notification to email. Reason: {}".format(e.TechMessage))
+				L.info("Failed to send error notification to email. Reason: {}".format(e.TechMessage))
 			except Exception as e:
-				L.warning("Failed to send error notification to email. Reason: {}".format(str(e)))
+				L.info("Failed to send error notification to email. Reason: {}".format(str(e)))
 
 		elif service_type == 'slack':
 			try:
 				await self.App.SlackOutputService.send_message(None, error_message)
 			except ASABIrisError as e:
-				L.warning("Failed to send error notification to slack. Reason: {}".format(e.TechMessage))
+				L.info("Failed to send error notification to slack. Reason: {}".format(e.TechMessage))
 			except Exception as e:
-				L.warning("Failed to send error notification to slack. Reason: {}".format(str(e)))
+				L.info("Failed to send error notification to slack. Reason: {}".format(str(e)))
 
 		elif service_type == 'msteams':
 			try:
 				await self.App.MSTeamsOutputService.send(error_message)
 			except ASABIrisError as e:
-				L.warning("Failed to send error notification to MS Teams. Reason: {}".format(e.TechMessage))
+				L.info("Failed to send error notification to MS Teams. Reason: {}".format(e.TechMessage))
 			except Exception as e:
-				L.warning("Failed to send error notification to MS Teams. Reason: {}".format(str(e)))
+				L.info("Failed to send error notification to MS Teams. Reason: {}".format(str(e)))
 
 	def generate_error_message(self, specific_error: str, service_type: str):
 		timestamp = datetime.datetime.now(tz=datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
