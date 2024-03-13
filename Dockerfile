@@ -1,4 +1,4 @@
-FROM alpine:3.18 AS building
+FROM pcr.teskalabs.com/alpine:3.18 AS building
 MAINTAINER TeskaLabs Ltd (support@teskalabs.com)
 
 # Include build environment variables from GitLab CI/CD
@@ -44,7 +44,7 @@ RUN mkdir -p /app/asab-iris
 
 COPY . /app/asab-iris
 
-FROM alpine:3.18 AS shiping
+FROM pcr.teskalabs.com/alpine:3.18 AS shiping
 
 RUN apk add --no-cache \
   python3 \
