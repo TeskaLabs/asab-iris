@@ -164,7 +164,7 @@ class KafkaHandler(asab.Service):
 
 	async def send_email(self, json_data):
 		await self.App.SendEmailOrchestrator.send_email(
-			email_from=json_data['from'],
+			email_from=json_data.get('from', None),
 			email_to=json_data['to'],
 			email_subject=json_data.get('subject', None),
 			body_template=json_data['body']['template'],
