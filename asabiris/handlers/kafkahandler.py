@@ -189,6 +189,10 @@ class KafkaHandler(asab.Service):
 
 			error_message, error_subject = self.generate_error_message(str(exception), service_type)
 
+			# Check if error_message is None
+			if error_message is None:
+				return
+
 			if service_type == 'email' and msg:
 				try:
 					await self.App.EmailOutputService.send(
