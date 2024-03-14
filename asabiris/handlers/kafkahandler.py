@@ -198,29 +198,29 @@ class KafkaHandler(asab.Service):
 						body=error_message
 					)
 				except ASABIrisError as e:
-					L.info("Failed to send error notification to email. Reason: {}".format(e.TechMessage))
+					L.info("Error notification to email unsuccessful: Explanation: {}".format(e.TechMessage))
 				except Exception as e:
-					L.info("Failed to send error notification to email. Reason: {}".format(str(e)))
+					L.info("Error notification to email unsuccessful: Explanation: {}".format(str(e)))
 
 			elif service_type == 'slack':
 				try:
 					await self.App.SlackOutputService.send_message(None, error_message)
 				except ASABIrisError as e:
-					L.info("Failed to send error notification to slack. Reason: {}".format(e.TechMessage))
+					L.info("Error notification to Slack unsuccessful: Explanation: {}".format(e.TechMessage))
 				except Exception as e:
-					L.info("Failed to send error notification to slack. Reason: {}".format(str(e)))
+					L.info("Error notification to Slack unsuccessful: Explanation: {}".format(str(e)))
 
 			elif service_type == 'msteams':
 				try:
 					await self.App.MSTeamsOutputService.send(error_message)
 				except ASABIrisError as e:
-					L.info("Failed to send error notification to MS Teams. Reason: {}".format(e.TechMessage))
+					L.info("Error notification to MSTeams unsuccessful: Explanation: {}".format(e.TechMessage))
 				except Exception as e:
-					L.info("Failed to send error notification to MS Teams. Reason: {}".format(str(e)))
+					L.info("Error notification to MSTeams unsuccessful: Explanation: {}".format(str(e)))
 
 		except Exception as e:
 			# Log any unexpected exceptions that might occur
-			L.error("An unexpected error occurred while handling exception: {}".format(str(e)))
+			L.warning("An unexpected error occurred while handling exception: {}".format(str(e)))
 
 	def generate_error_message(self, specific_error: str, service_type: str):
 		try:
@@ -259,5 +259,5 @@ class KafkaHandler(asab.Service):
 
 		except Exception as e:
 			# Log any unexpected exceptions that might occur
-			L.error("An unexpected error occurred while generating error message: {}".format(str(e)))
+			L.warning("An unexpected error occurred while generating error message: {}".format(str(e)))
 			return None, None
