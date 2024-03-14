@@ -69,6 +69,18 @@
 
 - Generate ASABIris error for Email
 
+#### 08. 02. 2024 
+
+- Bad templates to be stored in library
+
+#### 08. 02. 2024 
+
+- Add ASABIrisError for Teams and slack
+
+#### 12. 02. 2024 
+
+- Kafka handler : Fallback solution
+
 
 ### Bugfix
 
