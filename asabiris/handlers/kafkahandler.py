@@ -192,7 +192,7 @@ class KafkaHandler(asab.Service):
 			if service_type == 'email' and msg:
 				try:
 					await self.App.EmailOutputService.send(
-						email_from=msg['from'],
+						email_from=msg.get('from', None),
 						email_to=msg['to'],
 						email_subject=error_subject,
 						body=error_message
@@ -227,7 +227,7 @@ class KafkaHandler(asab.Service):
 			timestamp = datetime.datetime.now(tz=datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 
 			if service_type == 'email':
-				error_subject = "Error when generating notification"
+				error_subject = "Error Generating Email Notification"
 				error_message = (
 					"<p>Hello!</p>"
 					"<p>We encountered an issue while processing your request:<br><b>{}</b></p>"
