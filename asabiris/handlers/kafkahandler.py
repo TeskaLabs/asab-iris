@@ -224,7 +224,7 @@ class KafkaHandler(asab.Service):
 
 		except Exception as e:
 			# Log any unexpected exceptions that might occur
-			L.warning("Following unexpected error occurred while handling exception: {}".format(str(e)))
+			L.exception("An unexpected error occurred while generating error message.")
 
 	def generate_error_message(self, specific_error: str, service_type: str):
 		try:
@@ -263,5 +263,5 @@ class KafkaHandler(asab.Service):
 
 		except Exception as e:
 			# Log any unexpected exceptions that might occur while generating error message
-			L.warning("An unexpected error occurred while generating error message: {}".format(str(e)))
+			L.warning("An unexpected error occurred while generating error message.")
 			return None, None
