@@ -183,7 +183,7 @@ class EmailOutputService(asab.Service, OutputABC):
 				}
 			)
 		except Exception as e:
-			L.info("SMTP error: {}; check credentials".format(e), struct_data={"host": self.Host})
+			L.warning("SMTP error: {}; check credentials".format(e), struct_data={"host": self.Host})
 			raise ASABIrisError(
 				ErrorCode.SMTP_GENERIC_ERROR,
 				tech_message="Generic error occurred: {}.".format(str(e)),
