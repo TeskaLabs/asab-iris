@@ -200,4 +200,3 @@
       - docker login -u "$DOCKER_USER" -p "$DOCKER_PASSWORD" "$DOCKER_REGISTRY"
       - docker push "${DOCKER_REGISTRY_IMAGE}:${CI_COMMIT_TAG}"
       - docker rmi "${DOCKER_REGISTRY_IMAGE}:${CI_COMMIT_TAG}"
-
