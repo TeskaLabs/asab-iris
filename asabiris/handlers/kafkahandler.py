@@ -261,7 +261,7 @@ class KafkaHandler(asab.Service):
 				).format(specific_error, timestamp)
 				return error_message, None
 
-		except Exception as e:
+		except Exception:
 			# Log any unexpected exceptions that might occur while generating error message
-			L.warning("An unexpected error occurred while generating error message.")
+			L.exception("An unexpected error occurred while generating error message.")
 			return None, None
