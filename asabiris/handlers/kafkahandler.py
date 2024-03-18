@@ -106,7 +106,7 @@ class KafkaHandler(asab.Service):
 					ErrorCode.GENERAL_ERROR
 				]
 				if e.ErrorCode in server_errors:
-					L.warning("Unable to dispatch email: Explanation {}".format(e))
+					L.warning("Unable to dispatch email: Explanation {}".format(e.TechMessage))
 					return
 				else:
 					# Handle other errors using handle_exception function
@@ -203,26 +203,26 @@ class KafkaHandler(asab.Service):
 					)
 				except ASABIrisError as e:
 					L.info("Error notification to email unsuccessful: Explanation: {}".format(e.TechMessage))
-				except Exception as e:
-					L.info("Error notification to email unsuccessful: Explanation: {}".format(str(e)))
+				except Exception:
+					L.exception("Error notification to email unsuccessful.")
 
 			elif service_type == 'slack':
 				try:
 					await self.App.SlackOutputService.send_message(None, error_message)
 				except ASABIrisError as e:
 					L.info("Error notification to Slack unsuccessful: Explanation: {}".format(e.TechMessage))
-				except Exception as e:
-					L.info("Error notification to Slack unsuccessful: Explanation: {}".format(str(e)))
+				except Exception:
+					L.exception("Error notification to Slack unsuccessful.")
 
 			elif service_type == 'msteams':
 				try:
 					await self.App.MSTeamsOutputService.send(error_message)
 				except ASABIrisError as e:
 					L.info("Error notification to MSTeams unsuccessful: Explanation: {}".format(e.TechMessage))
-				except Exception as e:
-					L.info("Error notification to MSTeams unsuccessful: Explanation: {}".format(str(e)))
+				except Exception:
+					L.exception("Error notification to MSTeams unsuccessful.")
 
-		except Exception as e:
+		except Exception:
 			# Log any unexpected exceptions that might occur
 			L.exception("An unexpected error occurred while generating error message.")
 
@@ -231,7 +231,7 @@ class KafkaHandler(asab.Service):
 			timestamp = datetime.datetime.now(tz=datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 
 			if service_type == 'email':
-				error_subject = "Error Generating Email Notification"
+				error_subject = "Error Generating Email Notification."
 				error_message = (
 					"<p>Hello!</p>"
 					"<p>We encountered an issue while processing your request:<br><b>{}</b></p>"
