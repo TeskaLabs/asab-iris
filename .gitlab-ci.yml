@@ -5,7 +5,7 @@
 
   test py37:
     stage: test
-    image: python:3.7
+    image: pcr.teskalabs.com/python:3.7
     tags:
     - amd64
     - docker
@@ -31,7 +31,7 @@
 
   test py38:
     stage: test
-    image: python:3.8
+    image: pcr.teskalabs.com/python:3.8
     tags:
     - amd64
     - docker
@@ -56,7 +56,57 @@
 
   test py39:
     stage: test
-    image: python:3.9
+    image: pcr.teskalabs.com/python:3.9
+    tags:
+    - amd64
+    - docker
+    script:
+      - apt-get update
+      - pip install --upgrade pip
+      - pip install flake8
+      - pip install jinja2
+      - pip install Markdown
+      - pip install aiosmtplib
+      - pip install reportlab==3.6.6  # Freeze reportlab version because of https://github.com/xhtml2pdf/xhtml2pdf/issues/589
+      - pip install xhtml2pdf
+      - pip install Pillow
+      - pip install requests
+      - pip install aiohttp
+      - pip install -U git+https://github.com/TeskaLabs/asab
+      - pip install temp
+      - pip install aiokafka
+      - pip install slack-sdk
+      - pip install sentry-sdk
+      - python3 -m unittest test
+
+  test py310:
+    stage: test
+    image: pcr.teskalabs.com/python:3.10
+    tags:
+    - amd64
+    - docker
+    script:
+      - apt-get update
+      - pip install --upgrade pip
+      - pip install flake8
+      - pip install jinja2
+      - pip install Markdown
+      - pip install aiosmtplib
+      - pip install reportlab==3.6.6  # Freeze reportlab version because of https://github.com/xhtml2pdf/xhtml2pdf/issues/589
+      - pip install xhtml2pdf
+      - pip install Pillow
+      - pip install requests
+      - pip install aiohttp
+      - pip install -U git+https://github.com/TeskaLabs/asab
+      - pip install temp
+      - pip install aiokafka
+      - pip install slack-sdk
+      - pip install sentry-sdk
+      - python3 -m unittest test
+
+  test py311:
+    stage: test
+    image: pcr.teskalabs.com/python:3.11
     tags:
     - amd64
     - docker
@@ -81,7 +131,7 @@
 
   test flake:
     stage: test
-    image: python:3.9
+    image: pcr.teskalabs.com/python:3.11
     tags:
     - amd64
     - docker
@@ -104,7 +154,7 @@
 
   build docker:
     stage: build
-    image: docker:20
+    image: pcr.teskalabs.com/docker:24
 
     tags:
     # The shell Gitlab runner has to be used for this
@@ -131,7 +181,7 @@
 
   build docker-tag: 
     stage: build
-    image: docker:20
+    image: pcr.teskalabs.com/docker:24
 
     tags:
       # The shell Gitlab runner has to be used for this
@@ -150,4 +200,3 @@
       - docker login -u "$DOCKER_USER" -p "$DOCKER_PASSWORD" "$DOCKER_REGISTRY"
       - docker push "${DOCKER_REGISTRY_IMAGE}:${CI_COMMIT_TAG}"
       - docker rmi "${DOCKER_REGISTRY_IMAGE}:${CI_COMMIT_TAG}"
-
