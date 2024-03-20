@@ -117,7 +117,7 @@
       - pip install jinja2
       - pip install Markdown
       - pip install aiosmtplib
-      - pip install reportlab==3.6.6  # Freeze reportlab version because of https://github.com/xhtml2pdf/xhtml2pdf/issues/589
+      - pip install reportlab==4.0
       - pip install xhtml2pdf
       - pip install Pillow
       - pip install requests
