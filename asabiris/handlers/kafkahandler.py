@@ -224,7 +224,7 @@ class KafkaHandler(asab.Service):
 
 		except Exception:
 			# Log any unexpected exceptions that might occur
-			L.exception("An unexpected error occurred while generating error message.")
+			L.exception("An unexpected error occurred while sending error message.")
 
 	def generate_error_message(self, specific_error: str, service_type: str):
 		try:
