@@ -131,7 +131,7 @@ class KafkaHandler(asab.Service):
 			except ASABIrisError as e:
 				# if it is a server error do not send notification.
 				if e.ErrorCode == ErrorCode.SLACK_API_ERROR:
-					L.warning("Notification to Slack unsuccessful: Explanation: {}".format(e))
+					L.warning("Notification to Slack unsuccessful: Explanation: {}".format(e.TechMessage))
 					return
 				else:
 					# Handle other errors using handle_exception function
@@ -155,7 +155,7 @@ class KafkaHandler(asab.Service):
 			except ASABIrisError as e:
 				# if it is a server error do not send notification.
 				if e.ErrorCode == ErrorCode.SERVER_ERROR:
-					L.warning("Notification to MSTeams unsuccessful: Explanation: {}".format(e))
+					L.warning("Notification to MSTeams unsuccessful: Explanation: {}".format(e.TechMessage))
 					return
 				else:
 					# Handle other errors using handle_exception function
