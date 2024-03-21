@@ -71,6 +71,7 @@ class SlackOutputService(asab.Service, OutputABC):
 					"error_message": str(e)
 				}
 			)
+		L.log(asab.LOG_NOTICE, "Slack message sent successfully.", struct_data={'channel': self.Channel})
 
 	async def send_files(self, body: str, atts_gen):
 		"""
@@ -102,6 +103,8 @@ class SlackOutputService(asab.Service, OutputABC):
 					"error_message": str(e)
 				}
 			)
+
+		L.log(asab.LOG_NOTICE, "Slack message sent successfully.")
 
 
 	def get_channel_id(self, channel_name, types="public_channel"):
