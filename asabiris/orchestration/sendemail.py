@@ -51,6 +51,7 @@ class SendEmailOrchestrator:
 		self,
 		email_to: List[str],
 		body_template: str,
+		body_template_wrapper=None,
 		body_params=None,
 		email_from=None,
 		email_cc=None,
