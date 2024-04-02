@@ -110,8 +110,13 @@ class SendEmailOrchestrator:
 
 		elif ext == '.md':
 			body, subject = find_subject_in_md(jinja_output)
-			body = self.MarkdownToHTMLService.format(body)
-			return body, subject
+			html_body = self.MarkdownToHTMLService.format(body)
+
+			if body_template_wrapper is not None:
+				html_body_param = {"content": html_body}
+				html_body = self.JinjaService.format(body_template_wrapper, html_body_param)
+
+			return html_body, subject
 
 		else:
 			raise ASABIrisError(
