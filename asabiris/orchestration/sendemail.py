@@ -91,7 +91,7 @@ class SendEmailOrchestrator:
 		L.info("Email sent successfully to: {}".format(', '.join(email_to)))
 
 
-	async def _render_template(self, template: str, params: Dict, body_template_wrapper ) -> Tuple[str, str]:
+	async def _render_template(self, template: str, params: Dict, body_template_wrapper=None) -> Tuple[str, str]:
 		if not template.startswith('/Templates/Email/') or (body_template_wrapper is not None and template.startswith('/Templates/Email/')):
 			raise ASABIrisError(
 				ErrorCode.INVALID_PATH,
