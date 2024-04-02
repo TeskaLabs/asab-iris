@@ -69,7 +69,7 @@ class SendEmailOrchestrator:
 		email_bcc = email_bcc or []
 
 		# Rendering the template
-		body_html, email_subject_body = await self._render_template(body_template, body_params)
+		body_html, email_subject_body = await self._render_template(body_template, body_params, body_template_wrapper)
 
 		# If email_subject is not provided or is empty use email_subject_body
 		if email_subject is None or email_subject == '':
@@ -91,8 +91,8 @@ class SendEmailOrchestrator:
 		L.info("Email sent successfully to: {}".format(', '.join(email_to)))
 
 
-	async def _render_template(self, template: str, params: Dict) -> Tuple[str, str]:
-		if not template.startswith('/Templates/Email/'):
+	async def _render_template(self, template: str, params: Dict, body_template_wrapper ) -> Tuple[str, str]:
+		if not template.startswith('/Templates/Email/') or (body_template_wrapper is not None and template.startswith('/Templates/Email/')):
 			raise ASABIrisError(
 				ErrorCode.INVALID_PATH,
 				tech_message="Incorrect template path '{}'. Move templates to '/Templates/Email/'.".format(template),
