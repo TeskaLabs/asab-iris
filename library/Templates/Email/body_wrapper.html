@@ -1,17 +1,33 @@
+<!---
+This HTML template is designed for dynamically inserting content.
+It uses a single placeholder '{{ content }}' for inserting HTML content.
+This approach allows for flexible content rendering while maintaining a consistent overall layout and style.
+-->
+
 <!DOCTYPE html>
 <html>
-<head>
-    <title>{title}</title>
-</head>
-<body>
-    <header>
-    </header>
-
-    <main>
-        {content}
-    </main>
-
-    <footer>
-    </footer>
-</body>
+  <head>
+    <meta charset="UTF-8">
+    <title>TeskaLabs LogMan.io</title>
+    <style>
+      body {
+        font-family: 'Arial', sans-serif;
+        margin: 0;
+        padding: 0;
+        background-color: #f4f4f4;
+      }
+      .content {
+        background-color: #ffffff;
+        padding: 20px;
+        margin: 20px;
+        border-radius: 5px;
+        box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="content">
+      {{ content }}
+    </div>
+  </body>
 </html>
