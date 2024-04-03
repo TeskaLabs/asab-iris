@@ -92,7 +92,7 @@ class SendEmailOrchestrator:
 
 
 	async def _render_template(self, template: str, params: Dict, body_template_wrapper=None) -> Tuple[str, str]:
-		if not template.startswith('/Templates/Email/') or (body_template_wrapper is not None and template.startswith('/Templates/Email/')):
+		if not template.startswith('/Templates/Email/') or (body_template_wrapper is not None and not template.startswith('/Templates/Email/')):
 			raise ASABIrisError(
 				ErrorCode.INVALID_PATH,
 				tech_message="Incorrect template path '{}'. Move templates to '/Templates/Email/'.".format(template),
@@ -114,7 +114,7 @@ class SendEmailOrchestrator:
 
 			if body_template_wrapper is not None:
 				html_body_param = {"content": html_body}
-				html_body = self.JinjaService.format(body_template_wrapper, html_body_param)
+				html_body = await self.JinjaService.format(body_template_wrapper, html_body_param)
 
 			return html_body, subject
 
