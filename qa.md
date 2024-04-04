@@ -5,7 +5,7 @@
 1) Configure proper SMTP server for a test
 2) Replace `foo@example.com` by the valid email address that you have access into
 
-## TSM001: Send an email using Markdown template(Subject should be taken from md file)
+## TSM001A: Send an email using Markdown template(Subject should be taken from md file)
 
 `PUT /send_mail`
 
@@ -14,6 +14,23 @@
     "to": ["foo@example.com"],
     "body": {
         "template": "/Templates/Email/message.md",
+         "params":{
+            "name":"Iris"
+      }
+    }
+}
+```
+
+## TSM001B: Send an email using Markdown template(Subject should be taken from md file) with html wrapper
+
+`PUT /send_mail`
+
+```
+{
+    "to": ["foo@example.com"],
+    "body": {
+        "template": "/Templates/Email/message.md",
+        "wrapper": "/Templates/Email/body_wrapper.html",
          "params":{
             "name":"Iris"
       }
