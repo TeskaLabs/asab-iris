@@ -1396,3 +1396,61 @@ EXPECTED RESPONSE:
     }
  }
  ```
+
+
+## TSM033: Kakka handler
+
+ `EMAIL`
+
+ ```
+{"type":"email", "to": ["Shivashankar <mithunshivashankar@gmail.com>"], "from": "info@teskalabs.com", "body":{"template":"/Templates/Email/message.md", "params":{"name": "I am testing a template", "error": "None" }}}
+
+{"type":"email", "to": ["Shivashankar <mithunshivashankar@gmail.com>"], "from": "info@teskalabs.com", "body":{"template":"/Templates/Export.md", "params":{"name": "I am testing a template", "error": "None" }}}
+
+'Missing from'
+
+{"type":"email", "to": ["Shivashankar <mithunshivashankar@gmail.com>"], "body":{"template":"/Templates/Email/message.md", "params":{"name": "I am testing a template", "error": "None" }}}
+
+'Bad template path'
+
+{"type":"email", "to": ["Shivashankar <mithunshivashankar@gmail.com>"], "body":{"template":"/Templates/Emails/message.md", "params":{"name": "I am testing a template", "error": "None" }}}
+
+'Access non existant template'
+
+{"type":"email", "to": ["Shivashankar <mithunshivashankar@gmail.com>"], "body":{"template":"/Templates/Email/message22.md", "params":{"name": "I am testing a template", "error": "None" }}}
+ ```
+
+ `SLACK`
+
+ ```
+{"type":"slack", "body":{"template":"/Templates/Slack/Slack example.txt", "params":{"name": "I am testing a template", "error": "None" }}}
+
+{"type":"slack", "body":{"template":"/Templates/Slack/Slack example.txt", "params":{"name": "I am testing a template", "error": "None" }}}
+
+'Bad template path'
+{"type":"slack", "body":{"template":"/Templates/SlackS/message.md", "params":{"name": "I am testing a template", "error": "None" }}}
+
+'Access non existant template'
+{"type":"slack", "body":{"template":"/Templates/Slack/message.md2", "params":{"name": "I am testing a template", "error": "None" }}}
+ ```
+
+ `MSTEAMS`
+
+ ```
+{"type":"msteams", "body":{"template":"/Templates/MSTeams/Slack example.txt", "params":{"name": "I am testing a template", "error": "None" }}}
+
+{"type":"msteams", "body":{"template":"/Templates/MSTeams/Slack example.txt", "params":{"name": "I am testing a template", "error": "None" }}}
+
+'Bad template path'
+{"type":"msteams", "body":{"template":"/Templates/MSTeamss/message.md", "params":{"name": "I am testing a template", "error": "None" }}}
+
+'Access non existant template'
+{"type":"msteams", "body":{"template":"/Templates/MSTeams/message.md2", "params":{"name": "I am testing a template", "error": "None" }}}
+ ```
+
+
+ `UNSUPPORTED-TYPE`
+
+ ```
+{"type":"sms", "body":{"template":"/Templates/MSTeams/Slack example.txt", "params":{"name": "I am testing a template", "error": "None" }}}
+ ```
