@@ -38,6 +38,41 @@
 }
 ```
 
+## TSM001C: Send an email using Markdown template with html wrapper from incorrect path.
+
+`PUT /send_mail`
+
+```
+{
+    "to": ["foo@example.com"],
+    "body": {
+        "template": "/Templates/Email/message.md",
+        "wrapper": "/Templates/Emails/body_wrapper.html",
+         "params":{
+            "name":"Iris"
+      }
+    }
+}
+```
+
+## TSM001D: Send an email using Markdown template with html wrapper from a template that does not exist.
+
+`PUT /send_mail`
+
+```
+{
+    "to": ["foo@example.com"],
+    "body": {
+        "template": "/Templates/Email/message.md",
+        "wrapper": "/Templates/Email/body_wrapper.md",
+         "params":{
+            "name":"Iris"
+      }
+    }
+}
+```
+
+
 
 ## TSM002: Send an email using HTML template
 
