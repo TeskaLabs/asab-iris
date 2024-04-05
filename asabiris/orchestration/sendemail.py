@@ -47,7 +47,7 @@ class SendEmailOrchestrator:
 		self.SmtpService = app.get_service("SmtpService")
 
 		# read wrapper for markdown
-		self.Subject = asab.Config.get("email", "markdown_wrapper")
+		self.MarkdownWrapper = asab.Config.get("email", "markdown_wrapper")
 
 
 	async def send_email(
