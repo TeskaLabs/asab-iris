@@ -37,6 +37,9 @@ asab.Config.add_defaults({
 	"kafka": {
 		"topic": "notifications",
 		"group_id": "asab-iris",
+	},
+	"email": {
+		"markdown_wrapper": None
 	}
 })
 
