@@ -8,7 +8,7 @@ emails through an SMTP service.
 Classes:
 	SendEmailOrchestrator: Orchestrates the sending of emails.
 """
-
+import asab
 import os
 import re
 import datetime
@@ -45,6 +45,9 @@ class SendEmailOrchestrator:
 		self.AttachmentRenderingService = app.get_service("AttachmentRenderingService")
 
 		self.SmtpService = app.get_service("SmtpService")
+
+		# read wrapper for markdown
+		self.Subject = asab.Config.get("email", "markdown_wrapper")
 
 
 	async def send_email(
