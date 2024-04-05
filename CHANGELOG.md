@@ -81,6 +81,10 @@
 
 - Kafka handler : Fallback solution
 
+#### 04. 04. 2024 
+
+- Loading external templates for content wrapping in iris
+
 
 ### Bugfix
 

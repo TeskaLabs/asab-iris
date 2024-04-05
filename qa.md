@@ -5,7 +5,7 @@
 1) Configure proper SMTP server for a test
 2) Replace `foo@example.com` by the valid email address that you have access into
 
-## TSM001: Send an email using Markdown template(Subject should be taken from md file)
+## TSM001A: Send an email using Markdown template(Subject should be taken from md file)
 
 `PUT /send_mail`
 
@@ -20,6 +20,58 @@
     }
 }
 ```
+
+## TSM001B: Send an email using Markdown template(Subject should be taken from md file) with html wrapper
+
+`PUT /send_mail`
+
+```
+{
+    "to": ["foo@example.com"],
+    "body": {
+        "template": "/Templates/Email/message.md",
+        "wrapper": "/Templates/Email/body_wrapper.html",
+         "params":{
+            "name":"Iris"
+      }
+    }
+}
+```
+
+## TSM001C: Send an email using Markdown template with html wrapper from incorrect path.
+
+`PUT /send_mail`
+
+```
+{
+    "to": ["foo@example.com"],
+    "body": {
+        "template": "/Templates/Email/message.md",
+        "wrapper": "/Templates/Emails/body_wrapper.html",
+         "params":{
+            "name":"Iris"
+      }
+    }
+}
+```
+
+## TSM001D: Send an email using Markdown template with html wrapper from a template that does not exist.
+
+`PUT /send_mail`
+
+```
+{
+    "to": ["foo@example.com"],
+    "body": {
+        "template": "/Templates/Email/message.md",
+        "wrapper": "/Templates/Email/body_wrapper.md",
+         "params":{
+            "name":"Iris"
+      }
+    }
+}
+```
+
 
 
 ## TSM002: Send an email using HTML template
@@ -1343,4 +1395,62 @@ EXPECTED RESPONSE:
        }
     }
  }
+ ```
+
+
+## TSM033: Kakka handler
+
+ `EMAIL`
+
+ ```
+{"type":"email", "to": ["Shivashankar <mithunshivashankar@gmail.com>"], "from": "info@teskalabs.com", "body":{"template":"/Templates/Email/message.md", "params":{"name": "I am testing a template", "error": "None" }}}
+
+{"type":"email", "to": ["Shivashankar <mithunshivashankar@gmail.com>"], "from": "info@teskalabs.com", "body":{"template":"/Templates/Export.md", "params":{"name": "I am testing a template", "error": "None" }}}
+
+'Missing from'
+
+{"type":"email", "to": ["Shivashankar <mithunshivashankar@gmail.com>"], "body":{"template":"/Templates/Email/message.md", "params":{"name": "I am testing a template", "error": "None" }}}
+
+'Bad template path'
+
+{"type":"email", "to": ["Shivashankar <mithunshivashankar@gmail.com>"], "body":{"template":"/Templates/Emails/message.md", "params":{"name": "I am testing a template", "error": "None" }}}
+
+'Access non existant template'
+
+{"type":"email", "to": ["Shivashankar <mithunshivashankar@gmail.com>"], "body":{"template":"/Templates/Email/message22.md", "params":{"name": "I am testing a template", "error": "None" }}}
+ ```
+
+ `SLACK`
+
+ ```
+{"type":"slack", "body":{"template":"/Templates/Slack/Slack example.txt", "params":{"name": "I am testing a template", "error": "None" }}}
+
+{"type":"slack", "body":{"template":"/Templates/Slack/Slack example.txt", "params":{"name": "I am testing a template", "error": "None" }}}
+
+'Bad template path'
+{"type":"slack", "body":{"template":"/Templates/SlackS/message.md", "params":{"name": "I am testing a template", "error": "None" }}}
+
+'Access non existant template'
+{"type":"slack", "body":{"template":"/Templates/Slack/message.md2", "params":{"name": "I am testing a template", "error": "None" }}}
+ ```
+
+ `MSTEAMS`
+
+ ```
+{"type":"msteams", "body":{"template":"/Templates/MSTeams/Slack example.txt", "params":{"name": "I am testing a template", "error": "None" }}}
+
+{"type":"msteams", "body":{"template":"/Templates/MSTeams/Slack example.txt", "params":{"name": "I am testing a template", "error": "None" }}}
+
+'Bad template path'
+{"type":"msteams", "body":{"template":"/Templates/MSTeamss/message.md", "params":{"name": "I am testing a template", "error": "None" }}}
+
+'Access non existant template'
+{"type":"msteams", "body":{"template":"/Templates/MSTeams/message.md2", "params":{"name": "I am testing a template", "error": "None" }}}
+ ```
+
+
+ `UNSUPPORTED-TYPE`
+
+ ```
+{"type":"sms", "body":{"template":"/Templates/MSTeams/Slack example.txt", "params":{"name": "I am testing a template", "error": "None" }}}
  ```

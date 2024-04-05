@@ -97,6 +97,7 @@ class WebHandler(object):
 			await self.App.SendEmailOrchestrator.send_email(
 				email_to=json_data["to"],
 				body_template=json_data["body"]["template"],
+				body_template_wrapper=json_data["body"].get("wrapper", None),
 				email_cc=json_data.get("cc", []),  # Optional
 				email_bcc=json_data.get("bcc", []),  # Optional
 				email_subject=json_data.get("subject", None),  # Optional

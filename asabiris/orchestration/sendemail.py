@@ -51,6 +51,7 @@ class SendEmailOrchestrator:
 		self,
 		email_to: List[str],
 		body_template: str,
+		body_template_wrapper=None,
 		body_params=None,
 		email_from=None,
 		email_cc=None,
@@ -68,7 +69,7 @@ class SendEmailOrchestrator:
 		email_bcc = email_bcc or []
 
 		# Rendering the template
-		body_html, email_subject_body = await self._render_template(body_template, body_params)
+		body_html, email_subject_body = await self._render_template(body_template, body_params, body_template_wrapper)
 
 		# If email_subject is not provided or is empty use email_subject_body
 		if email_subject is None or email_subject == '':
@@ -90,8 +91,8 @@ class SendEmailOrchestrator:
 		L.info("Email sent successfully to: {}".format(', '.join(email_to)))
 
 
-	async def _render_template(self, template: str, params: Dict) -> Tuple[str, str]:
-		if not template.startswith('/Templates/Email/'):
+	async def _render_template(self, template: str, params: Dict, body_template_wrapper=None) -> Tuple[str, str]:
+		if not template.startswith('/Templates/Email/') or (body_template_wrapper is not None and not template.startswith('/Templates/Email/')):
 			raise ASABIrisError(
 				ErrorCode.INVALID_PATH,
 				tech_message="Incorrect template path '{}'. Move templates to '/Templates/Email/'.".format(template),
@@ -109,8 +110,13 @@ class SendEmailOrchestrator:
 
 		elif ext == '.md':
 			body, subject = find_subject_in_md(jinja_output)
-			body = self.MarkdownToHTMLService.format(body)
-			return body, subject
+			html_body = self.MarkdownToHTMLService.format(body)
+
+			if body_template_wrapper is not None:
+				html_body_param = {"content": html_body}
+				html_body = await self.JinjaService.format(body_template_wrapper, html_body_param)
+
+			return html_body, subject
 
 		else:
 			raise ASABIrisError(
