@@ -46,8 +46,11 @@ class SendEmailOrchestrator:
 
 		self.SmtpService = app.get_service("SmtpService")
 
-		# read wrapper for markdown
-		self.MarkdownWrapper = asab.Config.get("email", "markdown_wrapper")
+		# Check if 'email' section exists and 'markdown_wrapper' is neither None nor empty
+		if 'email' in asab.Config and asab.Config.get("email", "markdown_wrapper"):
+			self.MarkdownWrapper = asab.Config.get("email", "markdown_wrapper")
+		else:
+			self.MarkdownWrapper = None
 
 
 	async def send_email(
@@ -115,9 +118,13 @@ class SendEmailOrchestrator:
 			body, subject = find_subject_in_md(jinja_output)
 			html_body = self.MarkdownToHTMLService.format(body)
 
-			if body_template_wrapper is not None:
+			# Determine the appropriate wrapper to use
+			wrapper_to_use = body_template_wrapper if body_template_wrapper not in [None, ''] else self.MarkdownWrapper
+
+			# Apply the wrapper if it exists and is not empty
+			if wrapper_to_use not in [None, '']:
 				html_body_param = {"content": html_body}
-				html_body = await self.JinjaService.format(body_template_wrapper, html_body_param)
+				html_body = await self.JinjaService.format(wrapper_to_use, html_body_param)
 
 			return html_body, subject
 
