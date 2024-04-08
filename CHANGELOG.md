@@ -85,6 +85,10 @@
 
 - Loading external templates for content wrapping in iris
 
+#### 08.04.2024
+
+- Markdown wrapper configuration.
+
 
 ### Bugfix
 
