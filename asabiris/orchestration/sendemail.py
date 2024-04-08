@@ -118,7 +118,9 @@ class SendEmailOrchestrator:
 			body, subject = find_subject_in_md(jinja_output)
 			html_body = self.MarkdownToHTMLService.format(body)
 
-			# Determine the appropriate wrapper to use
+			# Determine the appropriate wrapper to use.
+			# First preference is given to body_template_wrapper if it's provided and not empty.
+			# If body_template_wrapper is None or empty, fallback to the class's MarkdownWrapper.
 			wrapper_to_use = body_template_wrapper if body_template_wrapper not in [None, ''] else self.MarkdownWrapper
 
 			# Apply the wrapper if it exists and is not empty
