@@ -35,6 +35,9 @@ subject=Mail from ASAB Iris
 - `starttls`: `yes`/`no` for STARTTLS, depends on the SMTP server.
 - `subject`: The default subject line, if not provided by a caller or a template.
 
+
+## Email Markdown Wrapper Configuration
+
 **Configuration**
 
 ```ini
