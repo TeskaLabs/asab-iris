@@ -52,7 +52,7 @@ If this configuration is not provided, or if the value is left empty, the markdo
 
 **Overview**
 
-- Send messages to a Slack via HTTP REST API or thru Kafka Topic
+- Send messages to a Slack via HTTP REST API or through Kafka Topic
 - Apply Jinja2 templates.
 - Trigger them through a web handler or an Apache Kafka message - flexibility is key!
 
