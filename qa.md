@@ -1407,6 +1407,10 @@ EXPECTED RESPONSE:
 
 {"type":"email", "to": ["Shivashankar <mithunshivashankar@gmail.com>"], "from": "info@teskalabs.com", "body":{"template":"/Templates/Export.md", "params":{"name": "I am testing a template", "error": "None" }}}
 
+'MARKDOWN-WRAPPER'
+
+{"type":"email", "markdown_wrapper":"/Templates/Email/body_wrapper.html", "to": ["Shivashankar <mithunshivashankar@gmail.com>"], "from": "info@teskalabs.com", "body":{"template":"/Templates/Email/message.md", "params":{"name": "I am testing a template", "error": "None" }}}
+
 'Missing from'
 
 {"type":"email", "to": ["Shivashankar <mithunshivashankar@gmail.com>"], "body":{"template":"/Templates/Email/message.md", "params":{"name": "I am testing a template", "error": "None" }}}
