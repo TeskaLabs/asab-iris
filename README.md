@@ -35,6 +35,16 @@ subject=Mail from ASAB Iris
 - `starttls`: `yes`/`no` for STARTTLS, depends on the SMTP server.
 - `subject`: The default subject line, if not provided by a caller or a template.
 
+**Configuration**
+
+```ini
+[email]
+markdown_wrapper=/Templates/Email/body_wrapper.html
+```
+
+- `markdown_wrapper`: Specifies the path to the HTML template for wrapping email content.
+If this configuration is not provided, or if the value is left empty, the markdown_wrapper will default to None. In such cases, Markdown-formatted emails will be sent without any additional HTML wrapping. This means the emails will consist solely of the content converted from Markdown to HTML, without any extra styling or structure provided by a wrapper template.
+
 ### 🚨 2. Sending Slack messages
 
 **Overview**
