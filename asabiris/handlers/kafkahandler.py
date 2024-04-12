@@ -20,14 +20,15 @@ L = logging.getLogger(__name__)
 
 
 def check_config(config, section, parameter):
-    try:
-        value = config.get(section, parameter)
-        if not value:  # Checks for empty string or None implicitly
-            raise ValueError("Configuration parameter '{}' is empty in section '{}'".format(parameter, section))
-        return value
-    except (configparser.NoOptionError, ValueError) as e:
-        L.warning("Configuration issue: {}".format(e))
-        return None  # Returns None on
+	try:
+		value = config.get(section, parameter)
+		if not value:  # Checks for empty string or None implicitly
+			raise ValueError("Configuration parameter '{}' is empty in section '{}'".format(parameter, section))
+		return value
+	except (configparser.NoOptionError, ValueError) as e:
+		L.warning("Configuration issue: {}".format(e))
+		return None  # Returns None on
+
 
 class KafkaHandler(asab.Service):
 	ValidationSchemaMail = fastjsonschema.compile(email_schema)
@@ -60,8 +61,7 @@ class KafkaHandler(asab.Service):
 
 		except Exception as e:
 			L.error("Failed to initialize Kafka Consumer due to: {}".format(e))
-			exit()
-
+			return
 
 	async def initialize(self, app):
 		if self.Consumer is not None:
