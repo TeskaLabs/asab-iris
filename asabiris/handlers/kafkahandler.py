@@ -20,13 +20,14 @@ L = logging.getLogger(__name__)
 
 
 def check_config(config, section, parameter):
-	try:
-		value = config.get(section, parameter)
-		return value
-	except configparser.NoOptionError:
-		L.error("Configuration parameter '{}' is missing in section '{}'.".format(parameter, section))
-		exit()
-
+    try:
+        value = config.get(section, parameter)
+        if not value:  # Checks for empty string or None implicitly
+            raise ValueError("Configuration parameter '{}' is empty in section '{}'".format(parameter, section))
+        return value
+    except (configparser.NoOptionError, ValueError) as e:
+        L.warning("Configuration issue: {}".format(e))
+        return None  # Returns None on
 
 class KafkaHandler(asab.Service):
 	ValidationSchemaMail = fastjsonschema.compile(email_schema)
@@ -37,35 +38,46 @@ class KafkaHandler(asab.Service):
 		super().__init__(app, service_name)
 		self.Task = None
 		self.JinjaService = app.get_service("JinjaService")
+		self.Consumer = None  # Initialize Consumer as None
 		# output service's
 		try:
 			topic = check_config(asab.Config, "kafka", "topic")
 			group_id = check_config(asab.Config, "kafka", "group_id")
-			bootstrap_servers = check_config(asab.Config, "kafka", "bootstrap_servers").split(",")
-		except configparser.NoOptionError:
-			L.error("Configuration missing. Required parameters: Kafka/group_id/bootstrap_servers")
+			bootstrap_servers = check_config(asab.Config, "kafka", "bootstrap_servers")
+			if bootstrap_servers:
+				bootstrap_servers = bootstrap_servers.split(",")
+				self.Consumer = AIOKafkaConsumer(
+					topic,
+					group_id=group_id,
+					bootstrap_servers=bootstrap_servers,
+					loop=self.App.Loop,
+					retry_backoff_ms=10000,
+					auto_offset_reset="earliest",
+				)
+			else:
+				L.warning("Bootstrap servers configuration is missing or empty; cannot initialize KafkaHandler.")
+				return  # Prevent further initialization if bootstrap servers are not configured
+
+		except Exception as e:
+			L.error("Failed to initialize Kafka Consumer due to: {}".format(e))
 			exit()
 
-		self.Consumer = AIOKafkaConsumer(
-			topic,
-			group_id=group_id,
-			bootstrap_servers=bootstrap_servers,
-			loop=self.App.Loop,
-			retry_backoff_ms=10000,
-			auto_offset_reset="earliest",
-		)
 
 	async def initialize(self, app):
-		try:
-			await self.Consumer.start()
-		except aiokafka.errors.KafkaConnectionError as e:
-			L.warning("No connection to Kafka established. Stopping the app... {}".format(e))
-			exit()
-		self.Task = asyncio.ensure_future(self.consume(), loop=self.App.Loop)
+		if self.Consumer is not None:
+			try:
+				await self.Consumer.start()
+			except aiokafka.errors.KafkaConnectionError as e:
+				L.warning("No connection to Kafka established. Stopping the app... {}".format(e))
+				exit()
+			self.Task = asyncio.ensure_future(self.consume(), loop=self.App.Loop)
+		else:
+			L.warning("Kafka Consumer is not initialized. Skipping Kafka initialization.")
 
 	async def finalize(self, app):
-		await self.Consumer.stop()
-		if self.Task.exception() is not None:
+		if self.Consumer is not None:
+			await self.Consumer.stop()
+		if self.Task and self.Task.exception():
 			L.warning("Exception occurred during alert notifications: {}".format(self.Task.exception()))
 
 	async def consume(self):
