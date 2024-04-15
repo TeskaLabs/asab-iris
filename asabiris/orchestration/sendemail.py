@@ -125,7 +125,8 @@ class SendEmailOrchestrator:
 
 			# Apply the wrapper if it exists and is not empty
 			if wrapper_to_use not in [None, '']:
-				html_body_param = {"content": html_body}
+				html_stripped = strip_tags(html_body)
+				html_body_param = {"content": html_stripped}
 				html_body = await self.JinjaService.format(wrapper_to_use, html_body_param)
 
 			return html_body, subject
@@ -153,6 +154,13 @@ class SendEmailOrchestrator:
 			timestamp
 		)
 		return error_message, "Error when generating email"
+
+
+def strip_tags(html_body):
+	"""
+	Strip <html> and <body> tags from the HTML string.
+	"""
+	return re.sub(r'</?(html|body)>', '', html_body, flags=re.IGNORECASE)
 
 
 def find_subject_in_html(body):
