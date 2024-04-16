@@ -60,7 +60,7 @@ class KafkaHandler(asab.Service):
 				return  # Prevent further initialization if bootstrap servers are not configured
 
 		except Exception as e:
-			L.error("Failed to initialize Kafka Consumer due to: {}".format(e))
+			L.warning("Failed to initialize Kafka Consumer due to: {}".format(e))
 			return
 
 	async def initialize(self, app):
