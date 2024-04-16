@@ -184,8 +184,6 @@ def convert_markdown_to_full_html(html_text):
 	Returns:
 	str: A complete HTML document string.
 	"""
-	# Convert Markdown to HTML
-	html_content = markdown.markdown(html_text)
 
 	# Wrap the HTML content in a full HTML document structure
 	full_html_document = """
