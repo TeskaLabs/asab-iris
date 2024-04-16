@@ -127,6 +127,8 @@ class SendEmailOrchestrator:
 			if wrapper_to_use not in [None, '']:
 				html_body_param = {"content": html_body}
 				html_body = await self.JinjaService.format(wrapper_to_use, html_body_param)
+			else:
+				html_body = convert_markdown_to_full_html(html_body)
 
 			return html_body, subject
 
@@ -170,3 +172,34 @@ def find_subject_in_md(body):
 	subject = body.split("\n")[0].replace("SUBJECT:", "").lstrip()
 	body = "\n".join(body.split("\n")[1:])
 	return body, subject
+
+
+def convert_markdown_to_full_html(html_text):
+	"""
+	Convert Markdown text to a full HTML document.
+
+	Args:
+	markdown_text (str): Markdown formatted text to be converted.
+
+	Returns:
+	str: A complete HTML document string.
+	"""
+	# Convert Markdown to HTML
+	html_content = markdown.markdown(html_text)
+
+	# Wrap the HTML content in a full HTML document structure
+	full_html_document = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Document</title>
+</head>
+<body>
+{content}
+</body>
+</html>
+""".format(content=html_content)
+
+	return full_html_document
