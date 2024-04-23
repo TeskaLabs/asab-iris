@@ -84,8 +84,7 @@ class MSTeamsOutputService(asab.Service, OutputABC):
 					elif resp.status == 404:  # Not Found
 						error_code = ErrorCode.TEMPLATE_NOT_FOUND
 					elif resp.status == 503:  # Service Unavailable
-						error_code = ErrorCode.SERVER_ERROR  # You might create a specific error code for this if needed
-					# Add more mappings as necessary for other status codes
+						error_code = ErrorCode.SERVER_ERROR
 					else:
 						error_code = ErrorCode.SERVER_ERROR  # General server error for other cases
 
