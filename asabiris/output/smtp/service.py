@@ -182,6 +182,17 @@ class EmailOutputService(asab.Service, OutputABC):
 					"host": self.Host
 				}
 			)
+		except aiosmtplib.errors.SMTPTimeoutError as e:
+			L.warning("SMTP timeout encountered: {}; check network connectivity or SMTP server status".format(e), struct_data={"host": self.Host})
+			raise ASABIrisError(
+				ErrorCode.SMTP_TIMEOUT,  # Make sure to define this error code appropriately
+				tech_message="SMTP timeout encountered: {}.".format(str(e)),
+				error_i18n_key="The SMTP server for '{{host}}' timed out unexpectedly.",
+				error_dict={
+					"host": self.Host
+				}
+			)
+
 		except Exception as e:
 			L.warning("SMTP error: {}; check credentials".format(e), struct_data={"host": self.Host})
 			raise ASABIrisError(
