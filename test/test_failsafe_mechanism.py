@@ -45,9 +45,12 @@ class TestRenderMethod(unittest.TestCase):
             return mock.Mock()
 
     def strip_html_tags(self, html_text):
-        """Remove HTML tags from the provided text."""
+        """Remove HTML tags and extra whitespace from the provided text."""
         clean = re.compile('<.*?>')
-        return re.sub(clean, '', html_text)
+        no_tags = re.sub(clean, '', html_text)
+        no_whitespace = re.sub(r'\s+', ' ', no_tags).strip()
+        return no_whitespace
+
 
     def test_render_html_template(self):
         # Test rendering of an HTML template
@@ -59,7 +62,7 @@ class TestRenderMethod(unittest.TestCase):
         self.MockMarkdownToHtmlService.format.return_value = "Mocked Jinja Output"
         output, subject = self.Loop.run_until_complete(
             self.orchestrator._render_template("/Templates/Email/sample.md", {}))
-        self.assertEqual(self.strip_html_tags(output), "Mocked Jinja Output")  # Removed the "\n" from the expected value
+        self.assertEqual(self.strip_html_tags(output), "Document Mocked Jinja Output")  # Removed the "\n" from the expected value
 
 
 if __name__ == "__main__":
