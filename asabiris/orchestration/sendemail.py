@@ -98,13 +98,24 @@ class SendEmailOrchestrator:
 
 
 	async def _render_template(self, template: str, params: Dict, body_template_wrapper=None) -> Tuple[str, str]:
-		if not template.startswith('/Templates/Email/') or (body_template_wrapper is not None and not template.startswith('/Templates/Wrapper/')):
+		if not template.startswith('/Templates/Email/'):
 			raise ASABIrisError(
 				ErrorCode.INVALID_PATH,
 				tech_message="Incorrect template path '{}'. Move templates to '/Templates/Email/'.".format(template),
 				error_i18n_key="Incorrect template path '{{incorrect_path}}'. Please move your templates to '/Templates/Email/'.",
 				error_dict={
 					"incorrect_path": template,
+				}
+			)
+
+		if body_template_wrapper is not None and not body_template_wrapper.startswith('/Templates/Wrapper/'):
+			raise ASABIrisError(
+				ErrorCode.INVALID_PATH,
+				tech_message="Incorrect wrapper template path '{}'. Move wrapper templates to '/Templates/Wrapper/'.".format(
+					body_template_wrapper),
+				error_i18n_key="Incorrect wrapper template path '{{incorrect_path}}'. Please move your wrapper templates to '/Templates/Wrapper/'.",
+				error_dict={
+					"incorrect_path": body_template_wrapper,
 				}
 			)
 
@@ -198,6 +209,6 @@ def convert_markdown_to_full_html(html_text):
 {content}
 </body>
 </html>
-""".format(content=html_content)
+""".format(content=html_text)
 
 	return full_html_document
