@@ -98,6 +98,11 @@ class SendEmailOrchestrator:
 
 
 	async def _render_template(self, template: str, params: Dict, body_template_wrapper=None) -> Tuple[str, str]:
+		# First, determine if a default wrapper needs to be used
+		if body_template_wrapper in [None, '']:
+			body_template_wrapper = self.MarkdownWrapper
+
+		# Check the template paths right after updating body_template_wrapper
 		if not template.startswith('/Templates/Email/'):
 			raise ASABIrisError(
 				ErrorCode.INVALID_PATH,
@@ -119,6 +124,7 @@ class SendEmailOrchestrator:
 				}
 			)
 
+		# Proceed with rendering the template
 		jinja_output = await self.JinjaService.format(template, params)
 
 		ext = os.path.splitext(template)[1]
@@ -129,15 +135,10 @@ class SendEmailOrchestrator:
 			body, subject = find_subject_in_md(jinja_output)
 			html_body = self.MarkdownToHTMLService.format(body)
 
-			# Determine the appropriate wrapper to use.
-			# First preference is given to body_template_wrapper if it's provided and not empty.
-			# If body_template_wrapper is None or empty, fallback to the class's MarkdownWrapper.
-			wrapper_to_use = body_template_wrapper if body_template_wrapper not in [None, ''] else self.MarkdownWrapper
-
 			# Apply the wrapper if it exists and is not empty
-			if wrapper_to_use not in [None, '']:
+			if body_template_wrapper not in [None, '']:
 				html_body_param = {"content": html_body}
-				html_body = await self.JinjaService.format(wrapper_to_use, html_body_param)
+				html_body = await self.JinjaService.format(body_template_wrapper, html_body_param)
 			else:
 				html_body = convert_markdown_to_full_html(html_body)
 
