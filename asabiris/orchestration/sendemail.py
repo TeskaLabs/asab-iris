@@ -98,7 +98,12 @@ class SendEmailOrchestrator:
 
 
 	async def _render_template(self, template: str, params: Dict, body_template_wrapper=None) -> Tuple[str, str]:
-		if not template.startswith('/Templates/Email/') or (body_template_wrapper is not None and not template.startswith('/Templates/Email/')):
+		# First, determine if a default wrapper needs to be used
+		if body_template_wrapper in [None, '']:
+			body_template_wrapper = self.MarkdownWrapper
+
+		# Check the template paths right after updating body_template_wrapper
+		if not template.startswith('/Templates/Email/'):
 			raise ASABIrisError(
 				ErrorCode.INVALID_PATH,
 				tech_message="Incorrect template path '{}'. Move templates to '/Templates/Email/'.".format(template),
@@ -108,6 +113,18 @@ class SendEmailOrchestrator:
 				}
 			)
 
+		if body_template_wrapper is not None and not body_template_wrapper.startswith('/Templates/Wrapper/'):
+			raise ASABIrisError(
+				ErrorCode.INVALID_PATH,
+				tech_message="Incorrect wrapper template path '{}'. Move wrapper templates to '/Templates/Wrapper/'.".format(
+					body_template_wrapper),
+				error_i18n_key="Incorrect wrapper template path '{{incorrect_path}}'. Please move your wrapper templates to '/Templates/Wrapper/'.",
+				error_dict={
+					"incorrect_path": body_template_wrapper,
+				}
+			)
+
+		# Proceed with rendering the template
 		jinja_output = await self.JinjaService.format(template, params)
 
 		ext = os.path.splitext(template)[1]
@@ -118,15 +135,12 @@ class SendEmailOrchestrator:
 			body, subject = find_subject_in_md(jinja_output)
 			html_body = self.MarkdownToHTMLService.format(body)
 
-			# Determine the appropriate wrapper to use.
-			# First preference is given to body_template_wrapper if it's provided and not empty.
-			# If body_template_wrapper is None or empty, fallback to the class's MarkdownWrapper.
-			wrapper_to_use = body_template_wrapper if body_template_wrapper not in [None, ''] else self.MarkdownWrapper
-
 			# Apply the wrapper if it exists and is not empty
-			if wrapper_to_use not in [None, '']:
+			if body_template_wrapper not in [None, '']:
 				html_body_param = {"content": html_body}
-				html_body = await self.JinjaService.format(wrapper_to_use, html_body_param)
+				html_body = await self.JinjaService.format(body_template_wrapper, html_body_param)
+			else:
+				html_body = convert_markdown_to_full_html(html_body)
 
 			return html_body, subject
 
@@ -170,3 +184,32 @@ def find_subject_in_md(body):
 	subject = body.split("\n")[0].replace("SUBJECT:", "").lstrip()
 	body = "\n".join(body.split("\n")[1:])
 	return body, subject
+
+
+def convert_markdown_to_full_html(html_text):
+	"""
+	Convert Markdown text to a full HTML document.
+
+	Args:
+	markdown_text (str): Markdown formatted text to be converted.
+
+	Returns:
+	str: A complete HTML document string.
+	"""
+
+	# Wrap the HTML content in a full HTML document structure
+	full_html_document = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Document</title>
+</head>
+<body>
+{content}
+</body>
+</html>
+""".format(content=html_text)
+
+	return full_html_document

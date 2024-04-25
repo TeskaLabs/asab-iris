@@ -89,6 +89,10 @@
 
 - Markdown wrapper configuration.
 
+#### 25.04.2024
+
+- Move Wrapper's to /Templates/Wrapper/
+
 
 ### Bugfix
 
@@ -129,3 +133,7 @@
 ### 14.12.2023
 
 - Fix cicd
+
+### 24.04.2024
+
+- Change SMTP status code
