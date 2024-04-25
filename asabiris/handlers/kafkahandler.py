@@ -175,6 +175,7 @@ class KafkaHandler(asab.Service):
 			email_to=json_data['to'],
 			email_subject=json_data.get('subject', None),
 			body_template=json_data['body']['template'],
+			body_template_wrapper=json_data["body"].get("wrapper", None),
 			body_params=json_data['body']['params'],
 			email_cc=json_data.get('cc', []),
 			email_bcc=json_data.get('bcc', []),

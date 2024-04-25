@@ -1409,7 +1409,13 @@ EXPECTED RESPONSE:
 
 'MARKDOWN-WRAPPER'
 
-{"type":"email", "markdown_wrapper":"/Templates/Email/body_wrapper.html", "to": ["Shivashankar <mithunshivashankar@gmail.com>"], "from": "info@teskalabs.com", "body":{"template":"/Templates/Email/message.md", "params":{"name": "I am testing a template", "error": "None" }}}
+{"type":"email", "to": ["Shivashankar <mithunshivashankar@gmail.com>"], "from": "info@teskalabs.com", "body":{"template":"/Templates/Email/message.md", "params":{"name": "I am testing a template", "error": "None" }}}
+
+{"type":"email", "to": ["Shivashankar <mithunshivashankar@gmail.com>"], "from": "info@teskalabs.com", "body":{"template":"/Templates/Email/message.md", "wrapper":"/Templates/Wrapper/markdown_wrapper.md",  "params":{"name": "I am testing a template", "error": "None" }}}
+
+{"type": "email", "to": ["Shivashankar <mithunshivashankar@gmail.com>"], "from": "info@teskalabs.com", "body":{"template":"/Templates/Email/message.md", "wrapper":"/Templates/Wrapper/markdown_wrapper.html", "params":{"name": "I am testing a template", "error": "None" }}}
+
+{"type": "email", "to": ["Shivashankar <mithunshivashankar@gmail.com>"], "from": "info@teskalabs.com", "body":{"template":"/Templates/Email/message.md", "wrapper":"/Templates/Wrappers/markdown_wrapper.html", "params":{"name": "I am testing a template", "error": "None" }}}
 
 'Missing from'
 
