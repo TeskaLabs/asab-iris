@@ -93,6 +93,10 @@
 
 - Move Wrapper's to /Templates/Wrapper/
 
+#### 25.04.2024
+
+- Update Wrapper to kafkahandler
+
 
 ### Bugfix
 
