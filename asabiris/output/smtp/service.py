@@ -61,8 +61,8 @@ class EmailOutputService(asab.Service, OutputABC):
 		self, *,
 		email_to,
 		body,
-		email_cc=None,
-		email_bcc=None,
+		email_cc=[],
+		email_bcc=[],
 		email_subject=None,
 		email_from=None,
 		attachments=None
