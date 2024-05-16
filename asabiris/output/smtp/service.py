@@ -152,6 +152,7 @@ class EmailOutputService(asab.Service, OutputABC):
 			except aiosmtplib.errors.SMTPConnectError as e:
 				L.warning("Connection failed: {}".format(e), struct_data={"host": self.Host, "port": self.Port})
 				if attempt < retry_attempts - 1:
+					L.info("Retrying email send after connection failure, attempt {}".format(attempt + 1))
 					await asyncio.sleep(delay)
 					continue  # Retry the email sending
 				raise ASABIrisError(
@@ -175,6 +176,7 @@ class EmailOutputService(asab.Service, OutputABC):
 			except aiosmtplib.errors.SMTPResponseException as e:
 				L.warning("SMTP Error", struct_data={"message": e.message, "code": e.code, "host": self.Host})
 				if attempt < retry_attempts - 1:
+					L.info("Retrying email send after connection failure, attempt {}".format(attempt + 1))
 					await asyncio.sleep(delay)
 					continue  # Retry the email sending
 				raise ASABIrisError(
@@ -190,6 +192,7 @@ class EmailOutputService(asab.Service, OutputABC):
 			except aiosmtplib.errors.SMTPServerDisconnected as e:
 				L.warning("Server disconnected: {}; check the SMTP credentials".format(e), struct_data={"host": self.Host})
 				if attempt < retry_attempts - 1:
+					L.info("Retrying email send after connection failure, attempt {}".format(attempt + 1))
 					await asyncio.sleep(delay)
 					continue  # Retry the email sending
 				raise ASABIrisError(
@@ -203,6 +206,7 @@ class EmailOutputService(asab.Service, OutputABC):
 			except aiosmtplib.errors.SMTPTimeoutError as e:
 				L.warning("SMTP timeout encountered: {}; check network connectivity or SMTP server status".format(e), struct_data={"host": self.Host})
 				if attempt < retry_attempts - 1:
+					L.info("Retrying email send after connection failure, attempt {}".format(attempt + 1))
 					await asyncio.sleep(delay)
 					continue  # Retry the email sending
 				raise ASABIrisError(
@@ -216,6 +220,7 @@ class EmailOutputService(asab.Service, OutputABC):
 			except Exception as e:
 				L.warning("SMTP error: {}; check credentials".format(e), struct_data={"host": self.Host})
 				if attempt < retry_attempts - 1:
+					L.info("Retrying email send after connection failure, attempt {}".format(attempt + 1))
 					await asyncio.sleep(delay)
 					continue  # Retry the email sending
 				raise ASABIrisError(
