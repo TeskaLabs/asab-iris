@@ -97,6 +97,10 @@
 
 - Update Wrapper to kafkahandler
 
+#### 16.05.2024
+
+- Change Error
+
 
 ### Bugfix
 
