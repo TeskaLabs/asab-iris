@@ -145,7 +145,7 @@ class EmailOutputService(asab.Service, OutputABC):
 			raise ASABIrisError(
 				ErrorCode.SMTP_CONNECTION_ERROR,
 				tech_message="SMTP connection failed: {}.".format(str(e)),
-				error_i18n_key="Could not connect to SMTP for host '{{host}}'.",
+				error_i18n_key="Could not connect to SMTP host '{{host}}'.",
 				error_dict={
 					"host": self.Host,
 				}
@@ -177,7 +177,7 @@ class EmailOutputService(asab.Service, OutputABC):
 			raise ASABIrisError(
 				ErrorCode.SMTP_SERVER_DISCONNECTED,
 				tech_message="SMTP server disconnected: {}.".format(str(e)),
-				error_i18n_key="The SMTP server for '{{host}}' disconnected unexpectedly.",
+				error_i18n_key="The SMTP server '{{host}}' disconnected unexpectedly.",
 				error_dict={
 					"host": self.Host
 				}
