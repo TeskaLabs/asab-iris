@@ -2,6 +2,7 @@ import logging
 import configparser
 
 import asab
+import datetime
 import pathlib
 import json
 import jinja2
@@ -28,6 +29,8 @@ class JinjaFormatterService(asab.Service, FormatterABC):
 			self.Variables = {}
 
 		self.Environment = jinja2.Environment()
+		# Inject 'now' function into the Jinja2 template's global namespace
+		self.Environment.globals['now'] = lambda: datetime.datetime.utcnow().isoformat()
 		self._load_variables_from_json()
 
 	def _load_variables_from_json(self):
