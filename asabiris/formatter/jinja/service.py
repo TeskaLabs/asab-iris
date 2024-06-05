@@ -30,7 +30,7 @@ class JinjaFormatterService(asab.Service, FormatterABC):
 
 		self.Environment = jinja2.Environment()
 		# Inject 'now' function into the Jinja2 template's global namespace
-		self.Environment.globals['now'] = lambda: datetime.datetime.utcnow().isoformat()
+		self.Environment.globals['now'] = lambda: datetime.datetime.utcnow()
 		self._load_variables_from_json()
 
 	def _load_variables_from_json(self):
@@ -89,7 +89,6 @@ class JinjaFormatterService(asab.Service, FormatterABC):
 
 			# Prepare template variables (aka context)
 			context = construct_context(dict(), self.Variables, template_params)
-
 			# Do the rendering
 			return template.render(context)
 		except jinja2.exceptions.UndefinedError as e:
