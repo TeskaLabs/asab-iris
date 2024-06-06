@@ -72,6 +72,22 @@
 }
 ```
 
+## TSM001E: Send an email using Markdown template from a template that uses now from template global.
+
+`PUT /send_mail`
+
+```
+{
+    "to": ["foo@example.com"],
+    "body": {
+        "template": "/Templates/Email/render_now_variable.md",
+         "params":{
+            "name":"Iris",
+            "tenant":"Default",
+      }
+    }
+}
+```
 
 
 ## TSM002: Send an email using HTML template
