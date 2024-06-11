@@ -24,6 +24,7 @@
       - pip install requests
       - pip install temp
       - pip install aiokafka
+      - pip install pytz
       - pip install slack-sdk
       - pip install sentry-sdk
       - python3 -m unittest test
@@ -49,6 +50,7 @@
       - pip install requests
       - pip install aiohttp
       - pip install temp
+      - pip install pytz
       - pip install aiokafka
       - pip install slack-sdk
       - pip install sentry-sdk
@@ -74,6 +76,7 @@
       - pip install aiohttp
       - pip install -U git+https://github.com/TeskaLabs/asab
       - pip install temp
+      - pip install pytz
       - pip install aiokafka
       - pip install slack-sdk
       - pip install sentry-sdk
@@ -99,6 +102,7 @@
       - pip install aiohttp
       - pip install -U git+https://github.com/TeskaLabs/asab
       - pip install temp
+      - pip install pytz
       - pip install aiokafka
       - pip install slack-sdk
       - pip install sentry-sdk
@@ -124,6 +128,7 @@
       - pip install aiohttp
       - pip install -U git+https://github.com/TeskaLabs/asab
       - pip install temp
+      - pip install pytz
       - pip install aiokafka
       - pip install slack-sdk
       - pip install sentry-sdk
@@ -145,6 +150,7 @@
       - pip install Markdown
       - pip install aiohttp
       - pip install temp
+      - pip install pytz
       - pip install aiokafka
       - pip install slack-sdk
       - pip install sentry-sdk
