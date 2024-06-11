@@ -63,7 +63,7 @@
 {
     "to": ["foo@example.com"],
     "body": {
-        "template": "/Templates/Email/message.md",
+        "template": "/Templates/Emails/message.md",
         "wrapper": "/Templates/Email/Markdown wrapper.md",
          "params":{
             "name":"Iris"
