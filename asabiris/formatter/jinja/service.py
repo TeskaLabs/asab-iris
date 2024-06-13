@@ -31,13 +31,13 @@ class JinjaFormatterService(asab.Service, FormatterABC):
 
 		self.Environment = jinja2.Environment()
 		# Inject 'now' function into the Jinja2 template's global namespace
-		self.Environment.globals['now'] = self._get_current_time
+		self.Environment.globals['now'] = self._jinja_now
 		self._load_variables_from_json()
 
-	def _get_current_time(self):
+	def _jinja_now(self):
 		timezone = pytz.timezone('Europe/Prague')
 		current_time = datetime.datetime.now(timezone)
-		return current_time.strftime('%Y-%m-%d %H:%M:%S.%f %Z')
+		return current_time
 
 	def _load_variables_from_json(self):
 		"""
