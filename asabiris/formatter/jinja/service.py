@@ -2,7 +2,6 @@ import logging
 import configparser
 
 import asab
-import pytz
 import datetime
 import pathlib
 import json
@@ -30,14 +29,17 @@ class JinjaFormatterService(asab.Service, FormatterABC):
 			self.Variables = {}
 
 		self.Environment = jinja2.Environment()
-		# Inject 'now' function into the Jinja2 template's global namespace
+		# Inject 'now' function and datetimeformat filter into the Jinja2 template's global namespace
 		self.Environment.globals['now'] = self._jinja_now
+		self.Environment.filters['datetimeformat'] = self.datetimeformat
 		self._load_variables_from_json()
 
 	def _jinja_now(self):
-		timezone = pytz.timezone('Europe/Prague')
-		current_time = datetime.datetime.now(timezone)
+		current_time = datetime.datetime.utcnow()
 		return current_time
+
+	def datetimeformat(self, value, format='%Y-%m-%d %H:%M:%S'):
+		return value.strftime(format)
 
 	def _load_variables_from_json(self):
 		"""
