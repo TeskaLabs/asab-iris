@@ -2,6 +2,7 @@ import logging
 import configparser
 
 import asab
+import datetime
 import pathlib
 import json
 import jinja2
@@ -28,7 +29,17 @@ class JinjaFormatterService(asab.Service, FormatterABC):
 			self.Variables = {}
 
 		self.Environment = jinja2.Environment()
+		# Inject 'now' function and datetimeformat filter into the Jinja2 template's global namespace
+		self.Environment.globals['now'] = self._jinja_now
+		self.Environment.filters['datetimeformat'] = self.datetimeformat
 		self._load_variables_from_json()
+
+	def _jinja_now(self):
+		current_time = datetime.datetime.utcnow()
+		return current_time
+
+	def datetimeformat(self, value, format='%Y-%m-%d %H:%M:%S'):
+		return value.strftime(format)
 
 	def _load_variables_from_json(self):
 		"""
@@ -74,8 +85,8 @@ class JinjaFormatterService(asab.Service, FormatterABC):
 			if b is None:
 				raise ASABIrisError(
 					ErrorCode.TEMPLATE_NOT_FOUND,
-					tech_message="Failed to render. Reason: Template {} does not exist".format(template_path),
-					error_i18n_key="Template '{{incorrect_path}}' does not exist",
+					tech_message="Failed to render. Reason: Template {} does not exist.".format(template_path),
+					error_i18n_key="Template '{{incorrect_path}}' does not exist.",
 					error_dict={
 						"incorrect_path": template_path,
 					}
@@ -86,7 +97,6 @@ class JinjaFormatterService(asab.Service, FormatterABC):
 
 			# Prepare template variables (aka context)
 			context = construct_context(dict(), self.Variables, template_params)
-
 			# Do the rendering
 			return template.render(context)
 		except jinja2.exceptions.UndefinedError as e:

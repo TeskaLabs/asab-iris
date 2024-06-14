@@ -30,7 +30,7 @@
     "to": ["foo@example.com"],
     "body": {
         "template": "/Templates/Email/message.md",
-        "wrapper": "/Templates/Email/body_wrapper.html",
+        "wrapper": "/Templates/Email/Markdown wrapper.html",
          "params":{
             "name":"Iris"
       }
@@ -47,7 +47,7 @@
     "to": ["foo@example.com"],
     "body": {
         "template": "/Templates/Email/message.md",
-        "wrapper": "/Templates/Emails/body_wrapper.html",
+        "wrapper": "/Templates/Emails/Markdown wrapper.html",
          "params":{
             "name":"Iris"
       }
@@ -63,8 +63,8 @@
 {
     "to": ["foo@example.com"],
     "body": {
-        "template": "/Templates/Email/message.md",
-        "wrapper": "/Templates/Email/body_wrapper.md",
+        "template": "/Templates/Emails/message.md",
+        "wrapper": "/Templates/Email/Markdown wrapper.md",
          "params":{
             "name":"Iris"
       }
@@ -72,6 +72,22 @@
 }
 ```
 
+## TSM001E: Send an email using Markdown template from a template that uses now from template global.
+
+`PUT /send_mail`
+
+```
+{
+    "to": ["foo@example.com"],
+    "body": {
+        "template": "/Templates/Email/render_now_variable.md",
+         "params":{
+            "name":"Iris",
+            "tenant":"Default",
+      }
+    }
+}
+```
 
 
 ## TSM002: Send an email using HTML template
@@ -1411,11 +1427,11 @@ EXPECTED RESPONSE:
 
 {"type":"email", "to": ["Shivashankar <mithunshivashankar@gmail.com>"], "from": "info@teskalabs.com", "body":{"template":"/Templates/Email/message.md", "params":{"name": "I am testing a template", "error": "None" }}}
 
-{"type":"email", "to": ["Shivashankar <mithunshivashankar@gmail.com>"], "from": "info@teskalabs.com", "body":{"template":"/Templates/Email/message.md", "wrapper":"/Templates/Wrapper/markdown_wrapper.md",  "params":{"name": "I am testing a template", "error": "None" }}}
+{"type":"email", "to": ["Shivashankar <mithunshivashankar@gmail.com>"], "from": "info@teskalabs.com", "body":{"template":"/Templates/Email/message.md", "wrapper":"/Templates/Wrapper/Markdown wrapper.md",  "params":{"name": "I am testing a template", "error": "None" }}}
 
-{"type": "email", "to": ["Shivashankar <mithunshivashankar@gmail.com>"], "from": "info@teskalabs.com", "body":{"template":"/Templates/Email/message.md", "wrapper":"/Templates/Wrapper/markdown_wrapper.html", "params":{"name": "I am testing a template", "error": "None" }}}
+{"type": "email", "to": ["Shivashankar <mithunshivashankar@gmail.com>"], "from": "info@teskalabs.com", "body":{"template":"/Templates/Email/message.md", "wrapper":"/Templates/Wrapper/Markdown wrapper.html", "params":{"name": "I am testing a template", "error": "None" }}}
 
-{"type": "email", "to": ["Shivashankar <mithunshivashankar@gmail.com>"], "from": "info@teskalabs.com", "body":{"template":"/Templates/Email/message.md", "wrapper":"/Templates/Wrappers/markdown_wrapper.html", "params":{"name": "I am testing a template", "error": "None" }}}
+{"type": "email", "to": ["Shivashankar <mithunshivashankar@gmail.com>"], "from": "info@teskalabs.com", "body":{"template":"/Templates/Email/message.md", "wrapper":"/Templates/Wrappers/Markdown wrapper.html", "params":{"name": "I am testing a template", "error": "None" }}}
 
 'Missing from'
 
