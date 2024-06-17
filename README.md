@@ -157,3 +157,40 @@ asab-iris implements specific error handling strategies for the Kafka and Web ha
 _Diagram: Architecture_  
 
 ![Architecture](./docs/asab-iris-architecture.drawio.svg)
+
+## Jinja2 Filters and Functions
+
+### `now()` Function
+
+The `now()` function returns the current UTC datetime. You can use this function in your Jinja2 templates to insert the current date and time.
+
+**Usage Example:**
+
+```jinja2
+{{ now() }}
+```
+
+This will output the current date and time in the default format.
+
+### `datetimeformat` Filter
+
+The `datetimeformat` filter allows you to format datetime objects in your Jinja2 templates. 
+
+**Usage Example:**
+
+To format the current datetime returned by `now()`:
+
+```jinja2
+{{ now()|datetimeformat('%Y-%m-%d %H:%M:%S') }}
+```
+
+**Possible Formats:**
+
+Here are some common format strings you can use with the `datetimeformat` filter:
+
+- `%Y-%m-%d %H:%M:%S` - Outputs as `2024-06-17 14:45:30`
+- `%d-%m-%Y` - Outputs as `17-06-2024`
+- `%A, %d %B %Y` - Outputs as `Monday, 17 June 2024`
+- `%I:%M %p` - Outputs as `02:45 PM`
+- `%B %d, %Y` - Outputs as `June 17, 2024`
+- `%Y-%m-%d` - Outputs as `2024-06-17`
