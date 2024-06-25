@@ -174,7 +174,7 @@ class KafkaHandler(asab.Service):
 				if self.App.SMSOrchestrator is not None:
 					await self.App.SMSOrchestrator.send_sms(msg)
 				else:
-					L.warning("MS Teams is not configured, a notification is discarded")
+					L.warning("SMS is not configured, a notification is discarded")
 					return
 			except ASABIrisError as e:
 				# if it is a server error do not send notification.
