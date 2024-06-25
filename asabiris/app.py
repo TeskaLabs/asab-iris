@@ -21,7 +21,7 @@ from .output.msteams import MSTeamsOutputService
 # orchestrators.
 from .orchestration.sendemail import SendEmailOrchestrator
 from .orchestration.render import RenderReportOrchestrator
-from .orchestration.sendsms import SMSOrchestrator
+from .orchestration.sendsms import SendSMSOrchestrator
 from .orchestration.sendmsteams import SendMSTeamsOrchestrator
 
 from .handlers.kafkahandler import KafkaHandler
@@ -99,7 +99,7 @@ class ASABIRISApplication(asab.Application):
 
 		if 'sms' in asab.Config.sections():
 			self.SMSOutputService = SMSOutputService(self)
-			self.SMSOrchestrator = SMSOrchestrator(self)
+			self.SMSOrchestrator = SendSMSOrchestrator(self)
 		else:
 			self.SendMSTeamsOrchestrator = None
 

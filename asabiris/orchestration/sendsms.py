@@ -10,7 +10,7 @@ L = logging.getLogger(__name__)
 #
 
 
-class SMSOrchestrator(object):
+class SendSMSOrchestrator(object):
 
 	def __init__(self, app):
 		self.JinjaService = app.get_service("JinjaService")

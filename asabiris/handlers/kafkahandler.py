@@ -171,8 +171,8 @@ class KafkaHandler(asab.Service):
 				L.warning("Invalid notification format: {}".format(e))
 				return
 			try:
-				if self.App.SMSOrchestrator is not None:
-					await self.App.SMSOrchestrator.send_sms(msg)
+				if self.App.SendSMSOrchestrator is not None:
+					await self.App.SendSMSOrchestrator.send_sms(msg)
 				else:
 					L.warning("SMS is not configured, a notification is discarded")
 					return

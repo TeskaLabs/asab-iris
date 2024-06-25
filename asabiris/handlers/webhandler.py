@@ -331,7 +331,7 @@ class WebHandler(object):
 		"""
 		# Render a body
 		try:
-			await self.App.SMSOrchestrator.send_sms(json_data)
+			await self.App.SendSMSOrchestrator.send_sms(json_data)
 		except ASABIrisError as e:
 			# Map ErrorCode to HTTP status codes
 			status_code = self.map_error_code_to_status(e.ErrorCode)
