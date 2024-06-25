@@ -2,5 +2,5 @@
 import asabiris
 
 if __name__ == '__main__':
-	app = asabiris.IRISApplication()
+	app = asabiris.ASABIRISApplication()
 	app.run()

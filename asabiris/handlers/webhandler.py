@@ -5,13 +5,15 @@ import asab.web.rest
 import aiohttp.web
 import aiohttp.payload_streamer
 
-import jinja2
-
 from ..schemas.emailschema import email_schema
 from ..schemas.slackschema import slack_schema
+from ..schemas.smsschema import sms_schema
+from ..schemas.teamsschema import teams_schema
 
 from ..exceptions import SMTPDeliverError, PathError, FormatError, SMSDeliveryError
+from ..errors import ASABIrisError, ErrorCode
 
+import slack_sdk.errors
 #
 
 L = logging.getLogger(__name__)
@@ -29,7 +31,8 @@ class WebHandler(object):
 		web_app.router.add_put(r"/send_mail", self.send_email)  # This one is for backward compatibility
 		web_app.router.add_put(r"/render", self.render)
 		web_app.router.add_put(r"/send_sms", self.send_sms)
-		web_app.router.add_put(r"/send_slack", self.send_alert)
+		web_app.router.add_put(r"/send_slack", self.send_slack)
+		web_app.router.add_put(r"/send_msteams", self.send_msteams)
 
 
 	@asab.web.rest.json_schema_handler(email_schema)
@@ -73,7 +76,7 @@ class WebHandler(object):
 		}
 
 		```
-		Attached will be retrieved from request.content when rendering the email is not required.
+		Attached will be retrieved from request. Content when rendering the email is not required.
 
 		Example of the email body template:
 		```
@@ -97,6 +100,7 @@ class WebHandler(object):
 			await self.App.SendEmailOrchestrator.send_email(
 				email_to=json_data["to"],
 				body_template=json_data["body"]["template"],
+				body_template_wrapper=json_data["body"].get("wrapper", None),
 				email_cc=json_data.get("cc", []),  # Optional
 				email_bcc=json_data.get("bcc", []),  # Optional
 				email_subject=json_data.get("subject", None),  # Optional
@@ -104,26 +108,34 @@ class WebHandler(object):
 				body_params=json_data["body"].get("params", {}),  # Optional
 				attachments=json_data.get("attachments", []),  # Optional
 			)
-		except KeyError as e:
-			raise aiohttp.web.HTTPNotFound(text="{}".format(e))
+		except ASABIrisError as e:
+			# Map ErrorCode to HTTP status codes
+			status_code = self.map_error_code_to_status(e.ErrorCode)
 
-		except jinja2.exceptions.UndefinedError as e:
-			raise aiohttp.web.HTTPBadRequest(text="Jinja2 error: {}".format(e))
+			response = {
+				"result": "ERROR",
+				"error": e.Errori18nKey,
+				"error_dict": e.ErrorDict,
+				"tech_err": e.TechMessage
+			}
+			return aiohttp.web.json_response(response, status=status_code)
 
-		except SMTPDeliverError:
-			raise aiohttp.web.HTTPServiceUnavailable(text="SMTP error")
+		except Exception as e:
+			L.exception(str(e))
+			bad_response = {
+				"result": "FAILED",
+				"error": {
+					"message": str(e),
+					"error_code": "GENERAL_ERROR",
+				}
+			}
+			return asab.web.rest.json_response(request, bad_response, status=400)
 
-		except PathError as e:
-			raise aiohttp.web.HTTPNotFound(text="{}".format(e))
-
-		except FormatError as e:
-			raise aiohttp.web.HTTPBadRequest(text="{}".format(e))
-
-		# More specific exception handling goes here so that the service provides nice output
 		return asab.web.rest.json_response(request, {"result": "OK"})
 
+
 	@asab.web.rest.json_schema_handler(slack_schema)
-	async def send_alert(self, request, *, json_data):
+	async def send_slack(self, request, *, json_data):
 		"""
 		This endpoint is for sending slack-notification.
 		```
@@ -134,7 +146,7 @@ class WebHandler(object):
 		{
 			"type": "slack",
 			"body": {
-				"template": "/Templates/Slack/alert.md",
+				"template": "/Templates/Slack/message.md",
 				"params": {
 					"Name": "Toddy Siciro"
 			}
@@ -145,23 +157,89 @@ class WebHandler(object):
 
 		try:
 			await self.App.SendSlackOrchestrator.send_to_slack(json_data)
+		except ASABIrisError as e:
+			# Map ErrorCode to HTTP status codes
+			status_code = self.map_error_code_to_status(e.ErrorCode)
 
-		except jinja2.exceptions.UndefinedError as e:
-			raise aiohttp.web.HTTPBadRequest(text="Jinja2 error: {}".format(e))
+			response = {
+				"result": "ERROR",
+				"error": e.Errori18nKey,
+				"error_dict": e.ErrorDict,
+				"tech_err": e.TechMessage
+			}
+			return aiohttp.web.json_response(response, status=status_code)
 
-		except PathError as e:
-			raise aiohttp.web.HTTPNotFound(text="{}".format(e))
-
-		except FormatError as e:
-			raise aiohttp.web.HTTPBadRequest(text="{}".format(e))
-
+		except slack_sdk.errors.SlackApiError as e:
+			raise aiohttp.web.HTTPServiceUnavailable(text="{}".format(e))
 		# More specific exception handling goes here so that the service provides nice output
+		except Exception as e:
+			L.exception(str(e))
+			response = {
+				"result": "FAILED",
+				"error": {
+					"message": str(e),
+					"error_code": "GENERAL_ERROR",
+				}
+			}
+			return aiohttp.web.json_response(response, status=400)
 
 		return asab.web.rest.json_response(request, {"result": "OK"})
 
 
-	# TODO: JSON schema
-	async def render(self, request):
+	@asab.web.rest.json_schema_handler(teams_schema)
+	async def send_msteams(self, request, *, json_data):
+		"""
+		This endpoint is for sending slack-notification.
+		```
+		```
+		Example body:
+
+		```
+				{
+				"title": "Testing iris",
+				"body": {
+					"template": "/Templates/MSTeams/alert.md",
+					"params": {
+					"message": "I am testing a template",
+					"event": "Iris-Event"
+				}
+			}
+		}
+
+		---
+		tags: ['Send MS Teams']
+		"""
+
+		try:
+			await self.App.SendMSTeamsOrchestrator.send_to_msteams(json_data)
+		except ASABIrisError as e:
+			# Map ErrorCode to HTTP status codes
+			status_code = self.map_error_code_to_status(e.ErrorCode)
+
+			response = {
+				"result": "ERROR",
+				"error": e.Errori18nKey,
+				"error_dict": e.ErrorDict,
+				"tech_err": e.TechMessage
+			}
+			return aiohttp.web.json_response(response, status=status_code)
+
+		except Exception as e:
+			L.exception(str(e))
+			response = {
+				"result": "FAILED",
+				"error": {
+					"message": str(e),
+					"error_code": "GENERAL_ERROR",
+				}
+			}
+			return aiohttp.web.json_response(response, status=400)
+
+		return asab.web.rest.json_response(request, {"result": "OK"})
+
+
+	@asab.web.rest.json_schema_handler({"type": "object"})
+	async def render(self, request, *, json_data):
 		"""
 		This endpoint renders request body into template based on the format specified.
 		Example:
@@ -182,6 +260,8 @@ class WebHandler(object):
 			"state":"MH"
 		}
 		```
+		---
+		parameters: [{"name": "format", "in": "query", "description": "Format of the document"}, {"name": "template", "in": "query", "description": "Reference to the template"}]
 		"""
 		fmt = request.query.get("format", "html")
 		template = request.query.get("template", None)
@@ -190,8 +270,27 @@ class WebHandler(object):
 		# Render a body
 		try:
 			html = await self.App.RenderReportOrchestrator.render(template, template_data)
-		except PathError as e:
-			raise aiohttp.web.HTTPNotFound(text="{}".format(e))
+		except ASABIrisError as e:
+			# Map ErrorCode to HTTP status codes
+			status_code = self.map_error_code_to_status(e.ErrorCode)
+
+			response = {
+				"result": "ERROR",
+				"error": e.Errori18nKey,
+				"error_dict": e.ErrorDict,
+				"tech_err": e.TechMessage
+			}
+			return aiohttp.web.json_response(response, status=status_code)
+		except Exception as e:
+			L.exception(str(e))
+			response = {
+				"result": "FAILED",
+				"error": {
+					"message": str(e),
+					"error_code": "GENERAL_ERROR",
+				}
+			}
+			return aiohttp.web.json_response(response, status=400)
 
 		# get pdf from html if present.
 		if fmt == 'pdf':
@@ -207,6 +306,7 @@ class WebHandler(object):
 			body=html if content_type == "text/html" else file_sender(pdf)
 		)
 
+	@asab.web.rest.json_schema_handler(sms_schema)
 	async def send_sms(self, request, *, json_data):
 		"""Send an SMS message to the phone number specified in the request body.
 
@@ -232,7 +332,7 @@ class WebHandler(object):
 		"""
 		# Render a body
 		try:
-			result = await self.App.SMSOutputService(json_data)
+			result = await self.App.SMSOrchestrator.send_sms(json_data)
 		except SMSDeliveryError as e:
 			raise aiohttp.web.HTTPBadRequest(text="{}".format(e))
 
@@ -243,6 +343,27 @@ class WebHandler(object):
 		}
 		return asab.web.rest.json_response(request, response)
 
+	def map_error_code_to_status(self, error_code):
+		"""
+		Maps error codes to HTTP status codes.
+		"""
+		error_code_mapping = {
+			ErrorCode.INVALID_FORMAT: 400,
+			ErrorCode.JINJA2_ERROR: 400,
+			ErrorCode.RENDERING_ERROR: 400,
+			ErrorCode.TEMPLATE_NOT_FOUND: 404,
+			ErrorCode.SERVER_ERROR: 502,
+			ErrorCode.SLACK_API_ERROR: 401,
+			ErrorCode.SMTP_CONNECTION_ERROR: 502,
+			ErrorCode.SMTP_AUTHENTICATION_ERROR: 401,
+			ErrorCode.SMTP_RESPONSE_ERROR: 400,
+			ErrorCode.SMTP_SERVER_DISCONNECTED: 502,
+			ErrorCode.SMTP_GENERIC_ERROR: 400,
+			ErrorCode.SMTP_TIMEOUT: 504,
+			ErrorCode.INVALID_SERVICE_CONFIGURATION: 400
+		}
+
+		return error_code_mapping.get(error_code, 400)  # Default to 400 Bad Request
 
 
 @aiohttp.payload_streamer.streamer

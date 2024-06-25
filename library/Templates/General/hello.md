@@ -1,7 +1,6 @@
-SUBJECT: Hello from ASAB Iris
 Hello,
 
-I'm very simple message by {{name}}!
+I'm very simple attachment by {{name}}!
 
 Your,  
 ASAB Iris

@@ -1,5 +1,5 @@
-from .app import IRISApplication
+from .app import ASABIRISApplication
 
 __all__ = [
-	"IRISApplication"
+	"ASABIRISApplication"
 ]

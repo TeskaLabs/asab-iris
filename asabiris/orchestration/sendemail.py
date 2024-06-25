@@ -1,107 +1,90 @@
+"""
+Module to orchestrate the sending of emails.
+
+This module provides functionality to orchestrate the sending of emails,
+including rendering email templates, processing attachments, and sending
+emails through an SMTP service.
+
+Classes:
+	SendEmailOrchestrator: Orchestrates the sending of emails.
+"""
+import asab
 import os
-import base64
+import re
 import datetime
 import logging
+from typing import List, Tuple, Dict
 
-from .. import utils
-from .. exceptions import PathError, FormatError
+from ..errors import ASABIrisError, ErrorCode
+
 #
 
 L = logging.getLogger(__name__)
 
-
 #
 
 
-class SendEmailOrchestrator(object):
+class SendEmailOrchestrator:
+	"""
+	A class to orchestrate the sending of emails.
+
+	This class handles rendering email templates, processing attachments, and
+	sending emails through an SMTP service.
+
+	"""
 
 	def __init__(self, app):
+		"""
+		Initialize the SendEmailOrchestrator with necessary services.
 
-		# formatters
+		Args:
+			app: The application object, used to get services.
+		"""
 		self.JinjaService = app.get_service("JinjaService")
-		self.HtmlToPdfService = app.get_service("HtmlToPdfService")
 		self.MarkdownToHTMLService = app.get_service("MarkdownToHTMLService")
+		self.AttachmentRenderingService = app.get_service("AttachmentRenderingService")
 
-		# output
 		self.SmtpService = app.get_service("SmtpService")
 
+		# Check if 'email' section exists and 'markdown_wrapper' is neither None nor empty
+		if 'email' in asab.Config and asab.Config.get("email", "markdown_wrapper"):
+			self.MarkdownWrapper = asab.Config.get("email", "markdown_wrapper")
+		else:
+			self.MarkdownWrapper = None
+
+
 	async def send_email(
-		self, *,
-		email_to,
+		self,
+		email_to: List[str],
+		body_template: str,
+		body_template_wrapper=None,
+		body_params=None,
 		email_from=None,
-		email_cc=[],
-		email_bcc=[],
+		email_cc=None,
+		email_bcc=None,
 		email_subject=None,
-		body_template,
-		body_params={},
-		attachments=[],
+		attachments=None
 	):
 		"""
-		It sends an email
-
-		:param email_to: The email address to send the email to
-		:param email_from: The email address to send the email from. If not provided, the default email
-		address will be used
-		:param email_cc: A list of email addresses to CC
-		:param email_bcc: A list of email addresses to send a blind carbon copy to
-		:param email_subject: The subject of the email
-		:param body_template: The name of the template to use for the body of the email
-		:param body_params: A dictionary of parameters to pass to the template
-		:param attachments: a list of tuples, each tuple containing the filename and the file contents
+		Send an email using specified parameters.
+		...
 		"""
+		body_params = body_params or {}
+		attachments = attachments or []
+		email_cc = email_cc or []
+		email_bcc = email_bcc or []
 
-		# Render a body
-		body_html, email_subject_body = await self.render(body_template, body_params)
+		# Rendering the template
+		body_html, email_subject_body = await self._render_template(body_template, body_params, body_template_wrapper)
 
-		if email_subject is None:
+		# If email_subject is not provided or is empty use email_subject_body
+		if email_subject is None or email_subject == '':
 			email_subject = email_subject_body
 
-		atts = []
+		# Processing attachments
+		atts_gen = self.AttachmentRenderingService.render_attachment(attachments)
 
-		if len(attachments) == 0:
-			L.debug("No attachment's to render.")
-
-		else:
-			for a in attachments:
-				# If there are 'template' we render 'template's' else we throw a sweet warning.
-				# If content-type is application/octet-stream we assume there is additional attachments in request else we raise bad-request error.
-				template = a.get('template', None)
-
-				if template is not None:
-					params = a.get('params', {})
-					# templates must be stores in /Templates/Emails
-					if not template.startswith("/Templates/Email/"):
-						raise PathError(path=template)
-
-					# get file-name of the attachment
-					file_name = self.get_file_name(a)
-					jinja_output, result = await self.render(template, params)
-
-					# get pdf from html if present.
-					fmt = a.get('format', 'html')
-					if fmt == 'pdf':
-						result = self.HtmlToPdfService.format(jinja_output).read()
-						content_type = "application/pdf"
-					elif fmt == 'html':
-						result = jinja_output.encode("utf-8")
-						content_type = "text/html"
-					else:
-						raise FormatError(format=fmt)
-
-					atts.append((result, content_type, file_name))
-					continue
-
-				# If there is `base64` field, then the content of the attachment is provided in the body in base64
-				base64cnt = a.get('base64', None)
-				if base64cnt is not None:
-					content_type = a.get('content-type', "application/octet-stream")
-					file_name = self.get_file_name(a)
-					result = base64.b64decode(base64cnt)
-					atts.append((result, content_type, file_name))
-					continue
-
-				L.warning("Unknown/invalid attachment.")
-
+		# Sending the email
 		await self.SmtpService.send(
 			email_from=email_from,
 			email_to=email_to,
@@ -109,51 +92,124 @@ class SendEmailOrchestrator(object):
 			email_bcc=email_bcc,
 			email_subject=email_subject,
 			body=body_html,
-			attachments=atts
+			attachments=atts_gen,
 		)
+		L.info("Email sent successfully to: {}".format(', '.join(email_to)))
 
-	async def render(self, template, params):
-		"""
-		This method renders templates based on the depending on the
-		extension of template.
 
-		Returns the html and optional subject line if found in the templat.
+	async def _render_template(self, template: str, params: Dict, body_template_wrapper=None) -> Tuple[str, str]:
+		# First, determine if a default wrapper needs to be used
+		if body_template_wrapper in [None, '']:
+			body_template_wrapper = self.MarkdownWrapper
 
-		jinja_output will be used for extracting subject.
-		"""
-		# templates must be stores in /Templates/Emails
-		if not template.startswith("/Templates/Email/"):
-			raise PathError(path=template)
+		# Check the template paths right after updating body_template_wrapper
+		if not template.startswith('/Templates/Email/'):
+			raise ASABIrisError(
+				ErrorCode.INVALID_PATH,
+				tech_message="Incorrect template path '{}'. Move templates to '/Templates/Email/'.".format(template),
+				error_i18n_key="Incorrect template path '{{incorrect_path}}'. Please move your templates to '/Templates/Email/'.",
+				error_dict={
+					"incorrect_path": template,
+				}
+			)
 
-		try:
-			jinja_output = await self.JinjaService.format(template, params)
-		except KeyError:
-			L.warning("Failed to load or render a template (missing?)", struct_data={'template': template})
-			raise
+		if body_template_wrapper is not None and not body_template_wrapper.startswith('/Templates/Wrapper/'):
+			raise ASABIrisError(
+				ErrorCode.INVALID_PATH,
+				tech_message="Incorrect wrapper template path '{}'. Move wrapper templates to '/Templates/Wrapper/'.".format(
+					body_template_wrapper),
+				error_i18n_key="Incorrect wrapper template path '{{incorrect_path}}'. Please move your wrapper templates to '/Templates/Wrapper/'.",
+				error_dict={
+					"incorrect_path": body_template_wrapper,
+				}
+			)
 
-		_, extension = os.path.splitext(template)
+		# Proceed with rendering the template
+		jinja_output = await self.JinjaService.format(template, params)
 
-		if extension == '.html':
-			return utils.find_subject_in_html(jinja_output)
+		ext = os.path.splitext(template)[1]
+		if ext == '.html':
+			return find_subject_in_html(jinja_output)
 
-		elif extension == '.md':
-			jinja_output, subject = utils.find_subject_in_md(jinja_output)
-			html_output = self.MarkdownToHTMLService.format(jinja_output)
-			if not html_output.startswith("<!DOCTYPE html>"):
-				html_output = utils.normalize_body(html_output)
-			return html_output, subject
+		elif ext == '.md':
+			body, subject = find_subject_in_md(jinja_output)
+			html_body = self.MarkdownToHTMLService.format(body)
+
+			# Apply the wrapper if it exists and is not empty
+			if body_template_wrapper not in [None, '']:
+				html_body_param = {"content": html_body}
+				html_body = await self.JinjaService.format(body_template_wrapper, html_body_param)
+			else:
+				html_body = convert_markdown_to_full_html(html_body)
+
+			return html_body, subject
 
 		else:
-			raise FormatError(format=extension)
+			raise ASABIrisError(
+				ErrorCode.INVALID_FORMAT,
+				tech_message="Unsupported conversion format '{}' for template '{}'".format(ext, template),
+				error_i18n_key="The format '{{invalid_format}}' is not supported",
+				error_dict={
+					"invalid_format": ext,
+				}
+			)
 
-	def get_file_name(self, attachment):
-		"""
-		This method returns a file-name if provided in the attachment-dict.
-		If not then the name of the file is current date with appropriate
-		extensions.
-		"""
-		if attachment.get('filename') is None:
-			now = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
-			return "att-" + now + "." + attachment.get('format')
-		else:
-			return attachment.get('filename')
+	def _generate_error_message(self, specific_error: str) -> Tuple[str, str]:
+		timestamp = datetime.datetime.now(tz=datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
+		error_message = (
+			"<p>Hello!</p>"
+			"<p>We encountered an issue while processing your request:<br><b>{}</b></p>"
+			"<p>Please review your input and try again.<p>"
+			"<p>Time: {} UTC</p>"  # Added a <br> here for a new line in HTML
+			"<p>Best regards,<br>ASAB Iris</p>"
+		).format(
+			specific_error,
+			timestamp
+		)
+		return error_message, "Error when generating email"
+
+
+def find_subject_in_html(body):
+	regex = r"(<title>(.*)</title>)"
+	match = re.search(regex, body)
+	if match is None:
+		return body, None
+	_, subject = match.groups()
+	return body, subject
+
+
+def find_subject_in_md(body):
+	if not body.startswith("SUBJECT:"):
+		return body, None
+	subject = body.split("\n")[0].replace("SUBJECT:", "").lstrip()
+	body = "\n".join(body.split("\n")[1:])
+	return body, subject
+
+
+def convert_markdown_to_full_html(html_text):
+	"""
+	Convert Markdown text to a full HTML document.
+
+	Args:
+	markdown_text (str): Markdown formatted text to be converted.
+
+	Returns:
+	str: A complete HTML document string.
+	"""
+
+	# Wrap the HTML content in a full HTML document structure
+	full_html_document = """
+<!DOCTYPE html>
+<html lang="en">
+<head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Document</title>
+</head>
+<body>
+{content}
+</body>
+</html>
+""".format(content=html_text)
+
+	return full_html_document

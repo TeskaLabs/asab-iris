@@ -1,88 +1,82 @@
-import datetime
 import logging
+import asab
+import hashlib
+import datetime
 import secrets
 import aiohttp
-import asab
-import passlib.hash
+import pytz
 
 from ...output_abc import OutputABC
 from ...exceptions import SMSDeliveryError
-#
 
 L = logging.getLogger(__name__)
 
-
-#
-
+asab.Config.add_defaults(
+    {
+        'sms': {
+            "login":"",
+            "password": "",
+            "timestamp_format": "%Y%m%dT%H%M%S",
+            "api_url": "https://api.smsbrana.cz/smsconnect/http.php",
+        }
+    }
+)
 
 class SMSOutputService(asab.Service, OutputABC):
-	"""
-	SMSBrana API documentation https://www.smsbrana.cz/dokumenty/SMSconnect_dokumentace.pdf
-	Example smsbrana.cz API response:
-	```xml
-	<?xml version='1.0' encoding='utf-8'?>
-	<result>
-	<err>10</err>
-	</result>
-	```
-	#   tree = xml.etree.ElementTree.ElementTree(xml.etree.ElementTree.fromstring(xmlstring))
-	"""
+    def __init__(self, app, service_name="SMSOutputService"):
+        super().__init__(app, service_name)
+        self.Login = asab.Config.get("sms", "login")
+        self.Password = asab.Config.get("sms", "password").strip()
+        self.TimestampFormat = asab.Config.get("sms", "timestamp_format")
+        self.ApiUrl = asab.Config.get("sms", "api_url")
+        self.TimeZone = pytz.timezone('Europe/Prague')
 
-	Channel = "sms"
+    def generate_auth_params(self):
+        time_now = datetime.datetime.now(self.TimeZone).strftime(self.TimestampFormat)  # Ensure Prague time
+        sul = secrets.token_urlsafe(16)
+        auth_string = "{}{}{}".format(self.Password, time_now, sul)
+        auth = hashlib.md5(auth_string.encode('utf-8')).hexdigest()
+        return time_now, sul, auth
 
-	ConfigDefaults = {  # If True, messages are not sent, but rather printed to the log
-		"login": "",
-		"password": "",
-		"url": "https://api.smsbrana.cz/smsconnect/http.php",
-		# smsbrana provides a backup server: https://api-backup.smsbrana.cz/smsconnect/http.php
-		"timestamp_format": "%Y%m%dT%H%M%S",  # Use STARTTLS protocol
-	}
+    async def send(self, sms_data):
+        if not sms_data.get('phone'):
+            L.error("Empty or no phone number specified.")
+            raise RuntimeError("Empty or no phone number specified.")
 
-	def __init__(self, app, service_name="SMSOutputService"):
-		super().__init__(app, service_name)
-		self.Login = asab.Config.get("login")
-		self.Password = asab.Config.get("password")
-		self.TimestampFormat = asab.Config.get("timestamp_format")
-		self.URL = asab.Config.get("url")
+        if isinstance(sms_data['message_body'], str):
+            message_list = [sms_data['message_body']]
+        else:
+            message_list = sms_data['message_body']
 
-	async def send(self, sms_data):
-		if sms_data['phone'] is None or sms_data['phone'] == "":
-			L.error("Empty or no phone number specified.")
-			raise RuntimeError("Empty or no phone number specified.")
+        for text in message_list:
+            # Clean the message content
+            text = text.replace('\n', ' ').strip()
+            if not text.isascii():
+                L.error("Message contains non-ASCII characters.")
+                raise RuntimeError("Message contains non-ASCII characters.")
 
-		if isinstance(sms_data['message_body'], str):
-			message_list = [sms_data['message_body']]
-		else:
-			message_list = sms_data['message_body']
+            time_now, sul, auth = self.generate_auth_params()
+            params = {
+                "action": "send_sms",
+                "login": self.Login,
+                "time": time_now,
+                "sul": sul,
+                "auth": auth,
+                "number": sms_data['phone'],
+                "message": text
+            }
 
-		for text in message_list:
-			url_params = {
-				"action": "send_sms",
-				"login": self.Login,
-				"time": None,
-				"salt": None,
-				"auth": None,
-				"number": sms_data['phone'],
-				"message": text
-			}
+            async with aiohttp.ClientSession() as session:
+                async with session.get(self.ApiUrl, params=params) as resp:
+                    response_body = await resp.text()
+                    if resp.status != 200:
+                        L.error(f"SMSBrana.cz responded with {resp.status}: {response_body}")
+                        raise SMSDeliveryError(phone_number=sms_data['phone'])
 
-			time = datetime.datetime.now(datetime.timezone.utc).strftime(self.TimestampFormat)
-			salt = secrets.token_urlsafe(16)
-			auth = passlib.hash.hex_md5.hash(self.Password + time + salt)
-			url_params["time"] = time
-			url_params["salt"] = salt
-			url_params["auth"] = auth
+                    if "<err>0</err>" not in response_body:
+                        L.error(f"SMS delivery failed. SMSBrana.cz response: {response_body}")
+                        raise SMSDeliveryError(phone_number=sms_data['phone'])
+                    else:
+                        L.log(asab.LOG_NOTICE, "SMS sent successfully")
 
-			async with aiohttp.ClientSession() as session:
-				async with session.get(self.URL, params=url_params) as resp:
-					if resp.status != 200:
-						L.error("SMSBrana.cz responsed with {}".format(resp), await resp.text())
-						raise SMSDeliveryError(phone_number=sms_data['phone'])
-					response_body = await resp.text()
-
-			if "<err>0</err>" not in response_body:
-				L.error("SMS delivery failed. SMSBrana.cz response: {}".format(response_body))
-				raise SMSDeliveryError(phone_number=sms_data['phone'])
-			else:
-				L.log(asab.LOG_NOTICE, "SMS sent")
-		return True
+        return True

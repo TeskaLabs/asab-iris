@@ -1,0 +1,2 @@
+{# Attempt to access an undefined variable, which will raise an UndefinedError in Jinja2 #}
+{{ non_existent_variable + non_existent_variable }}
