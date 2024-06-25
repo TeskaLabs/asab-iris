@@ -99,7 +99,7 @@ class ASABIRISApplication(asab.Application):
 
 		if 'sms' in asab.Config.sections():
 			self.SMSOutputService = SMSOutputService(self)
-			self.SMSOrchestrator = SendSMSOrchestrator(self)
+			self.SendSMSOrchestrator = SendSMSOrchestrator(self)
 		else:
 			self.SendMSTeamsOrchestrator = None
 
