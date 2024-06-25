@@ -56,6 +56,7 @@ class SMSDeliveryError(Exception):
 		else:
 			super().__init__(message, *args)
 
+
 class Jinja2TemplateUndefinedError(Exception):
 	def __init__(self, message=None, *args, template_path=None, variable_name=None):
 		self.TemplatePath = template_path

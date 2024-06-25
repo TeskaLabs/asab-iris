@@ -22,6 +22,7 @@ asab.Config.add_defaults(
     }
 )
 
+
 class SMSOutputService(asab.Service, OutputABC):
     def __init__(self, app, service_name="SMSOutputService"):
         super().__init__(app, service_name)

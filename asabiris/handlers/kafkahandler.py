@@ -188,6 +188,15 @@ class KafkaHandler(asab.Service):
 				# Handle any other unexpected exceptions using handle_exception function
 				await self.handle_exception(e, 'sms')
 
+		elif msg_type == 'sms':
+			try:
+				L.log(asab.LOG_NOTICE, "Sending error notification via SMS.")
+				await self.App.SMSOutputService.send(msg)
+			except ASABIrisError as e:
+				L.info("Error notification via SMS unsuccessful: Explanation: {}".format(e.TechMessage))
+			except Exception:
+				L.exception("Error notification via SMS unsuccessful.")
+
 		else:
 			L.warning(
 				"Notification sending failed: Unsupported message type '{}'. "
@@ -287,6 +296,11 @@ class KafkaHandler(asab.Service):
 					"Please review your input and try again.\n\n"
 					"Time: `{}` UTC\n\n"
 					"Best regards,\nYour Team"
+				).format(specific_error, timestamp)
+				return error_message, None
+			elif service_type == 'sms':
+				error_message = (
+					"Hello! We encountered an issue while processing your request: {}. Please review your input and try again. Time: {} UTC. Best regards, Your Team"
 				).format(specific_error, timestamp)
 				return error_message, None
 

@@ -10,7 +10,6 @@ from ..schemas.slackschema import slack_schema
 from ..schemas.smsschema import sms_schema
 from ..schemas.teamsschema import teams_schema
 
-from ..exceptions import SMTPDeliverError, PathError, FormatError, SMSDeliveryError
 from ..errors import ASABIrisError, ErrorCode
 
 import slack_sdk.errors
@@ -332,7 +331,7 @@ class WebHandler(object):
 		"""
 		# Render a body
 		try:
-			result = await self.App.SMSOrchestrator.send_sms(json_data)
+			await self.App.SMSOrchestrator.send_sms(json_data)
 		except ASABIrisError as e:
 			# Map ErrorCode to HTTP status codes
 			status_code = self.map_error_code_to_status(e.ErrorCode)
