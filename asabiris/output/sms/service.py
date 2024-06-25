@@ -5,17 +5,17 @@ import datetime
 import secrets
 import aiohttp
 import pytz
-
 from ...output_abc import OutputABC
-from ...exceptions import SMSDeliveryError
+
+from ...errors import ASABIrisError, ErrorCode
 
 L = logging.getLogger(__name__)
 
 asab.Config.add_defaults(
     {
         'sms': {
-            "login":"",
-            "password": "",
+            "login": "your_smsbrana_login",
+            "password": "your_smsbrana_password",
             "timestamp_format": "%Y%m%dT%H%M%S",
             "api_url": "https://api.smsbrana.cz/smsconnect/http.php",
         }
@@ -41,7 +41,12 @@ class SMSOutputService(asab.Service, OutputABC):
     async def send(self, sms_data):
         if not sms_data.get('phone'):
             L.error("Empty or no phone number specified.")
-            raise RuntimeError("Empty or no phone number specified.")
+            raise ASABIrisError(
+                ErrorCode.INVALID_SERVICE_CONFIGURATION,
+                tech_message="Empty or no phone number specified.",
+                error_i18n_key="Invalid input: {{error_message}}.",
+                error_dict={"error_message": "Empty or no phone number specified."}
+            )
 
         if isinstance(sms_data['message_body'], str):
             message_list = [sms_data['message_body']]
@@ -53,7 +58,12 @@ class SMSOutputService(asab.Service, OutputABC):
             text = text.replace('\n', ' ').strip()
             if not text.isascii():
                 L.error("Message contains non-ASCII characters.")
-                raise RuntimeError("Message contains non-ASCII characters.")
+                raise ASABIrisError(
+                    ErrorCode.INVALID_SERVICE_CONFIGURATION,
+                    tech_message="Message contains non-ASCII characters.",
+                    error_i18n_key="Invalid input: {{error_message}}.",
+                    error_dict={"error_message": "Message contains non-ASCII characters."}
+                )
 
             time_now, sul, auth = self.generate_auth_params()
             params = {
@@ -71,11 +81,21 @@ class SMSOutputService(asab.Service, OutputABC):
                     response_body = await resp.text()
                     if resp.status != 200:
                         L.error(f"SMSBrana.cz responded with {resp.status}: {response_body}")
-                        raise SMSDeliveryError(phone_number=sms_data['phone'])
+                        raise ASABIrisError(
+                            ErrorCode.SERVER_ERROR,
+                            tech_message=f"SMSBrana.cz responded with {resp.status}: {response_body}",
+                            error_i18n_key="Error occurred while sending SMS. Reason: '{{error_message}}'.",
+                            error_dict={"error_message": response_body}
+                        )
 
                     if "<err>0</err>" not in response_body:
                         L.error(f"SMS delivery failed. SMSBrana.cz response: {response_body}")
-                        raise SMSDeliveryError(phone_number=sms_data['phone'])
+                        raise ASABIrisError(
+                            ErrorCode.SERVER_ERROR,
+                            tech_message=f"SMS delivery failed. SMSBrana.cz response: {response_body}",
+                            error_i18n_key="Error occurred while sending SMS. Reason: '{{error_message}}'.",
+                            error_dict={"error_message": response_body}
+                        )
                     else:
                         L.log(asab.LOG_NOTICE, "SMS sent successfully")
 

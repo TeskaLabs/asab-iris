@@ -333,15 +333,28 @@ class WebHandler(object):
 		# Render a body
 		try:
 			result = await self.App.SMSOrchestrator.send_sms(json_data)
-		except SMSDeliveryError as e:
-			raise aiohttp.web.HTTPBadRequest(text="{}".format(e))
+		except ASABIrisError as e:
+			# Map ErrorCode to HTTP status codes
+			status_code = self.map_error_code_to_status(e.ErrorCode)
 
-		# get pdf from html if present.
-		response = {
-			"result": "OK",
-			"data": result
-		}
-		return asab.web.rest.json_response(request, response)
+			response = {
+				"result": "ERROR",
+				"error": e.Errori18nKey,
+				"error_dict": e.ErrorDict,
+				"tech_err": e.TechMessage
+			}
+			return aiohttp.web.json_response(response, status=status_code)
+
+		except Exception as e:
+			L.exception(str(e))
+			response = {
+				"result": "FAILED",
+				"error": {
+					"message": str(e),
+					"error_code": "GENERAL_ERROR",
+				}
+			}
+			return aiohttp.web.json_response(response, status=400)
 
 	def map_error_code_to_status(self, error_code):
 		"""
