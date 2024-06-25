@@ -108,9 +108,6 @@ class ASABIRISApplication(asab.Application):
 		self.SendEmailOrchestrator = SendEmailOrchestrator(self)
 		self.RenderReportOrchestrator = RenderReportOrchestrator(self)
 
-		self.SMSOrchestrator = SMSOrchestrator(self)
-		self.SendSlackOrchestrator = SendSlackOrchestrator(self)
-
 		self.WebHandler = WebHandler(self)
 
 		# Apache Kafka API is conditional
