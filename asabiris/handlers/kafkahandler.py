@@ -163,6 +163,31 @@ class KafkaHandler(asab.Service):
 			except Exception as e:
 				# Handle any other unexpected exceptions using handle_exception function
 				await self.handle_exception(e, 'msteams')
+
+		elif msg_type == "sms":
+			try:
+				KafkaHandler.ValidationSchemaMSTeams(msg)
+			except fastjsonschema.exceptions.JsonSchemaException as e:
+				L.warning("Invalid notification format: {}".format(e))
+				return
+			try:
+				if self.App.SMSOrchestrator is not None:
+					await self.App.SMSOrchestrator.send_sms(msg)
+				else:
+					L.warning("MS Teams is not configured, a notification is discarded")
+					return
+			except ASABIrisError as e:
+				# if it is a server error do not send notification.
+				if e.ErrorCode == ErrorCode.SERVER_ERROR:
+					L.warning("Notification to SMS unsuccessful: Explanation: {}".format(e.TechMessage))
+					return
+				else:
+					# Handle other errors using handle_exception function
+					await self.handle_exception(e.TechMessage, 'sms')
+			except Exception as e:
+				# Handle any other unexpected exceptions using handle_exception function
+				await self.handle_exception(e, 'sms')
+
 		else:
 			L.warning(
 				"Notification sending failed: Unsupported message type '{}'. "
