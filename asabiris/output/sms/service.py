@@ -57,7 +57,7 @@ class SMSOutputService(asab.Service, OutputABC):
 
     async def send(self, sms_data):
         if not sms_data.get('phone'):
-            L.error("Empty or no phone number specified.")
+            L.warning("Empty or no phone number specified.")
             raise ASABIrisError(
                 ErrorCode.INVALID_SERVICE_CONFIGURATION,
                 tech_message="Empty or no phone number specified.",
@@ -96,7 +96,6 @@ class SMSOutputService(asab.Service, OutputABC):
             async with aiohttp.ClientSession() as session:
                 async with session.get(self.ApiUrl, params=params) as resp:
                     response_body = await resp.text()
-                    L.debug(f"Full response body: {response_body}")
                     if resp.status != 200:
                         L.warning("SMSBrana.cz responded with {}: {}".format(resp.status, response_body))
                         raise ASABIrisError(
@@ -111,11 +110,15 @@ class SMSOutputService(asab.Service, OutputABC):
                         root = ET.fromstring(response_body)
                         err_code = root.find('err').text
                         custom_message = self.ERROR_CODE_MAPPING.get(err_code, "Unknown error occurred.")
-                        L.debug(f"Error code: {err_code}, Message: {custom_message}")
                     except ET.ParseError:
-                        err_code = "Unknown"
                         custom_message = "Failed to parse response from SMSBrana.cz."
-                        L.error("Failed to parse XML response: {}".format(response_body))
+                        L.warning("Failed to parse XML response: {}".format(response_body))
+                        raise ASABIrisError(
+                            ErrorCode.SERVER_ERROR,
+                            tech_message="Failed to parse response from SMSBrana.cz.",
+                            error_i18n_key="Error occurred while sending SMS. Reason: '{{error_message}}'.",
+                            error_dict={"error_message": custom_message}
+                        )
 
                     if err_code != '0':
                         L.warning("SMS delivery failed. SMSBrana.cz response: {}".format(response_body))
