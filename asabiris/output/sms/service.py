@@ -5,8 +5,8 @@ import datetime
 import secrets
 import aiohttp
 import pytz
+import xml.etree.ElementTree as ET
 from ...output_abc import OutputABC
-
 from ...errors import ASABIrisError, ErrorCode
 
 L = logging.getLogger(__name__)
@@ -24,6 +24,22 @@ asab.Config.add_defaults(
 
 
 class SMSOutputService(asab.Service, OutputABC):
+    ERROR_CODE_MAPPING = {
+        '-1': "Duplicate user_id - a similarly marked SMS has already been sent in the past.",
+        '1': "Unknown error.",
+        '2': "Invalid login.",
+        '3': "Invalid hash or password (depending on the login security variant).",
+        '4': "Invalid time, greater time deviation between servers than the maximum accepted in the SMS Connect service settings.",
+        '5': "Unauthorized IP, see SMS Connect service settings.",
+        '6': "Invalid action name.",
+        '7': "This sul has already been used once for the given day.",
+        '8': "No connection to the database.",
+        '9': "Insufficient credit.",
+        '10': "Invalid recipient phone number.",
+        '11': "Empty message text.",
+        '12': "SMS is longer than the allowed 459 characters."
+    }
+
     def __init__(self, app, service_name="SMSOutputService"):
         super().__init__(app, service_name)
         self.Login = asab.Config.get("sms", "login")
@@ -80,22 +96,34 @@ class SMSOutputService(asab.Service, OutputABC):
             async with aiohttp.ClientSession() as session:
                 async with session.get(self.ApiUrl, params=params) as resp:
                     response_body = await resp.text()
+                    L.debug(f"Full response body: {response_body}")
                     if resp.status != 200:
-                        L.error("SMSBrana.cz responded with {}: {}".format(resp.status, response_body ))
+                        L.warning("SMSBrana.cz responded with {}: {}".format(resp.status, response_body))
                         raise ASABIrisError(
                             ErrorCode.SERVER_ERROR,
-                            tech_message="SMSBrana.cz responded with '{}': '{}'".format(resp.status, response_body ),
+                            tech_message="SMSBrana.cz responded with '{}': '{}'".format(resp.status, response_body),
                             error_i18n_key="Error occurred while sending SMS. Reason: '{{error_message}}'.",
                             error_dict={"error_message": response_body}
                         )
 
-                    if "<err>0</err>" not in response_body:
-                        L.error(f"SMS delivery failed. SMSBrana.cz response: {response_body}")
+                    # Parse the XML response to extract the error code
+                    try:
+                        root = ET.fromstring(response_body)
+                        err_code = root.find('err').text
+                        custom_message = self.ERROR_CODE_MAPPING.get(err_code, "Unknown error occurred.")
+                        L.debug(f"Error code: {err_code}, Message: {custom_message}")
+                    except ET.ParseError:
+                        err_code = "Unknown"
+                        custom_message = "Failed to parse response from SMSBrana.cz."
+                        L.error("Failed to parse XML response: {}".format(response_body))
+
+                    if err_code != '0':
+                        L.warning("SMS delivery failed. SMSBrana.cz response: {}".format(response_body))
                         raise ASABIrisError(
                             ErrorCode.SERVER_ERROR,
-                            tech_message="SMS delivery failed. SMSBrana.cz response: {}".format(response_body),
+                            tech_message="SMS delivery failed. Error code: {}. Message: {}".format(err_code, custom_message),
                             error_i18n_key="Error occurred while sending SMS. Reason: '{{error_message}}'.",
-                            error_dict={"error_message": response_body}
+                            error_dict={"error_message": custom_message}
                         )
                     else:
                         L.log(asab.LOG_NOTICE, "SMS sent successfully")
