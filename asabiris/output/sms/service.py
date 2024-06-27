@@ -22,7 +22,6 @@ asab.Config.add_defaults(
     }
 )
 
-
 class SMSOutputService(asab.Service, OutputABC):
     ERROR_CODE_MAPPING = {
         '-1': "Duplicate user_id - a similarly marked SMS has already been sent in the past.",
@@ -55,6 +54,14 @@ class SMSOutputService(asab.Service, OutputABC):
         auth = hashlib.md5(auth_string.encode('utf-8')).hexdigest()
         return time_now, sul, auth
 
+    def split_message(self, message, first_segment_length=160, subsequent_segment_length=153):
+        parts = []
+        while message:
+            part = message[:first_segment_length] if len(parts) == 0 else message[:subsequent_segment_length]
+            parts.append(part)
+            message = message[len(part):]
+        return parts
+
     async def send(self, sms_data):
         if not sms_data.get('phone'):
             L.warning("Empty or no phone number specified.")
@@ -70,10 +77,10 @@ class SMSOutputService(asab.Service, OutputABC):
         else:
             message_list = sms_data['message_body']
 
-        for text in message_list:
+        for message in message_list:
             # Clean the message content
-            text = text.replace('\n', ' ').strip()
-            if not text.isascii():
+            message = message.replace('\n', ' ').strip()
+            if not message.isascii():
                 L.warning("Message contains non-ASCII characters.")
                 raise ASABIrisError(
                     ErrorCode.INVALID_SERVICE_CONFIGURATION,
@@ -82,53 +89,57 @@ class SMSOutputService(asab.Service, OutputABC):
                     error_dict={"error_message": "Message contains non-ASCII characters."}
                 )
 
-            time_now, sul, auth = self.generate_auth_params()
-            params = {
-                "action": "send_sms",
-                "login": self.Login,
-                "time": time_now,
-                "sul": sul,
-                "auth": auth,
-                "number": sms_data['phone'],
-                "message": text
-            }
+            # Split message into parts if it exceeds the allowed length for a single SMS
+            message_parts = self.split_message(message)
 
-            async with aiohttp.ClientSession() as session:
-                async with session.get(self.ApiUrl, params=params) as resp:
-                    response_body = await resp.text()
-                    if resp.status != 200:
-                        L.warning("SMSBrana.cz responded with {}: {}".format(resp.status, response_body))
-                        raise ASABIrisError(
-                            ErrorCode.SERVER_ERROR,
-                            tech_message="SMSBrana.cz responded with '{}': '{}'".format(resp.status, response_body),
-                            error_i18n_key="Error occurred while sending SMS. Reason: '{{error_message}}'.",
-                            error_dict={"error_message": response_body}
-                        )
+            for part in message_parts:
+                time_now, sul, auth = self.generate_auth_params()
+                params = {
+                    "action": "send_sms",
+                    "login": self.Login,
+                    "time": time_now,
+                    "sul": sul,
+                    "auth": auth,
+                    "number": sms_data['phone'],
+                    "message": part
+                }
 
-                    # Parse the XML response to extract the error code
-                    try:
-                        root = ET.fromstring(response_body)
-                        err_code = root.find('err').text
-                        custom_message = self.ERROR_CODE_MAPPING.get(err_code, "Unknown error occurred.")
-                    except ET.ParseError:
-                        custom_message = "Failed to parse response from SMSBrana.cz."
-                        L.warning("Failed to parse XML response: {}".format(response_body))
-                        raise ASABIrisError(
-                            ErrorCode.SERVER_ERROR,
-                            tech_message="Failed to parse response from SMSBrana.cz.",
-                            error_i18n_key="Error occurred while sending SMS. Reason: '{{error_message}}'.",
-                            error_dict={"error_message": custom_message}
-                        )
+                async with aiohttp.ClientSession() as session:
+                    async with session.get(self.ApiUrl, params=params) as resp:
+                        response_body = await resp.text()
+                        if resp.status != 200:
+                            L.warning("SMSBrana.cz responded with {}: {}".format(resp.status, response_body))
+                            raise ASABIrisError(
+                                ErrorCode.SERVER_ERROR,
+                                tech_message="SMSBrana.cz responded with '{}': '{}'".format(resp.status, response_body),
+                                error_i18n_key="Error occurred while sending SMS. Reason: '{{error_message}}'.",
+                                error_dict={"error_message": response_body}
+                            )
 
-                    if err_code != '0':
-                        L.warning("SMS delivery failed. SMSBrana.cz response: {}".format(response_body))
-                        raise ASABIrisError(
-                            ErrorCode.SERVER_ERROR,
-                            tech_message="SMS delivery failed. Error code: {}. Message: {}".format(err_code, custom_message),
-                            error_i18n_key="Error occurred while sending SMS. Reason: '{{error_message}}'.",
-                            error_dict={"error_message": custom_message}
-                        )
-                    else:
-                        L.log(asab.LOG_NOTICE, "SMS sent successfully")
+                        # Parse the XML response to extract the error code
+                        try:
+                            root = ET.fromstring(response_body)
+                            err_code = root.find('err').text
+                            custom_message = self.ERROR_CODE_MAPPING.get(err_code, "Unknown error occurred.")
+                        except ET.ParseError:
+                            custom_message = "Failed to parse response from SMSBrana.cz."
+                            L.warning("Failed to parse XML response: {}".format(response_body))
+                            raise ASABIrisError(
+                                ErrorCode.SERVER_ERROR,
+                                tech_message="Failed to parse response from SMSBrana.cz.",
+                                error_i18n_key="Error occurred while sending SMS. Reason: '{{error_message}}'.",
+                                error_dict={"error_message": custom_message}
+                            )
+
+                        if err_code != '0':
+                            L.warning("SMS delivery failed. SMSBrana.cz response: {}".format(response_body))
+                            raise ASABIrisError(
+                                ErrorCode.SERVER_ERROR,
+                                tech_message="SMS delivery failed. Error code: {}. Message: {}".format(err_code, custom_message),
+                                error_i18n_key="Error occurred while sending SMS. Reason: '{{error_message}}'.",
+                                error_dict={"error_message": custom_message}
+                            )
+                        else:
+                            L.log(asab.LOG_NOTICE, "SMS part sent successfully")
 
         return True
