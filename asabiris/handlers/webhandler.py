@@ -320,13 +320,21 @@ class WebHandler(object):
 		```
 		localhost:8080/send_sms
 
+		Example body:
+
 		```
-		body example:
-		```
-		{
-			"phone":777888999,
-			"message_body":"Test Company"
+				{
+				"Phone": "123456789",
+				"body": {
+					"template": "/Templates/SMS/alert.md",
+					"params": {
+					"message": "I am testing a template",
+					"event": "Iris-Event"
+				}
+			}
 		}
+
+		---
 		```
 		"""
 		# Render a body
