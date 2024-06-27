@@ -14,8 +14,8 @@ L = logging.getLogger(__name__)
 asab.Config.add_defaults(
     {
         'sms': {
-            "login": "your_smsbrana_login",
-            "password": "your_smsbrana_password",
+            "login": "",
+            "password": "",
             "timestamp_format": "%Y%m%dT%H%M%S",
             "api_url": "https://api.smsbrana.cz/smsconnect/http.php",
         }
@@ -58,7 +58,7 @@ class SMSOutputService(asab.Service, OutputABC):
             # Clean the message content
             text = text.replace('\n', ' ').strip()
             if not text.isascii():
-                L.error("Message contains non-ASCII characters.")
+                L.warning("Message contains non-ASCII characters.")
                 raise ASABIrisError(
                     ErrorCode.INVALID_SERVICE_CONFIGURATION,
                     tech_message="Message contains non-ASCII characters.",
@@ -81,10 +81,10 @@ class SMSOutputService(asab.Service, OutputABC):
                 async with session.get(self.ApiUrl, params=params) as resp:
                     response_body = await resp.text()
                     if resp.status != 200:
-                        L.error(f"SMSBrana.cz responded with {resp.status}: {response_body}")
+                        L.error("SMSBrana.cz responded with {}: {}".format(resp.status, response_body ))
                         raise ASABIrisError(
                             ErrorCode.SERVER_ERROR,
-                            tech_message=f"SMSBrana.cz responded with {resp.status}: {response_body}",
+                            tech_message="SMSBrana.cz responded with '{}': '{}'".format(resp.status, response_body ),
                             error_i18n_key="Error occurred while sending SMS. Reason: '{{error_message}}'.",
                             error_dict={"error_message": response_body}
                         )
@@ -93,7 +93,7 @@ class SMSOutputService(asab.Service, OutputABC):
                         L.error(f"SMS delivery failed. SMSBrana.cz response: {response_body}")
                         raise ASABIrisError(
                             ErrorCode.SERVER_ERROR,
-                            tech_message=f"SMS delivery failed. SMSBrana.cz response: {response_body}",
+                            tech_message="SMS delivery failed. SMSBrana.cz response: {}".format(response_body),
                             error_i18n_key="Error occurred while sending SMS. Reason: '{{error_message}}'.",
                             error_dict={"error_message": response_body}
                         )
