@@ -355,6 +355,8 @@ class WebHandler(object):
 			}
 			return aiohttp.web.json_response(response, status=400)
 
+		return asab.web.rest.json_response(request, {"result": "OK"})
+
 	def map_error_code_to_status(self, error_code):
 		"""
 		Maps error codes to HTTP status codes.
