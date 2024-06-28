@@ -259,9 +259,9 @@ class KafkaHandler(asab.Service):
 					msg['message_body'] = error_message
 					await self.App.SMSOutputService.send(msg)
 				except ASABIrisError as e:
-					L.info("Error notification to MSTeams unsuccessful: Explanation: {}".format(e.TechMessage))
+					L.info("Error notification to SMS unsuccessful: Explanation: {}".format(e.TechMessage))
 				except Exception:
-					L.exception("Error notification to MSTeams unsuccessful.")
+					L.exception("Error notification to SMS unsuccessful.")
 
 
 		except Exception:
