@@ -13,6 +13,7 @@ import asab
 from asabiris.schemas.emailschema import email_schema
 from asabiris.schemas.slackschema import slack_schema
 from asabiris.schemas.teamsschema import teams_schema
+from asabiris.schemas.smsschema import sms_schema
 
 from ..errors import ASABIrisError, ErrorCode
 
@@ -32,6 +33,7 @@ class KafkaHandler(asab.Service):
 	ValidationSchemaMail = fastjsonschema.compile(email_schema)
 	ValidationSchemaSlack = fastjsonschema.compile(slack_schema)
 	ValidationSchemaMSTeams = fastjsonschema.compile(teams_schema)
+	ValidationSchemaSMS = fastjsonschema.compile(sms_schema)
 
 	def __init__(self, app, service_name="KafkaHandler"):
 		super().__init__(app, service_name)
@@ -166,7 +168,7 @@ class KafkaHandler(asab.Service):
 
 		elif msg_type == "sms":
 			try:
-				KafkaHandler.ValidationSchemaMSTeams(msg)
+				KafkaHandler.ValidationSchemaSMS(msg)
 			except fastjsonschema.exceptions.JsonSchemaException as e:
 				L.warning("Invalid notification format: {}".format(e))
 				return
@@ -183,19 +185,10 @@ class KafkaHandler(asab.Service):
 					return
 				else:
 					# Handle other errors using handle_exception function
-					await self.handle_exception(e.TechMessage, 'sms')
+					await self.handle_exception(e.TechMessage, 'sms', msg)
 			except Exception as e:
 				# Handle any other unexpected exceptions using handle_exception function
-				await self.handle_exception(e, 'sms')
-
-		elif msg_type == 'sms':
-			try:
-				L.log(asab.LOG_NOTICE, "Sending error notification via SMS.")
-				await self.App.SMSOutputService.send(msg)
-			except ASABIrisError as e:
-				L.info("Error notification via SMS unsuccessful: Explanation: {}".format(e.TechMessage))
-			except Exception:
-				L.exception("Error notification via SMS unsuccessful.")
+				await self.handle_exception(e, 'sms', msg)
 
 		else:
 			L.warning(
@@ -259,6 +252,17 @@ class KafkaHandler(asab.Service):
 					L.info("Error notification to MSTeams unsuccessful: Explanation: {}".format(e.TechMessage))
 				except Exception:
 					L.exception("Error notification to MSTeams unsuccessful.")
+
+			elif service_type == 'sms':
+				try:
+					L.log(asab.LOG_NOTICE, "Sending error notification to SMS.")
+					msg['message_body'] = error_message
+					await self.App.SMSOutputService.send(msg)
+				except ASABIrisError as e:
+					L.info("Error notification to MSTeams unsuccessful: Explanation: {}".format(e.TechMessage))
+				except Exception:
+					L.exception("Error notification to MSTeams unsuccessful.")
+
 
 		except Exception:
 			# Log any unexpected exceptions that might occur
