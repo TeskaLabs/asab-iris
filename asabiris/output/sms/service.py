@@ -22,6 +22,7 @@ asab.Config.add_defaults(
     }
 )
 
+
 class SMSOutputService(asab.Service, OutputABC):
     ERROR_CODE_MAPPING = {
         '-1': "Duplicate user_id - a similarly marked SMS has already been sent in the past.",
