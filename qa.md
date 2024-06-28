@@ -1413,6 +1413,50 @@ EXPECTED RESPONSE:
  }
  ```
 
+## TSM033: Try to send SMS using markdown template
+
+ `PUT /send_msteams`
+
+ ```
+ {
+    "body":{
+       "template":"/Templates/SMS/hello.md",
+       "params":{
+          "message":"I am testing a template",
+       }
+    }
+ }
+ ```
+
+## TSM033A: Try to send SMS using markdown template that does not exist
+
+ `PUT /send_msteams`
+
+ ```
+ {
+    "body":{
+       "template":"/Templates/SMS/hello.mdt",
+       "params":{
+          "message":"I am testing a template",
+       }
+    }
+ }
+ ```
+
+## TSM033B: Try to send SMS using markdown template from incorrect template path
+
+ `PUT /send_msteams`
+
+ ```
+ {
+    "body":{
+       "template":"/Templates/SMS/hello.md",
+       "params":{
+          "message":"I am testing a template",
+       }
+    }
+ }
+ ```
 
 ## TSM033: Kakka handler
 
@@ -1472,11 +1516,20 @@ EXPECTED RESPONSE:
 
 'Access non existant template'
 {"type":"msteams", "body":{"template":"/Templates/MSTeams/message.md2", "params":{"name": "I am testing a template", "error": "None" }}}
+
+'SMS supported'
+
+{"type":"sms", "phone": "123456789", "body":{"template":"/Templates/SMS/hello.md", "params":{"message": "I am testing a template" }}} 
+
+'SMS unsupportes'
+{"type":"SMS", "body":{"template":"/Templates/SMS/hello.md", "params":{"name": "I am testing a template", "error": "None" }}}
+{"type":"sms", "body":{"template":"/Templates/SMS/hello.md", "params":{"name": "I am testing a template", "error": "None" }}}
  ```
 
 
  `UNSUPPORTED-TYPE`
 
  ```
-{"type":"sms", "body":{"template":"/Templates/MSTeams/Slack example.txt", "params":{"name": "I am testing a template", "error": "None" }}}
+{"type":"sms", "phone": "123456789", "body":{"template":"/Templates/SMSS/hello.md", "params":{"message": "I am testing a template" }}}
+{"type":"sms", "phone": "123456789", "body":{"template":"/Templates/SMS/hello.mdT", "params":{"message": "I am testing a template" }}}
  ```

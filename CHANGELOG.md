@@ -12,6 +12,10 @@
 
 - Feature: Load Variables from Config
 
+#### 28. 06. 2024 
+
+- Feature: Send SMS
+
 
 ### Refactoring
 

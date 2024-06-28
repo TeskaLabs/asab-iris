@@ -15,11 +15,13 @@ from .formatter.attachments import AttachmentRenderingService
 # output
 from .output.smtp import EmailOutputService
 from .output.slack import SlackOutputService
+from .output.sms import SMSOutputService
 from .output.msteams import MSTeamsOutputService
 
 # orchestrators.
 from .orchestration.sendemail import SendEmailOrchestrator
 from .orchestration.render import RenderReportOrchestrator
+from .orchestration.sendsms import SendSMSOrchestrator
 from .orchestration.sendmsteams import SendMSTeamsOrchestrator
 
 from .handlers.kafkahandler import KafkaHandler
@@ -94,6 +96,13 @@ class ASABIRISApplication(asab.Application):
 			self.SendMSTeamsOrchestrator = SendMSTeamsOrchestrator(self)
 		else:
 			self.SendMSTeamsOrchestrator = None
+
+		if 'sms' in asab.Config.sections():
+			self.SMSOutputService = SMSOutputService(self)
+			self.SendSMSOrchestrator = SendSMSOrchestrator(self)
+		else:
+			self.SendMSTeamsOrchestrator = None
+
 
 		# Orchestrators
 		self.SendEmailOrchestrator = SendEmailOrchestrator(self)

@@ -26,6 +26,7 @@
       - pip install aiokafka
       - pip install slack-sdk
       - pip install sentry-sdk
+      - pip install pytz
       - python3 -m unittest test
 
 
@@ -52,6 +53,7 @@
       - pip install aiokafka
       - pip install slack-sdk
       - pip install sentry-sdk
+      - pip install pytz
       - python3 -m unittest test
 
   test py39:
@@ -77,6 +79,7 @@
       - pip install aiokafka
       - pip install slack-sdk
       - pip install sentry-sdk
+      - pip install pytz
       - python3 -m unittest test
 
   test py310:
@@ -102,6 +105,7 @@
       - pip install aiokafka
       - pip install slack-sdk
       - pip install sentry-sdk
+      - pip install pytz
       - python3 -m unittest test
 
   test py311:
@@ -127,6 +131,7 @@
       - pip install aiokafka
       - pip install slack-sdk
       - pip install sentry-sdk
+      - pip install pytz
       - python3 -m unittest test
 
   test flake:
@@ -148,6 +153,7 @@
       - pip install aiokafka
       - pip install slack-sdk
       - pip install sentry-sdk
+      - pip install pytz
       - pip install -U git+https://github.com/TeskaLabs/asab
       - python3 -m flake8 asabiris
 

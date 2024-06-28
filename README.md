@@ -136,6 +136,50 @@ asab-iris implements specific error handling strategies for the Kafka and Web ha
 - **Error Responses:** Internal error codes are mapped to HTTP status codes, providing meaningful responses to clients.
 - **Exception Handling:** General exceptions are logged, and standardized error responses are sent to clients.
 
+### 📱 4. Sending SMS messages
+
+**Overview**
+
+- Send SMS messages using the SMSBrana.cz API.
+- Supports automatic segmentation of long messages.
+- Apply Jinja2 templates.
+- Trigger them through a web handler or an Apache Kafka message - flexibility is key!
+
+**Configuration**
+
+```ini
+[sms]
+login=your_smsbrana_login
+password=your_smsbrana_password
+timestamp_format=%Y%m%dT%H%M%S
+api_url=https://api.smsbrana.cz/smsconnect/http.php
+```
+
+**Explanation**
+
+- `login`: Your login for the SMSBrana.cz service.
+- `password`: Your password for the SMSBrana.cz service.
+- `timestamp_format`: The format used for timestamps, typically `"%Y%m%dT%H%M%S"`.
+- `api_url`: The API URL for SMSBrana.cz, typically `https://api.smsbrana.cz/smsconnect/http.php`.
+
+**Handling Long Messages**
+
+- SMS messages are automatically split into segments if they exceed the length limits:
+  - 1 SMS: up to 160 characters.
+  - 2 SMS: up to 306 characters (153 characters per segment).
+  - 3 SMS: up to 459 characters (153 characters per segment).
+- Each segment is sent separately, ensuring that messages are not truncated.
+
+**Usage Example**
+
+To send an SMS, you can configure the SMS service in your application and trigger it via a web handler or Kafka message. The service will handle splitting long messages into segments and sending them sequentially.
+
+**Error Handling**
+
+- **Invalid Phone Number**: If the phone number is missing or invalid, an `ASABIrisError` is raised.
+- **Non-ASCII Characters**: If the message contains non-ASCII characters, an `ASABIrisError` is raised.
+- **Service Errors**: Errors returned by the SMSBrana.cz API are mapped to custom error messages and logged for troubleshooting.
+
 
 ## 🛠 Supported Technologies
 

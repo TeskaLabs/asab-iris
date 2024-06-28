@@ -7,6 +7,7 @@ import aiohttp.payload_streamer
 
 from ..schemas.emailschema import email_schema
 from ..schemas.slackschema import slack_schema
+from ..schemas.smsschema import sms_schema
 from ..schemas.teamsschema import teams_schema
 
 from ..errors import ASABIrisError, ErrorCode
@@ -28,6 +29,7 @@ class WebHandler(object):
 		web_app.router.add_put(r"/send_email", self.send_email)
 		web_app.router.add_put(r"/send_mail", self.send_email)  # This one is for backward compatibility
 		web_app.router.add_put(r"/render", self.render)
+		web_app.router.add_put(r"/send_sms", self.send_sms)
 		web_app.router.add_put(r"/send_slack", self.send_slack)
 		web_app.router.add_put(r"/send_msteams", self.send_msteams)
 
@@ -302,6 +304,66 @@ class WebHandler(object):
 			content_type=content_type,
 			body=html if content_type == "text/html" else file_sender(pdf)
 		)
+
+	@asab.web.rest.json_schema_handler(sms_schema)
+	async def send_sms(self, request, *, json_data):
+		"""Send an SMS message to the phone number specified in the request body.
+
+			Args:
+				request: The HTTP request object.
+				json_data: A dictionary containing the following keys:
+					- phone (int): The phone number to send the SMS message to.
+					- message_body (str): The content of the SMS message.
+
+			Returns:
+				A JSON response with a "result" key set to "OK" and a "data" key containing the result of the SMSOutputService.
+		```
+		localhost:8080/send_sms
+
+		Example body:
+
+		```
+				{
+				"Phone": "123456789",
+				"body": {
+					"template": "/Templates/SMS/alert.md",
+					"params": {
+					"message": "I am testing a template",
+					"event": "Iris-Event"
+				}
+			}
+		}
+
+		---
+		```
+		"""
+		# Render a body
+		try:
+			await self.App.SendSMSOrchestrator.send_sms(json_data)
+		except ASABIrisError as e:
+			# Map ErrorCode to HTTP status codes
+			status_code = self.map_error_code_to_status(e.ErrorCode)
+
+			response = {
+				"result": "ERROR",
+				"error": e.Errori18nKey,
+				"error_dict": e.ErrorDict,
+				"tech_err": e.TechMessage
+			}
+			return aiohttp.web.json_response(response, status=status_code)
+
+		except Exception as e:
+			L.exception(str(e))
+			response = {
+				"result": "FAILED",
+				"error": {
+					"message": str(e),
+					"error_code": "GENERAL_ERROR",
+				}
+			}
+			return aiohttp.web.json_response(response, status=400)
+
+		return asab.web.rest.json_response(request, {"result": "OK"})
 
 	def map_error_code_to_status(self, error_code):
 		"""
