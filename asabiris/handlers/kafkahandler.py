@@ -56,11 +56,21 @@ class KafkaHandler(asab.Service):
 		)
 
 	async def initialize(self, app):
-		try:
-			await self.Consumer.start()
-		except aiokafka.errors.KafkaConnectionError as e:
-			L.warning("No connection to Kafka established. Stopping the app... {}".format(e))
+		max_retries = 5
+		delay = 5  # Initial delay in seconds
+		for attempt in range(max_retries):
+			try:
+				await self.Consumer.start()
+				break
+			except aiokafka.errors.KafkaConnectionError as e:
+				L.warning("No connection to Kafka established. Attempt {} of {}. Retrying in {} seconds... {}".format(
+					attempt + 1, max_retries, delay, e))
+				await asyncio.sleep(delay)
+				delay *= 2  # Exponential backoff
+		else:
+			L.error("Failed to connect to Kafka after {} attempts. Stopping the app.".format(max_retries))
 			exit()
+
 		self.Task = asyncio.ensure_future(self.consume(), loop=self.App.Loop)
 
 	async def finalize(self, app):
