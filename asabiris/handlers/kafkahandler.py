@@ -57,7 +57,10 @@ class KafkaHandler(asab.Service):
 
 	async def initialize(self, app):
 		max_retries = 5
-		delay = 5  # Initial delay in seconds
+		initial_delay = 5  # Initial delay in seconds
+		max_delay = 300  # Maximum delay in seconds (5 minutes)
+		delay = initial_delay
+
 		for attempt in range(max_retries):
 			try:
 				await self.Consumer.start()
@@ -66,12 +69,14 @@ class KafkaHandler(asab.Service):
 				L.warning("No connection to Kafka established. Attempt {} of {}. Retrying in {} seconds... {}".format(
 					attempt + 1, max_retries, delay, e))
 				await asyncio.sleep(delay)
-				delay *= 2  # Exponential backoff
+				# Apply exponential backoff with a cap on the delay
+				delay = min(delay * 2, max_delay)
 		else:
 			L.error("Failed to connect to Kafka after {} attempts. Stopping the app.".format(max_retries))
 			exit()
 
 		self.Task = asyncio.ensure_future(self.consume(), loop=self.App.Loop)
+
 
 	async def finalize(self, app):
 		await self.Consumer.stop()
