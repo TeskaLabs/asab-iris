@@ -113,3 +113,6 @@ class ASABIRISApplication(asab.Application):
 		# Apache Kafka API is conditional
 		if "kafka" in asab.Config.sections():
 			self.KafkaHandler = KafkaHandler(self)
+
+		self.AuthService = asab.web.auth.AuthService(self)
+		self.AuthService.install(self.WebContainer)
