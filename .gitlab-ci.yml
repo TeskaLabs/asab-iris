@@ -28,6 +28,7 @@
       - pip install slack-sdk
       - pip install sentry-sdk
       - pip install pytz
+      - pip install 'pypdf<3'
       - python3 -m unittest test
 
 
