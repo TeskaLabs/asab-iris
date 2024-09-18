@@ -12,6 +12,7 @@
     script:
       - apt-get update
       - pip install --upgrade pip
+      - pip install typing-extensions
       - pip install -U git+https://github.com/TeskaLabs/asab
       - pip install flake8
       - pip install jinja2
