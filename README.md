@@ -238,3 +238,89 @@ Here are some common format strings you can use with the `datetimeformat` filter
 - `%I:%M %p` - Outputs as `02:45 PM`
 - `%B %d, %Y` - Outputs as `June 17, 2024`
 - `%Y-%m-%d` - Outputs as `2024-06-17`
+
+
+### 🚀 5. Sending Notifications to Kafka
+
+**Overview**
+
+ASAB Iris supports sending notifications to various communication channels such as email, Slack, and Microsoft Teams via Kafka. Each notification is structured using templates and parameters to ensure customizable content.
+
+#### Kafka Message Structure
+
+- Notifications are sent to Kafka in JSON format.
+- Each notification contains a `type` field specifying the channel (e.g., `email`, `slack`, `msteams`), and a `body` that includes the template and its parameters.
+
+#### 1. Sending Email Notifications
+
+**Example Kafka Message:**
+
+```json
+{
+    "type": "email",
+    "to": ["Shivashankar <mithunshivashankar@gmail.com>"],
+    "from": "info@teskalabs.com",
+    "body": {
+        "template": "/Templates/Email/message.md",
+        "params": {
+            "name": "I am testing a template",
+            "error": "None"
+        }
+    }
+}
+```
+
+**Explanation:**
+
+- `type`: Defines the notification type as `email`.
+- `to`: List of recipients.
+- `from`: The sender's email address.
+- `template`: Path to the template used for the email content.
+- `params`: Parameters for populating the email template.
+
+#### 2. Sending Slack Notifications
+
+**Example Kafka Message:**
+
+```json
+{
+    "type": "slack",
+    "body": {
+        "template": "/Templates/Slack/Slack example.md",
+        "params": {
+            "name": "I am testing a template",
+            "error": "None"
+        }
+    }
+}
+```
+
+**Explanation:**
+
+- `type`: Defines the notification type as `slack`.
+- `body.template`: Path to the Slack message template.
+- `params`: Parameters for populating the Slack template.
+
+#### 3. Sending Microsoft Teams Notifications
+
+**Example Kafka Message:**
+
+```json
+{
+    "type": "msteams",
+    "body": {
+        "template": "/Templates/MSTeams/Teams example.md",
+        "params": {
+            "name": "I am testing a template",
+            "error": "None"
+        }
+    }
+}
+```
+
+**Explanation:**
+
+- `type`: Defines the notification type as `msteams`.
+- `body.template`: Path to the Microsoft Teams message template.
+- `params`: Parameters for populating the Teams template.
+```
