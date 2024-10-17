@@ -1507,9 +1507,9 @@ EXPECTED RESPONSE:
  `MSTEAMS`
 
  ```
-{"type":"msteams", "body":{"template":"/Templates/MSTeams/Slack example.txt", "params":{"name": "I am testing a template", "error": "None" }}}
+{"type":"msteams", "body":{"template":"/Templates/MSTeams/Teams example.txt", "params":{"name": "I am testing a template", "error": "None" }}}
 
-{"type":"msteams", "body":{"template":"/Templates/MSTeams/Slack example.txt", "params":{"name": "I am testing a template", "error": "None" }}}
+{"type":"msteams", "body":{"template":"/Templates/MSTeams/Teams example.txt", "params":{"name": "I am testing a template", "error": "None" }}}
 
 'Bad template path'
 {"type":"msteams", "body":{"template":"/Templates/MSTeamss/message.md", "params":{"name": "I am testing a template", "error": "None" }}}
