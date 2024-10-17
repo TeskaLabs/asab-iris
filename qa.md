@@ -1467,6 +1467,10 @@ EXPECTED RESPONSE:
 
 {"type":"email", "to": ["Shivashankar <mithunshivashankar@gmail.com>"], "from": "info@teskalabs.com", "body":{"template":"/Templates/Export.md", "params":{"name": "I am testing a template", "error": "None" }}}
 
+'WITHOUT FROM'
+
+{"type":"email", "to": ["Shivashankar <mithunshivashankar@gmail.com>"], "body":{"template":"/Templates/Export.md", "params":{"name": "I am testing a template", "error": "None" }}}
+
 'MARKDOWN-WRAPPER'
 
 {"type":"email", "to": ["Shivashankar <mithunshivashankar@gmail.com>"], "from": "info@teskalabs.com", "body":{"template":"/Templates/Email/message.md", "params":{"name": "I am testing a template", "error": "None" }}}
@@ -1507,9 +1511,9 @@ EXPECTED RESPONSE:
  `MSTEAMS`
 
  ```
-{"type":"msteams", "body":{"template":"/Templates/MSTeams/Slack example.txt", "params":{"name": "I am testing a template", "error": "None" }}}
+{"type":"msteams", "body":{"template":"/Templates/MSTeams/Teams example.txt", "params":{"name": "I am testing a template", "error": "None" }}}
 
-{"type":"msteams", "body":{"template":"/Templates/MSTeams/Slack example.txt", "params":{"name": "I am testing a template", "error": "None" }}}
+{"type":"msteams", "body":{"template":"/Templates/MSTeams/Teams example.txt", "params":{"name": "I am testing a template", "error": "None" }}}
 
 'Bad template path'
 {"type":"msteams", "body":{"template":"/Templates/MSTeamss/message.md", "params":{"name": "I am testing a template", "error": "None" }}}

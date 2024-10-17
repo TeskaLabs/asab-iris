@@ -149,3 +149,10 @@
 ### 24.04.2024
 
 - Change SMTP status code
+
+
+### Maintenance
+
+#### 17. 10. 2024
+
+- Drop support for python 3.7 and 3.8
