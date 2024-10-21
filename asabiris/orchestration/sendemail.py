@@ -186,6 +186,20 @@ def find_subject_in_md(body):
 	return body, subject
 
 
+def find_subject_in_txt(body: str) -> Tuple[str, str]:
+	# Check if the body starts with "Subject:" (case-insensitive)
+	if not body.lower().startswith("subject:"):
+		return body, None
+
+	# Extract the subject from the first line, case-insensitively
+	subject = body.split("\n")[0].replace("Subject:", "", 1).lstrip()
+
+	# Remove the subject line from the body
+	body = "\n".join(body.split("\n")[1:])
+
+	return body, subject
+
+
 def convert_markdown_to_full_html(html_text):
 	"""
 	Convert Markdown text to a full HTML document.
