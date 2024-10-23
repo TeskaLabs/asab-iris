@@ -99,8 +99,8 @@ class KafkaHandler(asab.Service):
 				continue  # Skip to the next message
 			try:
 				await self.dispatch(msg)
-			except Exception:
-				L.exception("General error when dispatching message")
+			except Exception as e:
+				L.exception("General error when dispatching message: {}".format(e))
 
 	async def dispatch(self, msg):
 		try:
