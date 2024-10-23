@@ -24,8 +24,12 @@ def check_config(config, section, parameter):
 	try:
 		value = config.get(section, parameter)
 		return value
-	except configparser.NoOptionError:
-		L.error("Configuration parameter '{}' is missing in section '{}'.".format(parameter, section))
+	except (configparser.NoOptionError, configparser.NoSectionError):
+		L.error(
+			"Configuration parameter '{}' is missing in section '{}'.".format(
+				parameter, section
+			)
+		)
 		exit()
 
 
