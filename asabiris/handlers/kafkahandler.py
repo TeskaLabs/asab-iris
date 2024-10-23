@@ -213,7 +213,7 @@ class KafkaHandler(asab.Service):
 		else:
 			L.warning(
 				"Notification sending failed: Unsupported message type '{}'. "
-				"Supported types are 'email', 'slack', and 'msteams'. ".format(msg_type)
+				"Supported types are 'email', 'slack', 'msteams', and 'sms'. ".format(msg_type)
 			)
 
 	async def send_email(self, json_data):
