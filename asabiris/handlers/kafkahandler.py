@@ -276,8 +276,9 @@ class KafkaHandler(asab.Service):
 			elif service_type == 'sms':
 				try:
 					L.log(asab.LOG_NOTICE, "Sending error notification to SMS.")
-					msg['message_body'] = error_message
-					await self.App.SMSOutputService.send(msg)
+					msg_copy = msg.copy()
+					msg_copy['message_body'] = error_message
+					await self.App.SMSOutputService.send(msg_copy)
 				except ASABIrisError as e:
 					L.info("Error notification to SMS unsuccessful: Explanation: {}".format(e.TechMessage))
 				except Exception:
