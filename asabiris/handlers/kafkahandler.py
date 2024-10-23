@@ -96,6 +96,7 @@ class KafkaHandler(asab.Service):
 				msg = json.loads(msg)
 			except Exception as e:
 				L.warning("Invalid message format: '{}'".format(e))
+				continue  # Skip to the next message
 			try:
 				await self.dispatch(msg)
 			except Exception:
