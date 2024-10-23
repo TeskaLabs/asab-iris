@@ -324,8 +324,8 @@ class KafkaHandler(asab.Service):
 				return error_message, None
 			elif service_type == 'sms':
 				error_message = (
-					"Hello! We encountered an issue while processing your request: {}. Please review your input and try again. Time: {} UTC. Best regards, Your Team"
-				).format(specific_error, timestamp)
+					"Hello! Issue processing your request: {}. Please check and retry. Time: {} UTC."
+				).format(specific_error[:50], timestamp)  # Truncate specific_error if necessary
 				return error_message, None
 
 		except Exception:
