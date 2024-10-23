@@ -94,6 +94,9 @@ class KafkaHandler(asab.Service):
 			try:
 				msg = msg.value.decode("utf-8")
 				msg = json.loads(msg)
+			except (UnicodeDecodeError, json.JSONDecodeError) as e:
+				L.warning("Failed to decode or parse message: {}".format(e))
+				continue
 			except Exception as e:
 				L.warning("Invalid message format: '{}'".format(e))
 				continue  # Skip to the next message
