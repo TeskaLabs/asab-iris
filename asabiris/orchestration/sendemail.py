@@ -96,6 +96,8 @@ class SendEmailOrchestrator:
 		)
 		L.info("Email sent successfully to: {}".format(', '.join(email_to)))
 
+	import os
+	from typing import Dict, Tuple
 
 	async def _render_template(self, template: str, params: Dict, body_template_wrapper=None) -> Tuple[str, str]:
 		# First, determine if a default wrapper needs to be used
@@ -108,9 +110,7 @@ class SendEmailOrchestrator:
 				ErrorCode.INVALID_PATH,
 				tech_message="Incorrect template path '{}'. Move templates to '/Templates/Email/'.".format(template),
 				error_i18n_key="Incorrect template path '{{incorrect_path}}'. Please move your templates to '/Templates/Email/'.",
-				error_dict={
-					"incorrect_path": template,
-				}
+				error_dict={"incorrect_path": template}
 			)
 
 		if body_template_wrapper is not None and not body_template_wrapper.startswith('/Templates/Wrapper/'):
@@ -119,9 +119,7 @@ class SendEmailOrchestrator:
 				tech_message="Incorrect wrapper template path '{}'. Move wrapper templates to '/Templates/Wrapper/'.".format(
 					body_template_wrapper),
 				error_i18n_key="Incorrect wrapper template path '{{incorrect_path}}'. Please move your wrapper templates to '/Templates/Wrapper/'.",
-				error_dict={
-					"incorrect_path": body_template_wrapper,
-				}
+				error_dict={"incorrect_path": body_template_wrapper}
 			)
 
 		# Proceed with rendering the template
@@ -144,14 +142,23 @@ class SendEmailOrchestrator:
 
 			return html_body, subject
 
+		elif ext == '.txt':
+			# Extract the subject from the text template
+			plain_text_body, subject = find_subject_in_txt(jinja_output)
+
+			# Apply the wrapper if it exists and is not empty
+			if body_template_wrapper not in [None, '']:
+				plain_text_param = {"content": plain_text_body}
+				plain_text_body = await self.JinjaService.format(body_template_wrapper, plain_text_param)
+
+			return plain_text_body, subject
+
 		else:
 			raise ASABIrisError(
 				ErrorCode.INVALID_FORMAT,
 				tech_message="Unsupported conversion format '{}' for template '{}'".format(ext, template),
 				error_i18n_key="The format '{{invalid_format}}' is not supported",
-				error_dict={
-					"invalid_format": ext,
-				}
+				error_dict={"invalid_format": ext}
 			)
 
 	def _generate_error_message(self, specific_error: str) -> Tuple[str, str]:
@@ -183,6 +190,20 @@ def find_subject_in_md(body):
 		return body, None
 	subject = body.split("\n")[0].replace("SUBJECT:", "").lstrip()
 	body = "\n".join(body.split("\n")[1:])
+	return body, subject
+
+
+def find_subject_in_txt(body: str) -> Tuple[str, str]:
+	# Check if the body starts with "Subject:" (case-insensitive)
+	if not body.lower().startswith("subject:"):
+		return body, None
+
+	# Extract the subject from the first line, case-insensitively
+	subject = body.split("\n")[0].replace("Subject:", "", 1).lstrip()
+
+	# Remove the subject line from the body
+	body = "\n".join(body.split("\n")[1:])
+
 	return body, subject
 
 
