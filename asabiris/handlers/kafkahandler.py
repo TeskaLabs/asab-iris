@@ -24,8 +24,12 @@ def check_config(config, section, parameter):
 	try:
 		value = config.get(section, parameter)
 		return value
-	except configparser.NoOptionError:
-		L.error("Configuration parameter '{}' is missing in section '{}'.".format(parameter, section))
+	except (configparser.NoOptionError, configparser.NoSectionError):
+		L.error(
+			"Configuration parameter '{}' is missing in section '{}'.".format(
+				parameter, section
+			)
+		)
 		exit()
 
 
@@ -90,12 +94,16 @@ class KafkaHandler(asab.Service):
 			try:
 				msg = msg.value.decode("utf-8")
 				msg = json.loads(msg)
+			except (UnicodeDecodeError, json.JSONDecodeError) as e:
+				L.warning("Failed to decode or parse message: {}".format(e))
+				continue
 			except Exception as e:
 				L.warning("Invalid message format: '{}'".format(e))
+				continue  # Skip to the next message
 			try:
 				await self.dispatch(msg)
-			except Exception:
-				L.exception("General error when dispatching message")
+			except Exception as e:
+				L.exception("General error when dispatching message: {}".format(e))
 
 	async def dispatch(self, msg):
 		try:
@@ -208,7 +216,7 @@ class KafkaHandler(asab.Service):
 		else:
 			L.warning(
 				"Notification sending failed: Unsupported message type '{}'. "
-				"Supported types are 'email', 'slack', and 'msteams'. ".format(msg_type)
+				"Supported types are 'email', 'slack', 'msteams', and 'sms'. ".format(msg_type)
 			)
 
 	async def send_email(self, json_data):
@@ -271,8 +279,9 @@ class KafkaHandler(asab.Service):
 			elif service_type == 'sms':
 				try:
 					L.log(asab.LOG_NOTICE, "Sending error notification to SMS.")
-					msg['message_body'] = error_message
-					await self.App.SMSOutputService.send(msg)
+					msg_copy = msg.copy()
+					msg_copy['message_body'] = error_message
+					await self.App.SMSOutputService.send(msg_copy)
 				except ASABIrisError as e:
 					L.info("Error notification to SMS unsuccessful: Explanation: {}".format(e.TechMessage))
 				except Exception:
@@ -319,8 +328,8 @@ class KafkaHandler(asab.Service):
 				return error_message, None
 			elif service_type == 'sms':
 				error_message = (
-					"Hello! We encountered an issue while processing your request: {}. Please review your input and try again. Time: {} UTC. Best regards, Your Team"
-				).format(specific_error, timestamp)
+					"Hello! Issue processing your request: {}. Please check and retry. Time: {} UTC."
+				).format(specific_error[:50], timestamp)  # Truncate specific_error if necessary
 				return error_message, None
 
 		except Exception:
