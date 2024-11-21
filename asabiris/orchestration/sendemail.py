@@ -96,9 +96,6 @@ class SendEmailOrchestrator:
 		)
 		L.info("Email sent successfully to: {}".format(', '.join(email_to)))
 
-	import os
-	from typing import Dict, Tuple
-
 	async def _render_template(self, template: str, params: Dict, body_template_wrapper=None) -> Tuple[str, str]:
 		# First, determine if a default wrapper needs to be used
 		if body_template_wrapper in [None, '']:

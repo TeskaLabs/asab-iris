@@ -105,6 +105,10 @@
 
 - Change Error
 
+#### 21.11.2024
+
+- Email supports TXT templates
+
 
 ### Bugfix
 
