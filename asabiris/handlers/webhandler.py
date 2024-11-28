@@ -216,6 +216,14 @@ class WebHandler(object):
 		---
 		tags: ['Send MS Teams']
 		"""
+		if self.App.SendMSTeamsOrchestrator is None:
+			L.info("MSTeams orchestrator is not initialized. This feature is optional and not configured.")
+			return aiohttp.web.json_response(
+				{
+					"result": "FAILED",
+					"error": "MSTeams service is not configured."
+				}
+			)
 
 		try:
 			await self.App.SendMSTeamsOrchestrator.send_to_msteams(json_data)
