@@ -153,6 +153,14 @@ class WebHandler(object):
 		---
 		tags: ['Send alerts']
 		"""
+		if self.App.SendSlackOrchestrator is None:
+			L.info("Slack orchestrator is not initialized. This feature is optional and not configured.")
+			return aiohttp.web.json_response(
+				{
+					"result": "FAILED",
+					"error": "Slack service is not configured."
+				}
+			)
 
 		try:
 			await self.App.SendSlackOrchestrator.send_to_slack(json_data)
