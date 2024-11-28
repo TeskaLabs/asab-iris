@@ -353,6 +353,14 @@ class WebHandler(object):
 		---
 		```
 		"""
+		if self.App.SendSMSOrchestrator is None:
+			L.info("SMS orchestrator is not initialized. This feature is optional and not configured.")
+			return aiohttp.web.json_response(
+				{
+					"result": "FAILED",
+					"error": "SMS service is not configured."
+				}
+			)
 		# Render a body
 		try:
 			await self.App.SendSMSOrchestrator.send_sms(json_data)
