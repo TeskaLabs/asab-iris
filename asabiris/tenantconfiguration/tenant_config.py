@@ -1,8 +1,8 @@
 import logging
 import json
 import configparser
-from urllib.parse import urlparse
-from kazoo.client import KazooClient
+import urllib.parse
+import kazoo.client
 import asab
 
 L = logging.getLogger(__name__)
@@ -24,12 +24,12 @@ class TenantConfigExtractionService(asab.Service):
 			exit()
 
 		# Parse the ZooKeeper URL
-		url_parts = urlparse(tenant_config_url)
+		url_parts =urllib.parse.urlparse(tenant_config_url)
 		self.TenantConfigPath = url_parts.path
 		self.zk_hosts = url_parts.netloc
 
 		# Initialize Kazoo client
-		self.zk = KazooClient(hosts=self.zk_hosts)
+		self.zk = kazoo.client.KazooClient(hosts=self.zk_hosts)
 		self.zk.start()
 
 	def load_tenant_config(self, tenant):
