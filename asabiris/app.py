@@ -110,6 +110,13 @@ class ASABIRISApplication(asab.Application):
 
 		self.WebHandler = WebHandler(self)
 
+		# Initialize TenantConfigExtractionService if present
+		if asab.Config.has_section("tenant_config"):
+			from .tenantconfiguration.tenant_config import TenantConfigExtractionService
+			self.TenantConfigExtractionService = TenantConfigExtractionService(self)
+		else:
+			self.TenantConfigExtractionService = None
+
 		# Apache Kafka API is conditional
 		if "kafka" in asab.Config.sections():
 			self.KafkaHandler = KafkaHandler(self)
