@@ -13,24 +13,26 @@ class TenantConfigExtractionService(asab.Service):
 	def __init__(self, app, service_name="TenantConfigExtractionService"):
 		super().__init__(app, service_name)
 
-		# Read configuration from asab.Config
+		# Initialize ZooKeeper client only if configuration exists
+		self.TenantConfigPath = None
+		self.zk = None
+
+		# Try to read tenant config from asab.Config
 		try:
 			tenant_config_url = asab.Config.get("tenant_config", "url")
-		except configparser.NoOptionError:
-			L.error("Configuration parameter 'url' is missing in section 'tenant_config'.")
-			exit()
-		except configparser.NoSectionError:
-			L.error("Configuration section 'tenant_config' is missing.")
-			exit()
+			# Parse the ZooKeeper URL
+			url_parts = urllib.parse.urlparse(tenant_config_url)
+			self.TenantConfigPath = url_parts.path
+			self.zk_hosts = url_parts.netloc
 
-		# Parse the ZooKeeper URL
-		url_parts =urllib.parse.urlparse(tenant_config_url)
-		self.TenantConfigPath = url_parts.path
-		self.zk_hosts = url_parts.netloc
+			# Initialize Kazoo client
+			self.zk = kazoo.client.KazooClient(hosts=self.zk_hosts)
+			self.zk.start()
+			L.info("ZooKeeper client initialized for tenant configuration.")
 
-		# Initialize Kazoo client
-		self.zk = kazoo.client.KazooClient(hosts=self.zk_hosts)
-		self.zk.start()
+		except (configparser.NoOptionError, configparser.NoSectionError):
+			L.warning("Tenant configuration not provided. Proceeding without ZooKeeper integration.")
+
 
 	def load_tenant_config(self, tenant):
 		"""
