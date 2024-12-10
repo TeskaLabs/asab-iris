@@ -261,7 +261,8 @@ class KafkaHandler(asab.Service):
 			elif service_type == 'slack':
 				try:
 					L.log(asab.LOG_NOTICE, "Sending error notification to slack.")
-					await self.App.SlackOutputService.send_message(None, error_message)
+					tenant = msg.get("tenant", None)
+					await self.App.SlackOutputService.send_message(None, error_message, tenant)
 				except ASABIrisError as e:
 					L.info("Error notification to Slack unsuccessful: Explanation: {}".format(e.TechMessage))
 				except Exception:
