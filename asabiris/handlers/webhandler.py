@@ -159,7 +159,8 @@ class WebHandler(object):
 				{
 					"result": "FAILED",
 					"error": "Slack service is not configured."
-				}
+				},
+				status=400
 			)
 
 		try:
@@ -222,7 +223,8 @@ class WebHandler(object):
 				{
 					"result": "FAILED",
 					"error": "MSTeams service is not configured."
-				}
+				},
+				status=400
 			)
 
 		try:
@@ -359,7 +361,8 @@ class WebHandler(object):
 				{
 					"result": "FAILED",
 					"error": "SMS service is not configured."
-				}
+				},
+				status=400
 			)
 		# Render a body
 		try:
