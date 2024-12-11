@@ -153,6 +153,15 @@ class WebHandler(object):
 		---
 		tags: ['Send alerts']
 		"""
+		if self.App.SendSlackOrchestrator is None:
+			L.info("Slack orchestrator is not initialized. This feature is optional and not configured.")
+			return aiohttp.web.json_response(
+				{
+					"result": "FAILED",
+					"error": "Slack service is not configured."
+				},
+				status=400
+			)
 
 		try:
 			await self.App.SendSlackOrchestrator.send_to_slack(json_data)
@@ -208,6 +217,15 @@ class WebHandler(object):
 		---
 		tags: ['Send MS Teams']
 		"""
+		if self.App.SendMSTeamsOrchestrator is None:
+			L.info("MSTeams orchestrator is not initialized. This feature is optional and not configured.")
+			return aiohttp.web.json_response(
+				{
+					"result": "FAILED",
+					"error": "MSTeams service is not configured."
+				},
+				status=400
+			)
 
 		try:
 			await self.App.SendMSTeamsOrchestrator.send_to_msteams(json_data)
@@ -337,6 +355,15 @@ class WebHandler(object):
 		---
 		```
 		"""
+		if self.App.SendSMSOrchestrator is None:
+			L.info("SMS orchestrator is not initialized. This feature is optional and not configured.")
+			return aiohttp.web.json_response(
+				{
+					"result": "FAILED",
+					"error": "SMS service is not configured."
+				},
+				status=400
+			)
 		# Render a body
 		try:
 			await self.App.SendSMSOrchestrator.send_sms(json_data)
