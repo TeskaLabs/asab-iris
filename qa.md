@@ -1545,8 +1545,8 @@ EXPECTED RESPONSE:
 {"type":"sms", "phone": "123456789", "body":{"template":"/Templates/SMS/hello.md", "params":{"message": "I am testing a template" }}} 
 
 'SMS unsupportes'
-{"type":"SMS", "body":{"template":"/Templates/SMS/hello.md", "params":{"name": "I am testing a template", "error": "None" }}}
-{"type":"sms", "body":{"template":"/Templates/SMS/hello.md", "params":{"name": "I am testing a template", "error": "None" }}}
+{"type":"SMS", "body":{"template":"/Templates/SMSS/hello.md", "params":{"name": "I am testing a template", "error": "None" }}}
+{"type":"sms", "body":{"template":"/Templates/SMS/hello.mTR", "params":{"name": "I am testing a template", "error": "None" }}}
  ```
 
 

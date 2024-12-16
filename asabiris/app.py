@@ -108,7 +108,7 @@ class ASABIRISApplication(asab.Application):
 			self.SMSOutputService = SMSOutputService(self)
 			self.SendSMSOrchestrator = SendSMSOrchestrator(self)
 		else:
-			self.SendMSTeamsOrchestrator = None
+			self.SendSMSOrchestrator = None
 
 
 		# Orchestrators
