@@ -48,6 +48,7 @@ class SendMSTeamsOrchestrator(object):
 
 		body = msg['body']
 		template = body["template"]
+		tenant = msg.get("tenant", None)
 
 		if not template.startswith("/Templates/MSTeams/"):
 			raise ASABIrisError(
@@ -62,4 +63,4 @@ class SendMSTeamsOrchestrator(object):
 		params = body.get("params", {})
 		output = await self.JinjaService.format(template, params)
 
-		return await self.MSTeamsOutputService.send(output)
+		return await self.MSTeamsOutputService.send(output, tenant)

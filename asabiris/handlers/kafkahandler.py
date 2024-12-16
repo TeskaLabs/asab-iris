@@ -251,17 +251,19 @@ class KafkaHandler(asab.Service):
 
 			elif service_type == 'slack':
 				try:
-					L.log(asab.LOG_NOTICE, "Sending error notification to Slack.")
-					await self.App.SlackOutputService.send_message(None, error_message)
-				except Exception:
-					L.exception("Error notification to Slack unsuccessful.")
+					L.log(asab.LOG_NOTICE, "Sending error notification to slack.")
+					tenant = msg.get("tenant", None)
+					await self.App.SlackOutputService.send_message(None, error_message, tenant)
+				except ASABIrisError as e:
+					L.info("Error notification to Slack unsuccessful: Explanation: {}".format(e.TechMessage))
 
 			elif service_type == 'msteams':
 				try:
 					L.log(asab.LOG_NOTICE, "Sending error notification to MSTeams.")
-					await self.App.MSTeamsOutputService.send(error_message)
-				except Exception:
-					L.exception("Error notification to MSTeams unsuccessful.")
+					tenant = msg.get("tenant", None)
+					await self.App.MSTeamsOutputService.send(error_message, tenant)
+				except ASABIrisError as e:
+					L.info("Error notification to MSTeams unsuccessful: Explanation: {}".format(e.TechMessage))
 
 			elif service_type == 'sms':
 				try:

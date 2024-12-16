@@ -29,8 +29,22 @@ class MSTeamsOutputService(asab.Service, OutputABC):
 			L.warning("Configuration section 'msteams' is not provided.")
 			self.TeamsWebhookUrl = None
 
-	async def send(self, body):
-		if self.TeamsWebhookUrl is None:
+		# Initialize Tenant Config Service
+		self.ConfigService = app.get_service("TenantConfigExtractionService")
+
+	async def send(self, body, tenant):
+		webhook_url = self.TeamsWebhookUrl
+
+		if tenant:
+			try:
+				webhook_url = self.ConfigService.get_msteams_config(tenant)
+			except KeyError:
+				L.warning(
+					"Tenant-specific MS Teams configuration not found for '{}'. Using global config.".format(tenant)
+				)
+
+		if webhook_url is None:
+			L.error("MS Teams webhook URL is missing.")
 			return
 
 		adaptive_card = {
