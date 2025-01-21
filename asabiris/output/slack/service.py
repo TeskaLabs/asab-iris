@@ -27,36 +27,34 @@ class SlackOutputService(asab.Service, OutputABC):
 	def __init__(self, app, service_name="SlackOutputService"):
 		super().__init__(app, service_name)
 
-		try:
-			self.SlackWebhookUrl = check_config(asab.Config, "slack", "token")
-			self.Channel = check_config(asab.Config, "slack", "channel")
-			self.Client = WebClient(token=self.SlackWebhookUrl)
-		except configparser.NoOptionError:
-			L.error("Please provide token and channel in slack configuration section.")
-			exit()
-		except configparser.NoSectionError:
-			L.warning("Configuration section 'slack' is not provided.")
-			self.SlackWebhookUrl = None
+		# Load global configuration as defaults
+		self.SlackWebhookUrl = check_config(asab.Config, "slack", "token")
+		self.Channel = check_config(asab.Config, "slack", "channel")
+		self.Client = WebClient(token=self.SlackWebhookUrl)
+		self.ConfigService = app.get_service("TenantConfigExtractionService")
 
-
-	async def send_message(self, blocks, fallback_message) -> None:
+	async def send_message(self, blocks, fallback_message, tenant=None) -> None:
 		"""
 		Sends a message to a Slack channel.
-
-		See https://api.slack.com/methods/chat.postMessage
-
 		"""
-		if self.Channel is None:
+		token, channel = (self.SlackWebhookUrl, self.Channel)
+
+		if tenant:
+			try:
+				token, channel = self.ConfigService.get_slack_config(tenant)
+			except KeyError:
+				L.warning("Tenant-specific Slack configuration not found for '{}'. Using global config.".format(tenant))
+
+		if channel is None:
 			raise ValueError("Cannot send message to Slack. Reason: Missing Slack channel")
 
-		if self.SlackWebhookUrl is None:
+		if token is None:
 			raise ValueError("Cannot send message to Slack. Reason: Missing Webhook URL or token")
 
-
-		# TODO: This could be a blocking operation, launch it in the proactor service
 		try:
-			channel_id = self.get_channel_id(self.Channel)
-			self.Client.chat_postMessage(
+			client = WebClient(token=token)
+			channel_id = self.get_channel_id(client, channel)
+			client.chat_postMessage(
 				channel=channel_id,
 				text=fallback_message,
 				blocks=blocks
@@ -71,23 +69,32 @@ class SlackOutputService(asab.Service, OutputABC):
 					"error_message": str(e)
 				}
 			)
-		L.log(asab.LOG_NOTICE, "Slack message sent successfully.", struct_data={'channel': self.Channel})
+		L.log(asab.LOG_NOTICE, "Slack message sent successfully.", struct_data={'channel': channel})
 
-	async def send_files(self, body: str, atts_gen):
+	async def send_files(self, body: str, atts_gen, tenant=None):
 		"""
 		Sends a message to a Slack channel with attachments.
 		"""
-		if self.Channel is None:
+		token, channel = (self.SlackWebhookUrl, self.Channel)
+
+		if tenant:
+			try:
+				token, channel = self.ConfigService.get_slack_config(tenant)
+			except KeyError:
+				L.warning("Tenant-specific Slack configuration not found for '{}'. Using global config.".format(tenant))
+
+		if channel is None:
 			raise ValueError("Cannot send message to Slack. Reason: Missing Slack channel")
 
-		if self.SlackWebhookUrl is None:
+		if token is None:
 			raise ValueError("Cannot send message to Slack. Reason: Missing Webhook URL or token")
 
-		channel_id = self.get_channel_id(self.Channel)
+		client = WebClient(token=token)
+		channel_id = self.get_channel_id(client, channel)
+
 		try:
 			async for attachment in atts_gen:
-				# TODO: This could be a blocking operation, launch it in the proactor service
-				self.Client.files_upload_v2(
+				client.files_upload_v2(
 					channel=channel_id,
 					file=attachment.Content,
 					filename=attachment.FileName,
@@ -103,17 +110,15 @@ class SlackOutputService(asab.Service, OutputABC):
 					"error_message": str(e)
 				}
 			)
-
 		L.log(asab.LOG_NOTICE, "Slack message sent successfully.")
 
-
-	def get_channel_id(self, channel_name, types="public_channel"):
-		# TODO: Cache the channel_id to limit number of requests to Slack API
-
-		# TODO: This could be a blocking operation, launch it in the proactor service
-		for response in self.Client.conversations_list(types=types):
+	def get_channel_id(self, client, channel_name, types="public_channel"):
+		"""
+		Fetches Slack channel ID from Slack API.
+		"""
+		for response in client.conversations_list(types=types):
 			for channel in response['channels']:
 				if channel['name'] == channel_name:
 					return channel['id']
 
-		raise KeyError("Slack channel not found.")
+		raise KeyError("Slack channel '{}' not found.".format(channel_name))

@@ -82,6 +82,13 @@ class ASABIRISApplication(asab.Application):
 		self.JinjaFormatterService = JinjaFormatterService(self)
 		self.AttachmentRenderingService = AttachmentRenderingService(self)
 
+		# Initialize TenantConfigExtractionService if present
+		if asab.Config.has_section("tenant_config"):
+			from .tenantconfiguration.tenant_config import TenantConfigExtractionService
+			self.TenantConfigExtractionService = TenantConfigExtractionService(self)
+		else:
+			self.TenantConfigExtractionService = None
+
 		# output services
 		self.EmailOutputService = EmailOutputService(self)
 
