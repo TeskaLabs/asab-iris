@@ -47,11 +47,17 @@ class SMSOutputService(asab.Service, OutputABC):
         self.TimestampFormat = asab.Config.get("sms", "timestamp_format")
         self.ApiUrl = asab.Config.get("sms", "api_url")
         self.TimeZone = pytz.timezone('Europe/Prague')
+        # Get tenant configuration service
+        self.ConfigService = app.get_service("TenantConfigExtractionService")
 
-    def generate_auth_params(self):
+    def generate_auth_params(self, password):
+        """
+        Generates authentication parameters required by the SMS API.
+        Uses the correct password based on whether tenant-specific config is used.
+        """
         time_now = datetime.datetime.now(self.TimeZone).strftime(self.TimestampFormat)  # Ensure Prague time
         sul = secrets.token_urlsafe(16)
-        auth_string = "{}{}{}".format(self.Password, time_now, sul)
+        auth_string = "{}{}{}".format(password, time_now, sul)
         auth = hashlib.md5(auth_string.encode('utf-8')).hexdigest()
         return time_now, sul, auth
 
@@ -63,7 +69,13 @@ class SMSOutputService(asab.Service, OutputABC):
             message = message[len(part):]
         return parts
 
-    async def send(self, sms_data):
+    async def send(self, sms_data, tenant=None):
+        """
+        Sends an SMS using either tenant-specific or global SMS settings.
+        """
+        # Default to global configuration
+        login, password, api_url = self.Login, self.Password, self.ApiUrl
+
         if not sms_data.get('phone'):
             L.warning("Empty or no phone number specified.")
             raise ASABIrisError(
@@ -72,6 +84,20 @@ class SMSOutputService(asab.Service, OutputABC):
                 error_i18n_key="Invalid input: {{error_message}}.",
                 error_dict={"error_message": "Empty or no phone number specified."}
             )
+
+        if tenant:
+            try:
+                # Fetch tenant-specific config
+                tenant_login, tenant_password, tenant_api_url = self.ConfigService.get_sms_config(tenant)
+
+                # Only override if the fetch was successful
+                login, password, api_url = tenant_login, tenant_password, tenant_api_url
+            except KeyError:
+                L.warning("Tenant-specific SMS configuration not found for '{}'. Using global config.".format(tenant))
+
+        if not login or not password or not api_url:
+            L.error("Missing SMS configuration (login, password, or API URL).")
+            return
 
         if isinstance(sms_data['message_body'], str):
             message_list = [sms_data['message_body']]
@@ -94,10 +120,11 @@ class SMSOutputService(asab.Service, OutputABC):
             message_parts = self.split_message(message)
 
             for part in message_parts:
-                time_now, sul, auth = self.generate_auth_params()
+                # Pass the correct password
+                time_now, sul, auth = self.generate_auth_params(password)
                 params = {
                     "action": "send_sms",
-                    "login": self.Login,
+                    "login": login,
                     "time": time_now,
                     "sul": sul,
                     "auth": auth,
@@ -106,7 +133,7 @@ class SMSOutputService(asab.Service, OutputABC):
                 }
 
                 async with aiohttp.ClientSession() as session:
-                    async with session.get(self.ApiUrl, params=params) as resp:
+                    async with session.get(api_url, params=params) as resp:
                         response_body = await resp.text()
                         if resp.status != 200:
                             L.warning("SMSBrana.cz responded with {}: {}".format(resp.status, response_body))
@@ -136,7 +163,8 @@ class SMSOutputService(asab.Service, OutputABC):
                             L.warning("SMS delivery failed. SMSBrana.cz response: {}".format(response_body))
                             raise ASABIrisError(
                                 ErrorCode.SERVER_ERROR,
-                                tech_message="SMS delivery failed. Error code: {}. Message: {}".format(err_code, custom_message),
+                                tech_message="SMS delivery failed. Error code: {}. Message: {}".format(err_code,
+                                                                                                       custom_message),
                                 error_i18n_key="Error occurred while sending SMS. Reason: '{{error_message}}'.",
                                 error_dict={"error_message": custom_message}
                             )
