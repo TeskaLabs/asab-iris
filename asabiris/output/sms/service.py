@@ -86,14 +86,13 @@ class SMSOutputService(asab.Service, OutputABC):
             )
 
         if tenant:
-            try:
-                # Fetch tenant-specific config
-                tenant_login, tenant_password, tenant_api_url = self.ConfigService.get_sms_config(tenant)
+            tenant_login, tenant_password, tenant_api_url = self.ConfigService.get_sms_config(tenant)
 
-                # Only override if the fetch was successful
+            # Only override if all tenant values exist, otherwise retain global defaults
+            if tenant_login and tenant_password and tenant_api_url:
                 login, password, api_url = tenant_login, tenant_password, tenant_api_url
-            except KeyError:
-                L.warning("Tenant-specific SMS configuration not found for '{}'. Using global config.".format(tenant))
+            else:
+                L.warning("Tenant '{}' SMS configuration is incomplete. Using global config.".format(tenant))
 
         if not login or not password or not api_url:
             L.error("Missing SMS configuration (login, password, or API URL).")

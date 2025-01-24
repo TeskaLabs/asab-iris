@@ -76,22 +76,26 @@ class TenantConfigExtractionService(asab.Service):
 	def get_sms_config(self, tenant):
 		"""
 		Retrieves SMS-specific configuration for a given tenant.
-		Falls back to global configuration if tenant-specific config is missing.
+		Falls back to global configuration if tenant-specific config is missing or incomplete.
+		Returns None if any required value is missing.
 		"""
-		sms_config = {}
-
 		if tenant:
 			try:
 				tenant_config = self.load_tenant_config(tenant)
 				tenant_sms_config = tenant_config.get("sms", {})
 
-				sms_config["login"] = tenant_sms_config.get("login", None)
-				sms_config["password"] = tenant_sms_config.get("password", None)
-				sms_config["api_url"] = tenant_sms_config.get("api_url", None)
+				login = tenant_sms_config.get("login")
+				password = tenant_sms_config.get("password")
+				api_url = tenant_sms_config.get("api_url")
 
-				L.warning("Loaded SMS config for tenant '{}'.".format(tenant))
-			except KeyError as e:
-				L.warning("Tenant-specific SMS configuration not found for '{}'. Using global config.".format(tenant))
-				raise KeyError("SMS configuration missing key: '{}'".format(e))
+				# Ensure all values are present; otherwise, use global config
+				if all([login, password, api_url]):
+					L.info("Loaded complete SMS config for tenant '{}'.".format(tenant))
+					return login, password, api_url
+				else:
+					L.warning("Tenant '{}' SMS config is incomplete. Using global config.".format(tenant))
 
-		return sms_config["login"], sms_config["password"], sms_config["api_url"]
+			except (KeyError, TypeError) as e:
+				L.warning("Tenant-specific SMS configuration error for '{}'. Using global config. Error: '{}'".format(tenant, e))
+
+		return None, None, None
