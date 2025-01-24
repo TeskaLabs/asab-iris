@@ -78,24 +78,20 @@ class TenantConfigExtractionService(asab.Service):
 		Retrieves SMS-specific configuration for a given tenant.
 		Falls back to global configuration if tenant-specific config is missing.
 		"""
-		sms_config = {
-			"login": self.DefaultLogin,
-			"password": self.DefaultPassword,
-			"api_url": self.DefaultApiUrl,
-		}
+		sms_config = {}
 
 		if tenant:
 			try:
 				tenant_config = self.load_tenant_config(tenant)
 				tenant_sms_config = tenant_config.get("sms", {})
 
-				sms_config["login"] = tenant_sms_config.get("login", sms_config["login"])
-				sms_config["password"] = tenant_sms_config.get("password", sms_config["password"])
-				sms_config["api_url"] = tenant_sms_config.get("api_url", sms_config["api_url"])
+				sms_config["login"] = tenant_sms_config.get("login", None)
+				sms_config["password"] = tenant_sms_config.get("password", None)
+				sms_config["api_url"] = tenant_sms_config.get("api_url", None)
 
-				L.info("Loaded SMS config for tenant '{}'.".format(tenant))
-			except KeyError:
+				L.warning("Loaded SMS config for tenant '{}'.".format(tenant))
+			except KeyError as e:
 				L.warning("Tenant-specific SMS configuration not found for '{}'. Using global config.".format(tenant))
+				raise KeyError("SMS configuration missing key: '{}'".format(e))
 
 		return sms_config["login"], sms_config["password"], sms_config["api_url"]
-
