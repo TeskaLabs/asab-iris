@@ -35,7 +35,7 @@ class SlackOutputService(asab.Service, OutputABC):
 		if not self.SlackWebhookUrl or not self.Channel:
 			L.warning("Slack output service is not properly configured. Disabling Slack service.")
 			self.Client = None
-			app.SlackOutputService = None  # Set to None so that it isn't used elsewhere
+			app.SendSlackOrchestrator = None  # Set to None so that it isn't used elsewhere
 			return
 
 		self.Client = WebClient(token=self.SlackWebhookUrl)

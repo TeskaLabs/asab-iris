@@ -27,7 +27,7 @@ class MSTeamsOutputService(asab.Service, OutputABC):
         if not self.TeamsWebhookUrl:
             L.warning("MS Teams output service is not properly configured. Disabling MS Teams service.")
             self.Client = None
-            app.MSTeamsOutputService = None  # Set to None so that it isn't used elsewhere
+            app.SendMSTeamsOrchestrator = None  # Set to None so that it isn't used elsewhere
             return
 
         self.ConfigService = app.get_service("TenantConfigExtractionService")
