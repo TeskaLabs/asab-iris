@@ -110,10 +110,17 @@ class ASABIRISApplication(asab.Application):
 			self.SendSlackOrchestrator = None
 
 		if 'msteams' in asab.Config.sections():
+			# Initialize the MSTeamsOutputService
 			self.MSTeamsOutputService = MSTeamsOutputService(self)
-			self.SendMSTeamsOrchestrator = SendMSTeamsOrchestrator(self)
+			if self.MSTeamsOutputService.TeamsWebhookUrl is None:
+				# If client is None, disable MSTeams orchestrator as well
+				self.SendMSTeamsOrchestrator = None
+			else:
+				# If the TeamsWebhookUrl is valid, initialize the orchestrator
+				self.SendMSTeamsOrchestrator = SendMSTeamsOrchestrator(self)
 		else:
 			self.SendMSTeamsOrchestrator = None
+			self.MSTeamsOutputService = None
 
 		if 'sms' in asab.Config.sections():
 			self.SMSOutputService = SMSOutputService(self)
