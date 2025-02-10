@@ -93,9 +93,20 @@ class ASABIRISApplication(asab.Application):
 		self.EmailOutputService = EmailOutputService(self)
 
 		if 'slack' in asab.Config.sections():
+			# Initialize the SlackOutputService
 			self.SlackOutputService = SlackOutputService(self)
-			self.SendSlackOrchestrator = SendSlackOrchestrator(self)
+
+			# Only initialize SendSlackOrchestrator if the SlackOutputService client is valid
+			if self.SlackOutputService.Client is None:
+				# If client is None, disable Slack orchestrator as well
+				self.SendSlackOrchestrator = None
+			else:
+				# If the client is valid, initialize the orchestrator
+				self.SendSlackOrchestrator = SendSlackOrchestrator(self)
+
 		else:
+			# If the slack section is not present in the config, set both services to None
+			self.SlackOutputService = None
 			self.SendSlackOrchestrator = None
 
 		if 'msteams' in asab.Config.sections():
