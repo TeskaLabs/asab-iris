@@ -41,7 +41,6 @@ class TenantConfigExtractionService(asab.Service):
 			raise KeyError("Tenant configuration not found at '{}'.".format(path))
 
 		data, _ = self.zk.get(path)
-		print(data)
 		config = json.loads(data.decode("utf-8"))
 		L.info("Loaded tenant configuration from '{}'.".format(path))
 		return config
