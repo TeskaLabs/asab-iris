@@ -70,6 +70,12 @@ class ASABIRISApplication(asab.Application):
 			"LibraryService",
 		)
 
+		if 'zookeeper' in asab.Config.sections():
+			self.ZooKeeperService = self.get_service("asab.ZooKeeperService")
+			self.ZooKeeperContainer = asab.zookeeper.ZooKeeperContainer(self.ZooKeeperService, 'zookeeper')
+		else:
+			self.ZooKeeperContainer = None
+
 		# Initialize API service
 		self.ASABApiService = asab.api.ApiService(self)
 		self.ASABApiService.initialize_web()
@@ -117,6 +123,3 @@ class ASABIRISApplication(asab.Application):
 
 		self.WebHandler = WebHandler(self)
 
-		# Apache Kafka API is conditional
-		if "kafka" in asab.Config.sections():
-			self.KafkaHandler = KafkaHandler(self)

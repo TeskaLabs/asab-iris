@@ -23,11 +23,9 @@ class TenantConfigExtractionService(asab.Service):
 			# Parse the ZooKeeper URL
 			url_parts = urllib.parse.urlparse(tenant_config_url)
 			self.TenantConfigPath = url_parts.path
-			self.zk_hosts = url_parts.netloc
 
 			# Initialize Kazoo client
-			self.zk = kazoo.client.KazooClient(hosts=self.zk_hosts)
-			self.zk.start()
+			self.zk = app.ZooKeeperContainer.ZooKeeper.Client
 			L.info("ZooKeeper client initialized for tenant configuration.")
 
 		except (configparser.NoOptionError, configparser.NoSectionError):
@@ -43,6 +41,7 @@ class TenantConfigExtractionService(asab.Service):
 			raise KeyError("Tenant configuration not found at '{}'.".format(path))
 
 		data, _ = self.zk.get(path)
+		print(data)
 		config = json.loads(data.decode("utf-8"))
 		L.info("Loaded tenant configuration from '{}'.".format(path))
 		return config
