@@ -70,6 +70,12 @@ class ASABIRISApplication(asab.Application):
 			"LibraryService",
 		)
 
+		if 'zookeeper' in asab.Config.sections():
+			self.ZooKeeperService = self.get_service("asab.ZooKeeperService")
+			self.ZooKeeperContainer = asab.zookeeper.ZooKeeperContainer(self.ZooKeeperService, 'zookeeper')
+		else:
+			self.ZooKeeperContainer = None
+
 		# Initialize API service
 		self.ASABApiService = asab.api.ApiService(self)
 		self.ASABApiService.initialize_web()
