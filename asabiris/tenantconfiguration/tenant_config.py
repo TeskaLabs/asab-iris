@@ -2,7 +2,6 @@ import logging
 import json
 import configparser
 import urllib.parse
-import kazoo.client
 import asab
 
 L = logging.getLogger(__name__)
