@@ -40,7 +40,7 @@ class MSTeamsOutputService(asab.Service, OutputABC):
         webhook_url = self.TeamsWebhookUrl
 
         # If tenant-specific MS Teams configuration is available, fetch the webhook URL
-        if tenant:
+        if tenant and self.ConfigService is not None:
             try:
                 webhook_url = self.ConfigService.get_msteams_config(tenant)
             except KeyError:

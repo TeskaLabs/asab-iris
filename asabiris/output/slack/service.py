@@ -51,7 +51,7 @@ class SlackOutputService(asab.Service, OutputABC):
 
 		token, channel = (self.SlackWebhookUrl, self.Channel)
 
-		if tenant:
+		if tenant and self.ConfigService is not None:
 			try:
 				token, channel = self.ConfigService.get_slack_config(tenant)
 			except KeyError:
