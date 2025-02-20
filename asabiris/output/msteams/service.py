@@ -7,6 +7,7 @@ from ...output_abc import OutputABC
 
 L = logging.getLogger(__name__)
 
+
 def check_config(config, section, parameter):
     try:
         value = config.get(section, parameter)
@@ -14,6 +15,7 @@ def check_config(config, section, parameter):
     except configparser.NoOptionError as e:
         L.error("Configuration parameter '{}' is missing in section '{}': {}".format(parameter, section, e))
         return None
+
 
 class MSTeamsOutputService(asab.Service, OutputABC):
 
