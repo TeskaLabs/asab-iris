@@ -13,7 +13,7 @@ def check_config(config, section, parameter):
         value = config.get(section, parameter)
         return value
     except configparser.NoOptionError as e:
-        L.error("Configuration parameter '{}' is missing in section '{}': {}".format(parameter, section, e))
+        L.warning("Configuration parameter '{}' is missing in section '{}': {}".format(parameter, section, e))
         return None
 
 
