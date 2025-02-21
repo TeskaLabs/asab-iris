@@ -109,6 +109,14 @@
 
 - Email supports TXT templates
 
+#### 21.02.2025
+
+- Make Kafka handler optional
+
+#### 21.02.2025
+
+- Exit strategy is obsolete
+
 
 ### Bugfix
 
