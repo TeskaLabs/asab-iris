@@ -2,7 +2,6 @@ import logging
 import json
 import configparser
 import urllib.parse
-import kazoo.client
 import asab
 
 L = logging.getLogger(__name__)
@@ -15,7 +14,7 @@ class TenantConfigExtractionService(asab.Service):
 
 		# Initialize ZooKeeper client only if configuration exists
 		self.TenantConfigPath = None
-		self.zk = None
+		self.ZK = None
 
 		# Try to read tenant config from asab.Config
 		try:
@@ -23,11 +22,9 @@ class TenantConfigExtractionService(asab.Service):
 			# Parse the ZooKeeper URL
 			url_parts = urllib.parse.urlparse(tenant_config_url)
 			self.TenantConfigPath = url_parts.path
-			self.zk_hosts = url_parts.netloc
 
 			# Initialize Kazoo client
-			self.zk = kazoo.client.KazooClient(hosts=self.zk_hosts)
-			self.zk.start()
+			self.ZK = app.ZooKeeperContainer.ZooKeeper.Client
 			L.info("ZooKeeper client initialized for tenant configuration.")
 
 		except (configparser.NoOptionError, configparser.NoSectionError):
@@ -39,10 +36,10 @@ class TenantConfigExtractionService(asab.Service):
 		Loads tenant-specific configuration from ZooKeeper.
 		"""
 		path = "{}/{}".format(self.TenantConfigPath, tenant)
-		if not self.zk.exists(path):
+		if not self.ZK.exists(path):
 			raise KeyError("Tenant configuration not found at '{}'.".format(path))
 
-		data, _ = self.zk.get(path)
+		data, _ = self.ZK.get(path)
 		config = json.loads(data.decode("utf-8"))
 		L.info("Loaded tenant configuration from '{}'.".format(path))
 		return config
