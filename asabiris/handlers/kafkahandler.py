@@ -24,13 +24,9 @@ def check_config(config, section, parameter):
 	try:
 		value = config.get(section, parameter)
 		return value
-	except (configparser.NoOptionError, configparser.NoSectionError):
-		L.error(
-			"Configuration parameter '{}' is missing in section '{}'.".format(
-				parameter, section
-			)
-		)
-		exit()
+	except (configparser.NoOptionError, configparser.NoSectionError) as e:
+		L.error("Configuration parameter '{}' is missing in section '{}': {}".format(parameter, section, e))
+		return None
 
 
 class KafkaHandler(asab.Service):
@@ -43,25 +39,37 @@ class KafkaHandler(asab.Service):
 		super().__init__(app, service_name)
 		self.Task = None
 		self.JinjaService = app.get_service("JinjaService")
-		# Output services
+		self.Consumer = None  # Ensure Consumer is always initialized
+
 		try:
 			topic = check_config(asab.Config, "kafka", "topic")
 			group_id = check_config(asab.Config, "kafka", "group_id")
-			bootstrap_servers = check_config(asab.Config, "kafka", "bootstrap_servers").split(",")
-		except configparser.NoOptionError:
-			L.error("Configuration missing. Required parameters: Kafka/group_id/bootstrap_servers")
-			exit()
+			bootstrap_servers = check_config(asab.Config, "kafka", "bootstrap_servers")
 
-		self.Consumer = AIOKafkaConsumer(
-			topic,
-			group_id=group_id,
-			bootstrap_servers=bootstrap_servers,
-			loop=self.App.Loop,
-			retry_backoff_ms=10000,
-			auto_offset_reset="earliest",
-		)
+			if not topic or not group_id or not bootstrap_servers:
+				L.warning("Kafka configuration is missing. Skipping Kafka initialization.")
+				return
+
+			bootstrap_servers = bootstrap_servers.split(",")
+
+			self.Consumer = AIOKafkaConsumer(
+				topic,
+				group_id=group_id,
+				bootstrap_servers=bootstrap_servers,
+				loop=self.App.Loop,
+				retry_backoff_ms=10000,
+				auto_offset_reset="earliest",
+			)
+
+		except Exception as e:
+			L.error("KafkaHandler initialization failed: {}".format(e), exc_info=True)
+			self.Consumer = None
 
 	async def initialize(self, app):
+		if self.Consumer is None:
+			L.warning("Kafka consumer is not initialized. Skipping Kafka initialization.")
+			return
+
 		max_retries = 5
 		initial_delay = 5  # Initial delay in seconds
 		max_delay = 300  # Maximum delay in seconds (5 minutes)
@@ -75,20 +83,22 @@ class KafkaHandler(asab.Service):
 				L.warning("No connection to Kafka established. Attempt {} of {}. Retrying in {} seconds... {}".format(
 					attempt + 1, max_retries, delay, e))
 				await asyncio.sleep(delay)
-				# Apply exponential backoff with a cap on the delay
 				delay = min(delay * 2, max_delay)
 		else:
-			L.error("Failed to connect to Kafka after {} attempts. Stopping the app.".format(max_retries))
-			exit()
+			L.error("Failed to connect to Kafka after {} attempts.".format(max_retries))
+			return
 
 		self.Task = asyncio.ensure_future(self.consume(), loop=self.App.Loop)
 
 	async def finalize(self, app):
-		await self.Consumer.stop()
-		if self.Task.exception() is not None:
+		if self.Consumer is not None:
+			await self.Consumer.stop()
+		if self.Task and self.Task.exception():
 			L.warning("Exception occurred during alert notifications: {}".format(self.Task.exception()))
 
 	async def consume(self):
+		if self.Consumer is None:
+			return
 		async for msg in self.Consumer:
 			try:
 				msg = msg.value.decode("utf-8")
@@ -96,9 +106,6 @@ class KafkaHandler(asab.Service):
 			except (UnicodeDecodeError, json.JSONDecodeError) as e:
 				L.warning("Failed to decode or parse message: {}".format(e))
 				continue
-			except Exception as e:
-				L.warning("Invalid message format: '{}'".format(e))
-				continue  # Skip to the next message
 			try:
 				await self.dispatch(msg)
 			except Exception as e:
@@ -113,29 +120,24 @@ class KafkaHandler(asab.Service):
 
 		if msg_type == "email":
 			await self.handle_email(msg)
-
 		elif msg_type == "slack":
 			if self.App.SendSlackOrchestrator is None:
 				L.warning("Slack service is not configured. Discarding notification.")
 				return
 			await self.handle_slack(msg)
-
 		elif msg_type == "msteams":
 			if self.App.SendMSTeamsOrchestrator is None:
 				L.warning("MS Teams service is not configured. Discarding notification.")
 				return
 			await self.handle_msteams(msg)
-
 		elif msg_type == "sms":
 			if self.App.SendSMSOrchestrator is None:
 				L.warning("SMS service is not configured. Discarding notification.")
 				return
 			await self.handle_sms(msg)
-
 		else:
 			L.warning(
-				"Notification sending failed: Unsupported message type '{}'. "
-				"Supported types are 'email', 'slack', 'msteams', and 'sms'.".format(msg_type)
+				"Notification sending failed: Unsupported message type '{}'. Supported types are 'email', 'slack', 'msteams', and 'sms'.".format(msg_type)
 			)
 
 	async def handle_email(self, msg):

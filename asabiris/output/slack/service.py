@@ -17,9 +17,9 @@ def check_config(config, section, parameter):
 	try:
 		value = config.get(section, parameter)
 		return value
-	except configparser.NoOptionError:
-		L.error("Configuration parameter '{}' is missing in section '{}'.".format(parameter, section))
-		exit()
+	except configparser.NoOptionError as e:
+		L.warning("Configuration parameter '{}' is missing in section '{}': {}".format(parameter, section, e))
+		return None
 
 
 class SlackOutputService(asab.Service, OutputABC):
@@ -30,16 +30,28 @@ class SlackOutputService(asab.Service, OutputABC):
 		# Load global configuration as defaults
 		self.SlackWebhookUrl = check_config(asab.Config, "slack", "token")
 		self.Channel = check_config(asab.Config, "slack", "channel")
+
+		# If required Slack configuration is missing, disable Slack service
+		if not self.SlackWebhookUrl or not self.Channel:
+			L.warning("Slack output service is not properly configured. Disabling Slack service.")
+			self.Client = None
+			return
+
 		self.Client = WebClient(token=self.SlackWebhookUrl)
 		self.ConfigService = app.get_service("TenantConfigExtractionService")
+
 
 	async def send_message(self, blocks, fallback_message, tenant=None) -> None:
 		"""
 		Sends a message to a Slack channel.
 		"""
+		if self.Client is None:
+			L.warning("SlackOutputService is not initialized properly. Message will not be sent.")
+			return
+
 		token, channel = (self.SlackWebhookUrl, self.Channel)
 
-		if tenant:
+		if tenant and self.ConfigService is not None:
 			try:
 				token, channel = self.ConfigService.get_slack_config(tenant)
 			except KeyError:
@@ -75,6 +87,10 @@ class SlackOutputService(asab.Service, OutputABC):
 		"""
 		Sends a message to a Slack channel with attachments.
 		"""
+		if self.Client is None:
+			L.warning("SlackOutputService is not initialized properly. File will not be sent.")
+			return
+
 		token, channel = (self.SlackWebhookUrl, self.Channel)
 
 		if tenant:
