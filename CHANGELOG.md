@@ -118,6 +118,11 @@
 - Exit strategy is obsolete
 
 
+#### 03.03.2025
+
+- jinja2 new filter quote_plus
+
+
 ### Bugfix
 
 - 

@@ -6,6 +6,7 @@ import datetime
 import pathlib
 import json
 import jinja2
+import urllib.parse
 
 from ...errors import ASABIrisError, ErrorCode
 from ...formater_abc import FormatterABC
@@ -32,6 +33,7 @@ class JinjaFormatterService(asab.Service, FormatterABC):
 		# Inject 'now' function and datetimeformat filter into the Jinja2 template's global namespace
 		self.Environment.globals['now'] = self._jinja_now
 		self.Environment.filters['datetimeformat'] = self.datetimeformat
+		self.Environment.filters['quote_plus'] = urllib.parse.quote_plus
 		self._load_variables_from_json()
 
 	def _jinja_now(self):
