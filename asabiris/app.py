@@ -149,3 +149,16 @@ class ASABIRISApplication(asab.Application):
 		# Apache Kafka API is conditional
 		if "kafka" in asab.Config.sections():
 			self.KafkaHandler = KafkaHandler(self)
+
+
+	def enabled_orchestrators(self):
+		if self.SendEmailOrchestrator is not None:
+			yield "email"
+		if self.SendMSTeamsOrchestrator is not None:
+			yield "slack"
+		if self.SendMSTeamsOrchestrator is not None:
+			yield "msteams"
+		if self.SendMSTeamsOrchestrator is not None:
+			yield "sms"
+		if self.RenderReportOrchestrator is not None:
+			yield "render-report"
