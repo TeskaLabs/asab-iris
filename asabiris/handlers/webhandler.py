@@ -36,6 +36,9 @@ class WebHandler(object):
 
 
 	async def get_features(self, request):
+		"""
+		Return the application's features (enabled orchestrators).
+		"""
 		response = {
 			"orchestrators": list(self.App.enabled_orchestrators()),
 		}
