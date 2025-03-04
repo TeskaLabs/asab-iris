@@ -96,7 +96,13 @@ class ASABIRISApplication(asab.Application):
 			self.TenantConfigExtractionService = None
 
 		# output services
-		self.EmailOutputService = EmailOutputService(self)
+
+		if asab.Config.get("smtp", "host") != "":
+			self.EmailOutputService = EmailOutputService(self)
+			self.SendEmailOrchestrator = SendEmailOrchestrator(self)
+		else:
+			self.EmailOutputService = None
+			self.SendEmailOrchestrator = None
 
 		if 'slack' in asab.Config.sections():
 			# Initialize the SlackOutputService
@@ -136,7 +142,6 @@ class ASABIRISApplication(asab.Application):
 
 
 		# Orchestrators
-		self.SendEmailOrchestrator = SendEmailOrchestrator(self)
 		self.RenderReportOrchestrator = RenderReportOrchestrator(self)
 
 		self.WebHandler = WebHandler(self)
