@@ -37,7 +37,7 @@ class EmailOutputService(asab.Service, OutputABC):
 
 		self.Host = asab.Config.get(config_section_name, "host")
 		if self.Host == "":
-			L.warning("SMTP server is not configured, the `host` entry is empty")
+			raise ValueError("SMTP server is not configured, the `host` entry is empty")
 		self.Port = asab.Config.get(config_section_name, "port")
 
 		self.SSL = asab.Config.getboolean(config_section_name, "ssl")
