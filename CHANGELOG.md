@@ -1,6 +1,35 @@
 # CHANGELOG
 
-## Release Candidate
+## v25.10
+
+### Features
+- Add `GET /features` endpoint (#90, v25.10-alpha2)
+- Add new jinja2 filter quote_plus (#89, v25.10-alpha)
+
+### Fixes
+- Remove exits from Kafka handler (#86, v25.08-alpha)
+
+---
+
+
+## v25.07
+
+### Features
+- Tenant configuration (#84)
+- Enhancement: Optional services (#83)
+
+### Fixes
+- Use correct incoming webhook url (#88)
+- Use zookeeper container (#87)
+- Email supports TXT templates (#82)
+
+### Refactoring
+- Kafka handler refactoring (#81)
+
+---
+
+
+## v24.42
 
 ### Features
 
@@ -16,10 +45,13 @@
 
 - Feature: Send SMS
 
+#### 28. 06. 2024 
+
+- Feature: Send SMS
+
 
 ### Refactoring
 
-- 
 #### 26. 05. 2023
 
 - Refactoring :Slack use case
@@ -34,8 +66,6 @@
 
 
 ### Enhancements
-
-- 
 
 #### 09. 04. 2023 
 
@@ -109,23 +139,8 @@
 
 - Email supports TXT templates
 
-#### 21.02.2025
-
-- Make Kafka handler optional
-
-#### 21.02.2025
-
-- Exit strategy is obsolete
-
-
-#### 03.03.2025
-
-- jinja2 new filter quote_plus
-
 
 ### Bugfix
-
-- 
 
 #### 13. 06. 2023
 
