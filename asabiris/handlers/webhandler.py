@@ -105,6 +105,15 @@ class WebHandler(object):
 		---
 		tags: ['Send mail']
 		"""
+		if self.App.SendEmailOrchestrator is None:
+			L.info("Email orchestrator is not enabled.")
+			return aiohttp.web.json_response(
+				{
+					"result": "FAILED",
+					"error": "Email service is not configured."
+				},
+				status=400
+			)
 
 		try:
 			await self.App.SendEmailOrchestrator.send_email(
