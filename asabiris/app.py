@@ -96,7 +96,13 @@ class ASABIRISApplication(asab.Application):
 			self.TenantConfigExtractionService = None
 
 		# output services
-		self.EmailOutputService = EmailOutputService(self)
+
+		if asab.Config.get("smtp", "host") != "":
+			self.EmailOutputService = EmailOutputService(self)
+			self.SendEmailOrchestrator = SendEmailOrchestrator(self)
+		else:
+			self.EmailOutputService = None
+			self.SendEmailOrchestrator = None
 
 		if 'slack' in asab.Config.sections():
 			# Initialize the SlackOutputService
@@ -136,7 +142,6 @@ class ASABIRISApplication(asab.Application):
 
 
 		# Orchestrators
-		self.SendEmailOrchestrator = SendEmailOrchestrator(self)
 		self.RenderReportOrchestrator = RenderReportOrchestrator(self)
 
 		self.WebHandler = WebHandler(self)
@@ -144,3 +149,16 @@ class ASABIRISApplication(asab.Application):
 		# Apache Kafka API is conditional
 		if "kafka" in asab.Config.sections():
 			self.KafkaHandler = KafkaHandler(self)
+
+
+	def enabled_orchestrators(self):
+		if self.SendEmailOrchestrator is not None:
+			yield "email"
+		if self.SendMSTeamsOrchestrator is not None:
+			yield "slack"
+		if self.SendMSTeamsOrchestrator is not None:
+			yield "msteams"
+		if self.SendMSTeamsOrchestrator is not None:
+			yield "sms"
+		if self.RenderReportOrchestrator is not None:
+			yield "render-report"
