@@ -37,7 +37,12 @@ RUN apk add --no-cache \
 
 RUN pip3 install --upgrade pip
 RUN pip3 install --no-cache-dir pygit2==1.11 aiokafka aiosmtplib fastjsonschema
-RUN pip3 install --no-cache-dir jinja2 markdown pyyaml xhtml2pdf git+https://github.com/TeskaLabs/asab.git
+RUN pip3 install --no-cache-dir \
+    jinja2 \
+    markdown \
+    pyyaml \
+    xhtml2pdf \
+    git+https://github.com/TeskaLabs/asab.git@db620e9a7ce75cc06bd368783eb4cb7f88044e1e
 RUN pip3 install --no-cache-dir sentry-sdk slack_sdk pytz
 
 RUN mkdir -p /app/asab-iris
