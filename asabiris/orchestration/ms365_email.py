@@ -7,8 +7,6 @@ class SendM365EmailOrchestrator:
     """
     Orchestrator for preparing an email using templates and delegating the sending to the output service.
     """
-    # Compile the JSON schema for validation.
-    ValidationSchemaEmail = fastjsonschema.compile(ms365_schema)
 
     def __init__(self, app):
         self.App = app
