@@ -9,6 +9,7 @@ from ..schemas.emailschema import email_schema
 from ..schemas.slackschema import slack_schema
 from ..schemas.smsschema import sms_schema
 from ..schemas.teamsschema import teams_schema
+from ..schemas.ms365schema import ms365_schema
 
 from ..errors import ASABIrisError, ErrorCode
 
@@ -274,6 +275,65 @@ class WebHandler(object):
 
 		return asab.web.rest.json_response(request, {"result": "OK"})
 
+	L = logging.getLogger(__name__)
+
+	@asab.web.rest.json_schema_handler(ms365_schema)
+	async def send_m365_email(self, request, *, json_data):
+		"""
+		This endpoint is for sending Microsoft 365 email notifications.
+
+		Example request body:
+		{
+			"to": ["recipient@example.com"],
+			"subject": "Test Email",
+			"body": {
+			"template": "/Templates/M365/alert.md",
+			"params": {
+				"message": "Hello world",
+				"event": "M365-Event"
+			}
+		},
+			"tenant": "tenant_identifier"  // Optional for tenant-specific configuration
+		}
+
+		---
+		tags: ['Send M365 Email']
+		"""
+		if self.App.SendM365EmailOrchestrator is None:
+			L.info("M365 Email orchestrator is not initialized. This feature is optional and not configured.")
+			return aiohttp.web.json_response(
+				{
+					"result": "FAILED",
+					"error": "M365 Email service is not configured."
+				},
+				status=400
+			)
+
+		try:
+			# The orchestrator prepares the email (renders template, etc.) and delegates sending.
+			await self.App.SendM365EmailOrchestrator.send_to_m365_email(json_data)
+		except ASABIrisError as e:
+			# Map ErrorCode to HTTP status code as needed
+			status_code = self.map_error_code_to_status(e.ErrorCode)
+			response = {
+				"result": "ERROR",
+				"error": e.Errori18nKey,
+				"error_dict": e.ErrorDict,
+				"tech_err": e.TechMessage
+			}
+			return aiohttp.web.json_response(response, status=status_code)
+		except Exception as e:
+			L.exception(str(e))
+			response = {
+				"result": "FAILED",
+				"error": {
+					"message": str(e),
+					"error_code": "GENERAL_ERROR",
+				}
+			}
+			return aiohttp.web.json_response(response, status=400)
+
+		return asab.web.rest.json_response(request, {"result": "OK"})
 
 	@asab.web.rest.json_schema_handler({"type": "object"})
 	async def render(self, request, *, json_data):
