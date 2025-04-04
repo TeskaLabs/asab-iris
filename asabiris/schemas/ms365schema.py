@@ -43,7 +43,7 @@ ms365_schema = {
       "properties": {
         "template": {
           "type": "string",
-          "default": "/Templates/M365/alert.md"
+          "default": "/Templates/MS365/alert.md"
         },
         "params": {
           "type": "object",

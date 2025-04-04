@@ -299,7 +299,7 @@ class WebHandler(object):
 		---
 		tags: ['Send M365 Email']
 		"""
-		if self.App.SendM365EmailOrchestrator is None:
+		if self.App.SendMS365EmailOrchestrator is None:
 			L.info("M365 Email orchestrator is not initialized. This feature is optional and not configured.")
 			return aiohttp.web.json_response(
 				{
@@ -311,7 +311,7 @@ class WebHandler(object):
 
 		try:
 			# The orchestrator prepares the email (renders template, etc.) and delegates sending.
-			await self.App.SendM365EmailOrchestrator.send_to_m365_email(json_data)
+			await self.App.SendMS365EmailOrchestrator.send_to_m365_email(json_data)
 		except ASABIrisError as e:
 			# Map ErrorCode to HTTP status code as needed
 			status_code = self.map_error_code_to_status(e.ErrorCode)

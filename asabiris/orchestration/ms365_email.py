@@ -3,7 +3,7 @@ import fastjsonschema
 
 L = logging.getLogger(__name__)
 
-class SendM365EmailOrchestrator:
+class SendMS365EmailOrchestrator:
     """
     Orchestrator for preparing an email using templates and delegating the sending to the output service.
     """
@@ -28,7 +28,7 @@ class SendM365EmailOrchestrator:
         body_details = msg.get("body", {})
 
         # Get the template path and parameters.
-        template = body_details.get("template", "/Templates/M365/alert.md")
+        template = body_details.get("template", "/Templates/MS365/alert.md")
         params = body_details.get("params", {})
 
         # Use the JinjaService to render the email body.

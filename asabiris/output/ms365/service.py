@@ -25,31 +25,31 @@ class M365EmailOutputService(asab.Service, OutputABC):
         super().__init__(app, service_name)
 
         # Load configuration from the global asab.Config.
-        self.tenant_id = check_config(asab.Config, "m365_email", "tenant_id")
-        self.client_id = check_config(asab.Config, "m365_email", "client_id")
-        self.client_secret = check_config(asab.Config, "m365_email", "client_secret")
-        self.user_email = check_config(asab.Config, "m365_email", "user_email")
+        self.TenantID = check_config(asab.Config, "m365_email", "tenant_id")
+        self.ClinetID = check_config(asab.Config, "m365_email", "client_id")
+        self.ClientSecret = check_config(asab.Config, "m365_email", "client_secret")
+        self.UserEmail = check_config(asab.Config, "m365_email", "user_email")
 
         # If any required configuration is missing, disable the service.
-        if not all([self.tenant_id, self.client_id, self.client_secret, self.user_email]):
+        if not all([self.TenantID, self.ClinetID, self.ClientSecret, self.UserEmail]):
             L.warning("Microsoft 365 Email configuration is missing. Disabling M365 Email service.")
-            self.token = None
+            self.Token = None
             return
 
         # Define the Microsoft Graph API endpoint for sending email.
-        self.api_url = "https://graph.microsoft.com/v1.0/me/sendMail"
+        self.APIUrl = "https://graph.microsoft.com/v1.0/me/sendMail"
 
         # Retrieve the access token.
-        self.token = self._get_access_token()
+        self.Token = self._get_access_token()
 
     def _get_access_token(self):
         """
         Retrieves an access token using MSAL's ConfidentialClientApplication.
         """
         app = msal.ConfidentialClientApplication(
-            self.client_id,
-            authority="https://login.microsoftonline.com/{}".format(self.tenant_id),
-            client_credential=self.client_secret
+            self.ClinetID,
+            authority="https://login.microsoftonline.com/{}".format(self.TenantID),
+            client_credential=self.ClientSecret
         )
         result = app.acquire_token_for_client(scopes=["https://graph.microsoft.com/.default"])
         if "access_token" in result:
@@ -62,12 +62,12 @@ class M365EmailOutputService(asab.Service, OutputABC):
         Asynchronously sends an email to the specified recipient by directly calling
         requests.post to the Microsoft Graph API.
         """
-        if self.token is None:
+        if self.Token is None:
             L.error("M365 Email service is not properly configured (missing token).")
             return
 
         headers = {
-            "Authorization": "Bearer {}".format(self.token),
+            "Authorization": "Bearer {}".format(self.Token),
             "Content-Type": "application/json"
         }
         payload = {
@@ -83,7 +83,7 @@ class M365EmailOutputService(asab.Service, OutputABC):
             }
         }
         try:
-            response = requests.post(self.api_url, headers=headers, json=payload)
+            response = requests.post(self.APIUrl, headers=headers, json=payload)
             if response.status_code == 202:
                 L.info("Microsoft 365 email sent successfully.")
                 return True
