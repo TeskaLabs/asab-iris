@@ -14,6 +14,7 @@ from asabiris.schemas.emailschema import email_schema
 from asabiris.schemas.slackschema import slack_schema
 from asabiris.schemas.teamsschema import teams_schema
 from asabiris.schemas.smsschema import sms_schema
+from asabiris.schemas.ms365schema import ms365_schema
 
 from ..errors import ASABIrisError, ErrorCode
 
@@ -34,6 +35,7 @@ class KafkaHandler(asab.Service):
 	ValidationSchemaSlack = fastjsonschema.compile(slack_schema)
 	ValidationSchemaMSTeams = fastjsonschema.compile(teams_schema)
 	ValidationSchemaSMS = fastjsonschema.compile(sms_schema)
+	ValidationSchemaMS365 = fastjsonschema.compile(sms_schema)
 
 	def __init__(self, app, service_name="KafkaHandler"):
 		super().__init__(app, service_name)
@@ -135,6 +137,11 @@ class KafkaHandler(asab.Service):
 				L.warning("SMS service is not configured. Discarding notification.")
 				return
 			await self.handle_sms(msg)
+		elif msg_type == "ms365":
+			if self.App.SendMS365EmailOrchestrator is None:
+				L.warning("MS365 Email service is not configured. Discarding notification.")
+				return
+			await self.handle_ms365(msg)
 		else:
 			L.warning(
 				"Notification sending failed: Unsupported message type '{}'. Supported types are 'email', 'slack', 'msteams', and 'sms'.".format(msg_type)
@@ -216,6 +223,24 @@ class KafkaHandler(asab.Service):
 		except Exception as e:
 			await self.handle_exception(e, 'sms', msg)
 
+	async def handle_ms365(self, msg):
+		"""
+		Validates and dispatches a Microsoft 365 email message using the MS365EmailOrchestrator.
+		"""
+		try:
+			# Assuming the ms365 email message follows the same schema as standard emails.
+			KafkaHandler.ValidationSchemaMail(msg)
+		except fastjsonschema.exceptions.JsonSchemaException as e:
+			L.warning("Invalid MS365 email notification format: {}".format(e))
+			return
+
+		try:
+			await self.send_ms365_email(msg)
+		except ASABIrisError as e:
+			await self.handle_exception(e.TechMessage, 'ms365', msg)
+		except Exception as e:
+			await self.handle_exception(e, 'ms365', msg)
+
 	async def send_email(self, json_data):
 		await self.App.SendEmailOrchestrator.send_email(
 			email_from=json_data.get('from', None),
@@ -275,6 +300,19 @@ class KafkaHandler(asab.Service):
 					await self.App.SMSOutputService.send(msg_copy)
 				except Exception:
 					L.exception("Error notification to SMS unsuccessful.")
+
+			elif service_type == 'ms365':
+				try:
+					L.log(asab.LOG_NOTICE, "Sending error notification to MS365 Email.")
+					# You can also opt to send error notifications via email for ms365.
+					await self.App.M365EmailOutputService.send_email(
+						msg.get('from', None),
+						msg['to'],
+						error_subject or "MS365 Notification Error",
+						error_message
+					)
+				except Exception:
+					L.exception("Error notification to MS365 Email unsuccessful.")
 
 		except Exception:
 			L.exception("An unexpected error occurred while sending error message for {}.".format(service_type))
