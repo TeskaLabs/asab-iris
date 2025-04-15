@@ -35,7 +35,7 @@ class KafkaHandler(asab.Service):
 	ValidationSchemaSlack = fastjsonschema.compile(slack_schema)
 	ValidationSchemaMSTeams = fastjsonschema.compile(teams_schema)
 	ValidationSchemaSMS = fastjsonschema.compile(sms_schema)
-	ValidationSchemaMS365 = fastjsonschema.compile(sms_schema)
+	ValidationSchemaMS365 = fastjsonschema.compile(ms365_schema)
 
 	def __init__(self, app, service_name="KafkaHandler"):
 		super().__init__(app, service_name)
