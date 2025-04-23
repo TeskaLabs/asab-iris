@@ -51,27 +51,5 @@ ms365_schema = {
         }
       }
     },
-    "attachments": {
-      "type": "array",
-      "items": {
-        "type": "object",
-        "properties": {
-          "template": {
-            "type": "string"
-          },
-          "base64": {
-            "type": "string"
-          },
-          "params": {
-            "type": "object",
-            "default": {}
-          },
-          "format": {
-            "type": "string",
-            "default": "html"
-          }
-        }
-      }
-    }
   }
 }
