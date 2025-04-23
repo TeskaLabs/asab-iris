@@ -36,7 +36,6 @@ class SendMS365EmailOrchestrator:
         rendered_body = await self.JinjaService.format(template, params)
 
         # Delegate sending the email to the output service.
-        # Here, we assume the output service handles only one recipient at a time.
         for recipient in to_recipients:
             await self.M365EmailOutputService.send_email(from_recipient, recipient, subject, rendered_body)
 

@@ -44,6 +44,11 @@ class M365EmailOutputService(asab.Service, OutputABC):
         # Retrieve the access token using client credentials flow.
         self.Token = self._get_access_token()
 
+    @property
+    def is_configured(self) -> bool:
+        """True if all 4 required config values were found and non-empty."""
+        return bool(self.TenantID and self.ClientID and self.ClientSecret and self.UserEmail)
+
     def _get_access_token(self):
         """
         Retrieves an access token using MSAL's ConfidentialClientApplication (client credentials flow).
@@ -71,7 +76,7 @@ class M365EmailOutputService(asab.Service, OutputABC):
             L.error("M365 Email service is not properly configured (missing token).")
             return
 
-        if from_recipient in None:
+        if from_recipient is None:
             recipient = self.UserEmail
 
         headers = {
