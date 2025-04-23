@@ -1,7 +1,7 @@
 import logging
-import fastjsonschema
 
 L = logging.getLogger(__name__)
+
 
 class SendMS365EmailOrchestrator:
     """
@@ -23,7 +23,8 @@ class SendMS365EmailOrchestrator:
         # Validate incoming message against the schema.
 
         # Extract values from the validated message.
-        to_recipients = msg.get("from", [])
+        from_recipient = msg.get("from", None)
+        to_recipients = msg.get("to", [])
         subject = msg.get("subject", "No Subject")
         body_details = msg.get("body", {})
 
@@ -37,6 +38,6 @@ class SendMS365EmailOrchestrator:
         # Delegate sending the email to the output service.
         # Here, we assume the output service handles only one recipient at a time.
         for recipient in to_recipients:
-            await self.M365EmailOutputService.send_email(recipient, subject, rendered_body)
+            await self.M365EmailOutputService.send_email(from_recipient, recipient, subject, rendered_body)
 
         return {"result": "OK"}

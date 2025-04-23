@@ -30,7 +30,7 @@ class WebHandler(object):
 		web_app.router.add_get(r"/features", self.get_features)
 		web_app.router.add_put(r"/send_email", self.send_email)
 		web_app.router.add_put(r"/send_mail", self.send_email)
-		web_app.router.add_put(r"/send_ms365_email", self.send_m365_email)# This one is for backward compatibility
+		web_app.router.add_put(r"/send_ms365_email", self.send_m365_email)  # This one is for backward compatibility
 		web_app.router.add_put(r"/render", self.render)
 		web_app.router.add_put(r"/send_sms", self.send_sms)
 		web_app.router.add_put(r"/send_slack", self.send_slack)

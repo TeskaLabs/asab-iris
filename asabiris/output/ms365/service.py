@@ -8,6 +8,7 @@ from ...output_abc import OutputABC
 
 L = logging.getLogger(__name__)
 
+
 def check_config(config, section, parameter):
     try:
         value = config.get(section, parameter)
@@ -15,6 +16,7 @@ def check_config(config, section, parameter):
     except configparser.NoOptionError as e:
         L.warning("Configuration parameter '{}' is missing in section '{}': {}".format(parameter, section, e))
         return None
+
 
 class M365EmailOutputService(asab.Service, OutputABC):
     """
@@ -60,7 +62,7 @@ class M365EmailOutputService(asab.Service, OutputABC):
         else:
             raise Exception("Failed to obtain access token: {}".format(result))
 
-    async def send_email(self, recipient, subject, body):
+    async def send_email(self, from_recipient, recipient, subject, body):
         """
         Asynchronously sends an email to the specified recipient by directly calling
         requests.post to the Microsoft Graph API.
@@ -68,6 +70,9 @@ class M365EmailOutputService(asab.Service, OutputABC):
         if self.Token is None:
             L.error("M365 Email service is not properly configured (missing token).")
             return
+
+        if from_recipient in None:
+            recipient = self.UserEmail
 
         headers = {
             "Authorization": "Bearer {}".format(self.Token),
