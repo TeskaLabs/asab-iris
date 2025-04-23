@@ -23,7 +23,7 @@ class SendMS365EmailOrchestrator:
         # Validate incoming message against the schema.
 
         # Extract values from the validated message.
-        to_recipients = msg.get("to", [])
+        to_recipients = msg.get("from", [])
         subject = msg.get("subject", "No Subject")
         body_details = msg.get("body", {})
 
