@@ -17,12 +17,14 @@ from .output.smtp import EmailOutputService
 from .output.slack import SlackOutputService
 from .output.sms import SMSOutputService
 from .output.msteams import MSTeamsOutputService
+from .output.ms365 import M365EmailOutputService
 
 # orchestrators.
 from .orchestration.sendemail import SendEmailOrchestrator
 from .orchestration.render import RenderReportOrchestrator
 from .orchestration.sendsms import SendSMSOrchestrator
 from .orchestration.sendmsteams import SendMSTeamsOrchestrator
+from .orchestration.ms365_email import SendMS365EmailOrchestrator
 
 from .handlers.kafkahandler import KafkaHandler
 from .handlers.webhandler import WebHandler
@@ -141,6 +143,16 @@ class ASABIRISApplication(asab.Application):
 			self.SendSMSOrchestrator = None
 
 
+		self.M365EmailOutputService = M365EmailOutputService(self)
+
+		if self.M365EmailOutputService and self.M365EmailOutputService.is_configured:
+			# only instantiate the orchestrator if *all* config values are present
+			self.SendMS365EmailOrchestrator = SendMS365EmailOrchestrator(self)
+		else:
+			# disable both service and orchestrator if any piece is missing
+			self.M365EmailOutputService = None
+			self.SendMS365EmailOrchestrator = None
+
 		# Orchestrators
 		self.RenderReportOrchestrator = RenderReportOrchestrator(self)
 
@@ -162,3 +174,5 @@ class ASABIRISApplication(asab.Application):
 			yield "sms"
 		if self.RenderReportOrchestrator is not None:
 			yield "render-report"
+		if self.SendMS365EmailOrchestrator is not None:
+			yield "m365_email"
