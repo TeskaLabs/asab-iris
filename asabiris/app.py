@@ -142,17 +142,16 @@ class ASABIRISApplication(asab.Application):
 		else:
 			self.SendSMSOrchestrator = None
 
-		if 'm365_email' in asab.Config.sections():
-			# Initialize the M365EmailOutputService which creates the email sender instance.
-			self.M365EmailOutputService = M365EmailOutputService(self)
-			# Only instantiate the orchestrator if the service is properly configured.
-			if self.M365EmailOutputService.ClientID is None:
-				self.SendM365EmailOrchestrator = None
-			else:
-				self.SendMS365EmailOrchestrator = SendMS365EmailOrchestrator(self)
+
+		self.M365EmailOutputService = M365EmailOutputService(self)
+
+		if self.M365EmailOutputService and self.M365EmailOutputService.is_configured:
+			# only instantiate the orchestrator if *all* config values are present
+			self.SendMS365EmailOrchestrator = SendMS365EmailOrchestrator(self)
 		else:
+			# disable both service and orchestrator if any piece is missing
 			self.M365EmailOutputService = None
-			self.SendM365EmailOrchestrator = None
+			self.SendMS365EmailOrchestrator = None
 
 		# Orchestrators
 		self.RenderReportOrchestrator = RenderReportOrchestrator(self)
@@ -175,5 +174,5 @@ class ASABIRISApplication(asab.Application):
 			yield "sms"
 		if self.RenderReportOrchestrator is not None:
 			yield "render-report"
-		if self.SendM365EmailOrchestrator is not None:
+		if self.SendMS365EmailOrchestrator is not None:
 			yield "m365_email"
