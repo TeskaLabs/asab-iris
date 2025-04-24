@@ -1,5 +1,10 @@
 # CHANGELOG
 
+##  v25.17
+- Add `PUT /send_ms365_email` endpoint (#91, v25.17-alpha)
+
+---
+
 ## v25.10
 
 ### Features
