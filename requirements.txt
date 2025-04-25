@@ -2,6 +2,7 @@ aiokafka>=0.7.2
 aiosmtplib>=1.1.7,<2
 fastjsonschema>=2.16.2,<3
 jinja2>=3.1.2,<4
+msal>=1.32.2
 markdown>=3.4.1,<4
 pyyaml>=6.0,<7
 xhtml2pdf>=0.2.8
