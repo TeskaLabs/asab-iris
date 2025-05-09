@@ -2,7 +2,7 @@ import os
 import re
 import datetime
 import logging
-from typing import Dict, Tuple, List
+from typing import Dict, Tuple
 
 import asab
 
@@ -71,7 +71,7 @@ class SendMS365EmailOrchestrator:
             subject = auto_subject or "No Subject"
 
         # Send emails
-	    failed_recipients = []
+        failed_recipients = []
         for recipient in recipients:
             try:
                 await self._email_service.send_email(sender, recipient, subject, html_body)
