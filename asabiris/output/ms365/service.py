@@ -31,13 +31,13 @@ class M365EmailOutputService(asab.Service, OutputABC):
 	Service for sending emails using Microsoft 365 Graph API.
 
 	Configuration (in [m365_email] section of asab.Config):
-	  tenant_id     - Azure AD tenant ID (required)
-	  client_id     - Application (client) ID (required)
-	  client_secret - Client secret for the app (required)
-	  user_email    - Email address of the sending user (required)
-	  api_url       - (optional) Full API URL template for sending mail.
-					  May include a '{}' placeholder for the user email.
-					  Defaults to "https://graph.microsoft.com/v1.0/users/{}/sendMail"
+		tenant_id     - Azure AD tenant ID (required)
+		client_id     - Application (client) ID (required)
+		client_secret - Client secret for the app (required)
+		user_email    - Email address of the sending user (required)
+		api_url       - (optional) Full API URL template for sending mail.
+						May include a '{}' placeholder for the user email.
+						Defaults to "https://graph.microsoft.com/v1.0/users/{}/sendMail"
 	"""
 
 	def __init__(self, app, service_name="M365EmailOutputService"):
