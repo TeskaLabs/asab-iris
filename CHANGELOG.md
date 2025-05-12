@@ -1,5 +1,13 @@
 # CHANGELOG
 
+
+## v25.xx
+
+- Add MS365 Graph API Email support using(#95 v25.19-alpha)
+- Add Wrapper support for MS365 Graph API service.(#96 v25.19-alpha2)
+
+---
+
 ##  v25.17
 - Add `PUT /send_ms365_email` endpoint (#91, v25.17-alpha)
 
