@@ -126,11 +126,29 @@ class M365EmailOutputService(asab.Service, OutputABC):
 				"Authorization": "Bearer {}".format(token),
 				"Content-Type": "application/json"
 			}
-			return requests.post(self.APIUrl, headers=headers, json=payload)
+			# add a timeout so we don't hang indefinitely
+			return requests.post(self.APIUrl, headers=headers, json=payload, timeout=10)
 
-		# First attempt
+		# Acquire token & attempt send
 		token = self._get_access_token()
-		resp = _post(token)
+		try:
+			resp = _post(token)
+		except requests.exceptions.Timeout as e:
+			L.error("Timeout sending email: %s", e)
+			raise ASABIrisError(
+				ErrorCode.SERVER_ERROR,
+				tech_message="Timeout when calling Graph API",
+				error_i18n_key="Email service timeout",
+				error_dict={"error_message": str(e)}
+			)
+		except requests.exceptions.RequestException as e:
+			L.error("Network error sending email: %s", e)
+			raise ASABIrisError(
+				ErrorCode.SERVER_ERROR,
+				tech_message="Network error during Graph API call",
+				error_i18n_key="Email service network error",
+				error_dict={"error_message": str(e)}
+			)
 
 		# Retry on expired token
 		if resp.status_code == 401:
@@ -138,16 +156,57 @@ class M365EmailOutputService(asab.Service, OutputABC):
 			token = self._get_access_token(force_refresh=True)
 			resp = _post(token)
 
+		# Success
 		if resp.status_code in (200, 202):
 			L.info("Microsoft 365 email sent successfully.")
 			return True
 
-		# Any other error
-		L.error("SendMail failed: %s %s", resp.status_code, resp.text)
+		# Bad Request (invalid payload)
+		if resp.status_code == 400:
+			L.error("Bad request: %s", resp.text)
+			raise ASABIrisError(
+				ErrorCode.INVALID_REQUEST,
+				tech_message="Graph API returned 400: {}".format(resp.text),
+				error_i18n_key="Invalid email payload",
+				error_dict={"status": resp.status_code, "body": resp.text}
+			)
+
+		# Forbidden (permission issues)
+		if resp.status_code == 403:
+			L.error("Permission denied: %s", resp.text)
+			raise ASABIrisError(
+				ErrorCode.AUTHENTICATION_FAILED,
+				tech_message="Graph API returned 403: {}".format(resp.text),
+				error_i18n_key="Insufficient permissions",
+				error_dict={"status": resp.status_code, "body": resp.text}
+			)
+
+		# Rate limiting
+		if resp.status_code == 429:
+			retry_after = resp.headers.get("Retry-After", "unknown")
+			L.warning("Rate limited (Retry-After: %s)", retry_after)
+			raise ASABIrisError(
+				ErrorCode.SERVER_ERROR,
+				tech_message="Rate limited by Graph API, retry after {}".format(retry_after),
+				error_i18n_key="Email rate limited",
+				error_dict={"status": resp.status_code, "retry_after": retry_after}
+			)
+
+		# Server errors
+		if 500 <= resp.status_code < 600:
+			L.error("Server error: %s %s", resp.status_code, resp.text)
+			raise ASABIrisError(
+				ErrorCode.SERVER_ERROR,
+				tech_message="Graph API server error {}: {}".format(resp.status_code, resp.text),
+				error_i18n_key="Email service error",
+				error_dict={"status": resp.status_code, "body": resp.text}
+			)
+
+		# Anything else
+		L.error("Unexpected status %s: %s", resp.status_code, resp.text)
 		raise ASABIrisError(
 			ErrorCode.SERVER_ERROR,
-			tech_message="Graph API error {}: {}".format(
-				resp.status_code, resp.text),
-			error_i18n_key="Error sending email",
+			tech_message="Unexpected Graph response {}: {}".format(resp.status_code, resp.text),
+			error_i18n_key="Email service unexpected error",
 			error_dict={"status": resp.status_code, "body": resp.text}
 		)
