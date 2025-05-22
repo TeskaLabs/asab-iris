@@ -54,6 +54,7 @@ class SlackOutputService(asab.Service, OutputABC):
 
 
 		# TODO: This could be a blocking operation, launch it in the proactor service
+		L.debug("SlackOutputService.send_message → channel=%s, text=%r, blocks=%r", + self.Channel, fallback_message, blocks)
 		try:
 			channel_id = self.get_channel_id(self.Channel)
 			self.Client.chat_postMessage(
@@ -77,6 +78,7 @@ class SlackOutputService(asab.Service, OutputABC):
 		"""
 		Sends a message to a Slack channel with attachments.
 		"""
+		L.debug("SlackOutputService.send_files → channel=%s, initial_comment=%r", self.Channel, body, channel_id=self.get_channel_id(self.Channel))
 		if self.Channel is None:
 			raise ValueError("Cannot send message to Slack. Reason: Missing Slack channel")
 
@@ -86,7 +88,11 @@ class SlackOutputService(asab.Service, OutputABC):
 		channel_id = self.get_channel_id(self.Channel)
 		try:
 			async for attachment in atts_gen:
-				# TODO: This could be a blocking operation, launch it in the proactor service
+				# TODO: This could be a blocking operation, launch it in the proactor service+
+
+				# Log each attachment before upload
+				L.debug("Uploading to Slack → filename=%s, position=%d, size=%d bytes", attachment.FileName, attachment.Position, len(attachment.Content) if hasattr(attachment, 'Content') else -1)
+
 				self.Client.files_upload_v2(
 					channel=channel_id,
 					file=attachment.Content,
