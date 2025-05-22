@@ -54,6 +54,8 @@ class SlackOutputService(asab.Service, OutputABC):
 
 
 		# TODO: This could be a blocking operation, launch it in the proactor service
+
+		# Log payload for visibility
 		L.debug("SlackOutputService.send_message → channel=%s, text=%r, blocks=%r", + self.Channel, fallback_message, blocks)
 		try:
 			channel_id = self.get_channel_id(self.Channel)
