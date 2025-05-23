@@ -174,5 +174,3 @@ class ASABIRISApplication(asab.Application):
 			yield "sms"
 		if self.RenderReportOrchestrator is not None:
 			yield "render-report"
-		if self.SendMS365EmailOrchestrator is not None:
-			yield "m365_email"
