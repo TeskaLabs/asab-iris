@@ -101,7 +101,7 @@ class SendMS365EmailOrchestrator:
 		Returns:
 			(html_body, subject)
 		"""
-		if not template.startswith("/Templates/MS365/"):
+		if not template.startswith("/Templates/Email/"):
 			raise ASABIrisError(
 				ErrorCode.INVALID_PATH,
 				tech_message="Template path invalid: {}".format(template),

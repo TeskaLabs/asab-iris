@@ -107,6 +107,7 @@ class WebHandler(object):
 		---
 		tags: ['Send mail']
 		"""
+		# If neither SMTP nor MS365 was set up, fail early
 		if self.App.SendEmailOrchestrator is None:
 			L.info("Email orchestrator is not enabled.")
 			return aiohttp.web.json_response(
