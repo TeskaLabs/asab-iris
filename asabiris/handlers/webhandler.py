@@ -9,7 +9,6 @@ from ..schemas.emailschema import email_schema
 from ..schemas.slackschema import slack_schema
 from ..schemas.smsschema import sms_schema
 from ..schemas.teamsschema import teams_schema
-from ..schemas.ms365schema import ms365_schema
 
 from ..errors import ASABIrisError, ErrorCode
 
