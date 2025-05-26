@@ -24,7 +24,6 @@ from .orchestration.sendemail import SendEmailOrchestrator
 from .orchestration.render import RenderReportOrchestrator
 from .orchestration.sendsms import SendSMSOrchestrator
 from .orchestration.sendmsteams import SendMSTeamsOrchestrator
-from .orchestration.ms365_email import SendMS365EmailOrchestrator
 
 from .handlers.kafkahandler import KafkaHandler
 from .handlers.webhandler import WebHandler
@@ -142,14 +141,12 @@ class ASABIRISApplication(asab.Application):
 		else:
 			self.SendSMSOrchestrator = None
 
-		# MS 365 Email output service
+		# MS365 output service
 		m365 = M365EmailOutputService(self)
 		self.M365EmailOutputService = m365 if getattr(m365, "is_configured", False) else None
 
-		# Single email orchestrator, chosen by site config:
-		if self.M365EmailOutputService:
-			self.SendEmailOrchestrator = SendMS365EmailOrchestrator(self)
-		elif self.EmailOutputService:
+		# Single email orchestrator (SMTP or MS365)
+		if self.M365EmailOutputService or self.EmailOutputService:
 			self.SendEmailOrchestrator = SendEmailOrchestrator(self)
 		else:
 			self.SendEmailOrchestrator = None
