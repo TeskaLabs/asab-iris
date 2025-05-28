@@ -24,7 +24,6 @@ from .orchestration.sendemail import SendEmailOrchestrator
 from .orchestration.render import RenderReportOrchestrator
 from .orchestration.sendsms import SendSMSOrchestrator
 from .orchestration.sendmsteams import SendMSTeamsOrchestrator
-from .orchestration.ms365_email import SendMS365EmailOrchestrator
 
 from .handlers.kafkahandler import KafkaHandler
 from .handlers.webhandler import WebHandler
@@ -99,12 +98,12 @@ class ASABIRISApplication(asab.Application):
 
 		# output services
 
-		if asab.Config.get("smtp", "host") != "":
+		# output services
+		# SMTP
+		if asab.Config.get("smtp", "host"):
 			self.EmailOutputService = EmailOutputService(self)
-			self.SendEmailOrchestrator = SendEmailOrchestrator(self)
 		else:
 			self.EmailOutputService = None
-			self.SendEmailOrchestrator = None
 
 		if 'slack' in asab.Config.sections():
 			# Initialize the SlackOutputService
@@ -142,16 +141,15 @@ class ASABIRISApplication(asab.Application):
 		else:
 			self.SendSMSOrchestrator = None
 
+		# MS365 output service
+		m365 = M365EmailOutputService(self)
+		self.M365EmailOutputService = m365 if getattr(m365, "is_configured", False) else None
 
-		self.M365EmailOutputService = M365EmailOutputService(self)
-
-		if self.M365EmailOutputService and self.M365EmailOutputService.is_configured:
-			# only instantiate the orchestrator if *all* config values are present
-			self.SendMS365EmailOrchestrator = SendMS365EmailOrchestrator(self)
+		# Single email orchestrator (SMTP or MS365)
+		if self.M365EmailOutputService or self.EmailOutputService:
+			self.SendEmailOrchestrator = SendEmailOrchestrator(self)
 		else:
-			# disable both service and orchestrator if any piece is missing
-			self.M365EmailOutputService = None
-			self.SendMS365EmailOrchestrator = None
+			self.SendEmailOrchestrator = None
 
 		# Orchestrators
 		self.RenderReportOrchestrator = RenderReportOrchestrator(self)
@@ -174,5 +172,3 @@ class ASABIRISApplication(asab.Application):
 			yield "sms"
 		if self.RenderReportOrchestrator is not None:
 			yield "render-report"
-		if self.SendMS365EmailOrchestrator is not None:
-			yield "m365_email"
