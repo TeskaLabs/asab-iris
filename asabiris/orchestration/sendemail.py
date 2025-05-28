@@ -120,8 +120,8 @@ class SendEmailOrchestrator:
 		if not template.startswith('/Templates/Email/'):
 			raise ASABIrisError(
 				ErrorCode.INVALID_PATH,
-				tech_message="Incorrect template path '{}'".format(template),
-				error_i18n_key="incorrect_template_path",
+				tech_message="Incorrect template path '{}'. Move templates to '/Templates/Email/'.".format(template),
+				error_i18n_key="Incorrect template path '{{incorrect_path}}'. Please move your templates to '/Templates/Email/'.",
 				error_dict={"incorrect_path": template}
 			)
 
