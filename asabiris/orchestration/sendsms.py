@@ -30,6 +30,7 @@ class SendSMSOrchestrator(object):
 		"""
 		body = sms_dict['body']
 		template = body['template']
+		tenant = sms_dict.get("tenant", None)
 
 		if not template.startswith("/Templates/SMS/"):
 			raise ASABIrisError(
@@ -43,4 +44,4 @@ class SendSMSOrchestrator(object):
 
 		params = body.get("params", {})
 		sms_dict['message_body'] = await self.JinjaService.format(template, params)
-		return await self.SMSOutput.send(sms_dict)
+		return await self.SMSOutput.send(sms_dict, tenant)

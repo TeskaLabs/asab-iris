@@ -89,6 +89,23 @@
 }
 ```
 
+## TSM001F: Send an email using Markdown template from a template that uses now from template global.
+
+`PUT /send_mail`
+
+```
+{
+    "to": ["foo@example.com"],
+    "body": {
+        "template": "/Templates/Email/mesage.txt",
+         "params":{
+            "name":"Iris",
+            "tenant":"Default",
+      }
+    }
+}
+```
+
 
 ## TSM002: Send an email using HTML template
 
@@ -1467,6 +1484,8 @@ EXPECTED RESPONSE:
 
 {"type":"email", "to": ["Shivashankar <mithunshivashankar@gmail.com>"], "from": "info@teskalabs.com", "body":{"template":"/Templates/Export.md", "params":{"name": "I am testing a template", "error": "None" }}}
 
+{"type":"email", "to": ["Shivashankar <mithunshivashankar@gmail.com>"], "from": "info@teskalabs.com", "body":{"template":"/Templates/Email/message.txt", "params":{"name": "I am testing a template", "error": "None" }}}
+
 'WITHOUT FROM'
 
 {"type":"email", "to": ["Shivashankar <mithunshivashankar@gmail.com>"], "body":{"template":"/Templates/Export.md", "params":{"name": "I am testing a template", "error": "None" }}}
@@ -1526,8 +1545,8 @@ EXPECTED RESPONSE:
 {"type":"sms", "phone": "123456789", "body":{"template":"/Templates/SMS/hello.md", "params":{"message": "I am testing a template" }}} 
 
 'SMS unsupportes'
-{"type":"SMS", "body":{"template":"/Templates/SMS/hello.md", "params":{"name": "I am testing a template", "error": "None" }}}
-{"type":"sms", "body":{"template":"/Templates/SMS/hello.md", "params":{"name": "I am testing a template", "error": "None" }}}
+{"type":"SMS", "body":{"template":"/Templates/SMSS/hello.md", "params":{"name": "I am testing a template", "error": "None" }}}
+{"type":"sms", "body":{"template":"/Templates/SMS/hello.mTR", "params":{"name": "I am testing a template", "error": "None" }}}
  ```
 
 

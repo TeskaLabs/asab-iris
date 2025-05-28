@@ -6,34 +6,76 @@ Welcome to ASAB Iris, your go-to multifunctional messenger microservice, designe
 
 ### 📧 1. Sending Emails
 
-**Overview**
+**Overview**  
+- Craft emails with Jinja, Markdown or HTML templates.  
+- Personalize recipients, subject, and body via template parameters.  
+- Trigger through the single `/send_email` endpoint (HTTP or Kafka).
 
-- Craft beautiful emails with templates using Jinja, Markdown, or HTML.
-- Personalize recipient details or go with default configurations.
-- Trigger them through a web handler or an Apache Kafka message - flexibility is key!
+---
 
 **Configuration**
 
+IRIS will automatically choose **MS365** if *all* of these settings are present in your `asab.Config`:
+
+```ini
+[m365_email]
+tenant_id     = YOUR_AZURE_TENANT_ID
+client_id     = YOUR_APP_CLIENT_ID
+client_secret = YOUR_APP_CLIENT_SECRET
+user_email    = sender@yourdomain.com
+subject       = Default MS365 Subject
+````
+
+Otherwise, if `[m365_email]` is missing or incomplete, IRIS falls back to **SMTP** when you set a non-empty `host`:
+
 ```ini
 [smtp]
-host=smtp.example.com
-user=admin
-password=secret
-from=info@example.com
-ssl=no
-starttls=yes
-subject=Mail from ASAB Iris
+host      = smtp.example.com
+user      = admin
+password  = secret
+from      = info@example.com
+ssl       = no
+starttls  = yes
+subject   = Default SMTP Subject
 ```
 
-**Explanation**
+> **Note**
+>
+> * SMTP **supports** attachments and will include them in the outbound message.
+> * MS365 **ignores** attachments (you’ll see a warning in the logs if you pass any).
+> * All email templates must live under `/Templates/Email/`.
 
-- `host`: Your SMTP server's address.
-- `user`: Your username for the SMTP server.
-- `password`: Your super-secret password.
-- `from`: The default "From" address for your emails.
-- `ssl`: `yes`/`no` for SSL, depends on the SMTP server.
-- `starttls`: `yes`/`no` for STARTTLS, depends on the SMTP server.
-- `subject`: The default subject line, if not provided by a caller or a template.
+---
+
+**Example Web Request**
+
+```http
+PUT /send_email
+Content-Type: application/json
+
+{
+  "to": ["alice@example.com", "bob@example.com"],
+  "from": "noreply@yourdomain.com",
+  "subject": "Monthly Report",
+  "body": {
+    "template": "/Templates/Email/report.md",
+    "params": {
+      "name": "Alice",
+      "month": "June"
+    }
+  },
+  "attachments": [
+    {
+      "template": "/Templates/Email/summary.html",
+      "params": {},
+      "format": "pdf",
+      "filename": "summary.pdf"
+    }
+  ]
+}
+```
+
+> Depending on your configuration, this request will be sent via **SMTP** (with the PDF attachment) or via **MS365** (attachment dropped).
 
 
 ## Email Markdown Wrapper Configuration

@@ -26,12 +26,23 @@ class WebHandler(object):
 		self.App = app
 
 		web_app = app.WebContainer.WebApp
+		web_app.router.add_get(r"/features", self.get_features)
 		web_app.router.add_put(r"/send_email", self.send_email)
 		web_app.router.add_put(r"/send_mail", self.send_email)  # This one is for backward compatibility
 		web_app.router.add_put(r"/render", self.render)
 		web_app.router.add_put(r"/send_sms", self.send_sms)
 		web_app.router.add_put(r"/send_slack", self.send_slack)
 		web_app.router.add_put(r"/send_msteams", self.send_msteams)
+
+
+	async def get_features(self, request):
+		"""
+		Return the application's features (enabled orchestrators).
+		"""
+		response = {
+			"orchestrators": list(self.App.enabled_orchestrators()),
+		}
+		return asab.web.rest.json_response(request, response)
 
 
 	@asab.web.rest.json_schema_handler(email_schema)
@@ -94,6 +105,16 @@ class WebHandler(object):
 		---
 		tags: ['Send mail']
 		"""
+		# If neither SMTP nor MS365 was set up, fail early
+		if self.App.SendEmailOrchestrator is None:
+			L.info("Email orchestrator is not enabled.")
+			return aiohttp.web.json_response(
+				{
+					"result": "FAILED",
+					"error": "Email service is not configured."
+				},
+				status=400
+			)
 
 		try:
 			await self.App.SendEmailOrchestrator.send_email(
@@ -153,6 +174,15 @@ class WebHandler(object):
 		---
 		tags: ['Send alerts']
 		"""
+		if self.App.SendSlackOrchestrator is None:
+			L.info("Slack orchestrator is not initialized. This feature is optional and not configured.")
+			return aiohttp.web.json_response(
+				{
+					"result": "FAILED",
+					"error": "Slack service is not configured."
+				},
+				status=400
+			)
 
 		try:
 			await self.App.SendSlackOrchestrator.send_to_slack(json_data)
@@ -208,6 +238,15 @@ class WebHandler(object):
 		---
 		tags: ['Send MS Teams']
 		"""
+		if self.App.SendMSTeamsOrchestrator is None:
+			L.info("MSTeams orchestrator is not initialized. This feature is optional and not configured.")
+			return aiohttp.web.json_response(
+				{
+					"result": "FAILED",
+					"error": "MSTeams service is not configured."
+				},
+				status=400
+			)
 
 		try:
 			await self.App.SendMSTeamsOrchestrator.send_to_msteams(json_data)
@@ -235,6 +274,8 @@ class WebHandler(object):
 			return aiohttp.web.json_response(response, status=400)
 
 		return asab.web.rest.json_response(request, {"result": "OK"})
+
+	L = logging.getLogger(__name__)
 
 
 	@asab.web.rest.json_schema_handler({"type": "object"})
@@ -337,6 +378,15 @@ class WebHandler(object):
 		---
 		```
 		"""
+		if self.App.SendSMSOrchestrator is None:
+			L.info("SMS orchestrator is not initialized. This feature is optional and not configured.")
+			return aiohttp.web.json_response(
+				{
+					"result": "FAILED",
+					"error": "SMS service is not configured."
+				},
+				status=400
+			)
 		# Render a body
 		try:
 			await self.App.SendSMSOrchestrator.send_sms(json_data)

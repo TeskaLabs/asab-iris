@@ -1,6 +1,49 @@
 # CHANGELOG
 
-## Release Candidate
+
+## v25.xx
+
+- Add MS365 Graph API Email support using(#95 v25.19-alpha)
+- Add Wrapper support for MS365 Graph API service.(#96 v25.19-alpha2)
+- Fix token expiration issue in MS365 email service..(#98 v25.20-alpha)
+
+---
+
+##  v25.17
+- Add `PUT /send_ms365_email` endpoint (#91, v25.17-alpha)
+
+---
+
+## v25.10
+
+### Features
+- Add `GET /features` endpoint (#90, v25.10-alpha2)
+- Add new jinja2 filter quote_plus (#89, v25.10-alpha)
+
+### Fixes
+- Remove exits from Kafka handler (#86, v25.08-alpha)
+
+---
+
+
+## v25.07
+
+### Features
+- Tenant configuration (#84)
+- Enhancement: Optional services (#83)
+
+### Fixes
+- Use correct incoming webhook url (#88)
+- Use zookeeper container (#87)
+- Email supports TXT templates (#82)
+
+### Refactoring
+- Kafka handler refactoring (#81)
+
+---
+
+
+## v24.42
 
 ### Features
 
@@ -16,10 +59,13 @@
 
 - Feature: Send SMS
 
+#### 28. 06. 2024 
+
+- Feature: Send SMS
+
 
 ### Refactoring
 
-- 
 #### 26. 05. 2023
 
 - Refactoring :Slack use case
@@ -34,8 +80,6 @@
 
 
 ### Enhancements
-
-- 
 
 #### 09. 04. 2023 
 
@@ -105,10 +149,12 @@
 
 - Change Error
 
+#### 21.11.2024
+
+- Email supports TXT templates
+
 
 ### Bugfix
-
-- 
 
 #### 13. 06. 2023
 

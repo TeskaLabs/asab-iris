@@ -7,5 +7,5 @@ __all__ = [
 	"email_schema",
 	"slack_schema",
 	"teams_schema",
-	"sms_schema"
+	"sms_schema",
 ]

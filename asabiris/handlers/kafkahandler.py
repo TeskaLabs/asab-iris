@@ -24,9 +24,9 @@ def check_config(config, section, parameter):
 	try:
 		value = config.get(section, parameter)
 		return value
-	except configparser.NoOptionError:
-		L.error("Configuration parameter '{}' is missing in section '{}'.".format(parameter, section))
-		exit()
+	except (configparser.NoOptionError, configparser.NoSectionError) as e:
+		L.error("Configuration parameter '{}' is missing in section '{}': {}".format(parameter, section, e))
+		return None
 
 
 class KafkaHandler(asab.Service):
@@ -39,25 +39,37 @@ class KafkaHandler(asab.Service):
 		super().__init__(app, service_name)
 		self.Task = None
 		self.JinjaService = app.get_service("JinjaService")
-		# output service's
+		self.Consumer = None  # Ensure Consumer is always initialized
+
 		try:
 			topic = check_config(asab.Config, "kafka", "topic")
 			group_id = check_config(asab.Config, "kafka", "group_id")
-			bootstrap_servers = check_config(asab.Config, "kafka", "bootstrap_servers").split(",")
-		except configparser.NoOptionError:
-			L.error("Configuration missing. Required parameters: Kafka/group_id/bootstrap_servers")
-			exit()
+			bootstrap_servers = check_config(asab.Config, "kafka", "bootstrap_servers")
 
-		self.Consumer = AIOKafkaConsumer(
-			topic,
-			group_id=group_id,
-			bootstrap_servers=bootstrap_servers,
-			loop=self.App.Loop,
-			retry_backoff_ms=10000,
-			auto_offset_reset="earliest",
-		)
+			if not topic or not group_id or not bootstrap_servers:
+				L.warning("Kafka configuration is missing. Skipping Kafka initialization.")
+				return
+
+			bootstrap_servers = bootstrap_servers.split(",")
+
+			self.Consumer = AIOKafkaConsumer(
+				topic,
+				group_id=group_id,
+				bootstrap_servers=bootstrap_servers,
+				loop=self.App.Loop,
+				retry_backoff_ms=10000,
+				auto_offset_reset="earliest",
+			)
+
+		except Exception as e:
+			L.error("KafkaHandler initialization failed: {}".format(e), exc_info=True)
+			self.Consumer = None
 
 	async def initialize(self, app):
+		if self.Consumer is None:
+			L.warning("Kafka consumer is not initialized. Skipping Kafka initialization.")
+			return
+
 		max_retries = 5
 		initial_delay = 5  # Initial delay in seconds
 		max_delay = 300  # Maximum delay in seconds (5 minutes)
@@ -71,145 +83,139 @@ class KafkaHandler(asab.Service):
 				L.warning("No connection to Kafka established. Attempt {} of {}. Retrying in {} seconds... {}".format(
 					attempt + 1, max_retries, delay, e))
 				await asyncio.sleep(delay)
-				# Apply exponential backoff with a cap on the delay
 				delay = min(delay * 2, max_delay)
 		else:
-			L.error("Failed to connect to Kafka after {} attempts. Stopping the app.".format(max_retries))
-			exit()
+			L.error("Failed to connect to Kafka after {} attempts.".format(max_retries))
+			return
 
 		self.Task = asyncio.ensure_future(self.consume(), loop=self.App.Loop)
 
-
 	async def finalize(self, app):
-		await self.Consumer.stop()
-		if self.Task.exception() is not None:
+		if self.Consumer is not None:
+			await self.Consumer.stop()
+		if self.Task and self.Task.exception():
 			L.warning("Exception occurred during alert notifications: {}".format(self.Task.exception()))
 
 	async def consume(self):
+		if self.Consumer is None:
+			return
 		async for msg in self.Consumer:
 			try:
 				msg = msg.value.decode("utf-8")
 				msg = json.loads(msg)
-			except Exception as e:
-				L.warning("Invalid message format: '{}'".format(e))
+			except (UnicodeDecodeError, json.JSONDecodeError) as e:
+				L.warning("Failed to decode or parse message: {}".format(e))
+				continue
 			try:
 				await self.dispatch(msg)
-			except Exception:
-				L.exception("General error when dispatching message")
+			except Exception as e:
+				L.exception("General error when dispatching message: {}".format(e))
 
 	async def dispatch(self, msg):
 		try:
 			msg_type = msg.pop("type", "<missing>")
 		except (AttributeError, Exception) as e:
-			L.warning("Error sending notification from kafka. Reason : {}".format(str(e)))
+			L.warning("Error extracting message type: {}".format(str(e)))
 			return
 
 		if msg_type == "email":
-			try:
-				KafkaHandler.ValidationSchemaMail(msg)
-			except fastjsonschema.exceptions.JsonSchemaException as e:
-				L.warning("Invalid email notification format: {}".format(e))
-				return
-			try:
-				await self.send_email(msg)
-			except ASABIrisError as e:
-				# if it is a server error do not send notification.
-				server_errors = [
-					ErrorCode.SMTP_CONNECTION_ERROR,
-					ErrorCode.SMTP_AUTHENTICATION_ERROR,
-					ErrorCode.SMTP_RESPONSE_ERROR,
-					ErrorCode.SMTP_SERVER_DISCONNECTED,
-					ErrorCode.SMTP_GENERIC_ERROR,
-					ErrorCode.GENERAL_ERROR
-				]
-				if e.ErrorCode in server_errors:
-					L.warning("Unable to dispatch email: Explanation {}".format(e.TechMessage))
-					return
-				else:
-					# Handle other errors using handle_exception function
-					await self.handle_exception(e.TechMessage, 'email', msg)
-			except Exception as e:
-				# Handle any other unexpected exceptions using handle_exception function
-				await self.handle_exception(e, 'email', msg)
-
+			await self.handle_email(msg)
 		elif msg_type == "slack":
-			try:
-				KafkaHandler.ValidationSchemaSlack(msg)
-			except fastjsonschema.exceptions.JsonSchemaException as e:
-				L.warning("Invalid slack notification format: {}".format(e))
+			if self.App.SendSlackOrchestrator is None:
+				L.warning("Slack service is not configured. Discarding notification.")
 				return
-
-			try:
-				if self.App.SendSlackOrchestrator is not None:
-					await self.App.SendSlackOrchestrator.send_to_slack(msg)
-				else:
-					L.warning("Slack is not configured, a notification is discarded")
-					return
-			except ASABIrisError as e:
-				# if it is a server error do not send notification.
-				if e.ErrorCode == ErrorCode.SLACK_API_ERROR:
-					L.warning("Notification to Slack unsuccessful: Explanation: {}".format(e.TechMessage))
-					return
-				else:
-					# Handle other errors using handle_exception function
-					await self.handle_exception(e.TechMessage, 'slack')
-			except Exception as e:
-				# Handle any other unexpected exceptions using handle_exception function
-				await self.handle_exception(e, 'slack')
-
+			await self.handle_slack(msg)
 		elif msg_type == "msteams":
-			try:
-				KafkaHandler.ValidationSchemaMSTeams(msg)
-			except fastjsonschema.exceptions.JsonSchemaException as e:
-				L.warning("Invalid notification format: {}".format(e))
+			if self.App.SendMSTeamsOrchestrator is None:
+				L.warning("MS Teams service is not configured. Discarding notification.")
 				return
-			try:
-				if self.App.SendMSTeamsOrchestrator is not None:
-					await self.App.SendMSTeamsOrchestrator.send_to_msteams(msg)
-				else:
-					L.warning("MS Teams is not configured, a notification is discarded")
-					return
-			except ASABIrisError as e:
-				# if it is a server error do not send notification.
-				if e.ErrorCode == ErrorCode.SERVER_ERROR:
-					L.warning("Notification to MSTeams unsuccessful: Explanation: {}".format(e.TechMessage))
-					return
-				else:
-					# Handle other errors using handle_exception function
-					await self.handle_exception(e.TechMessage, 'msteams')
-			except Exception as e:
-				# Handle any other unexpected exceptions using handle_exception function
-				await self.handle_exception(e, 'msteams')
-
+			await self.handle_msteams(msg)
 		elif msg_type == "sms":
-			try:
-				KafkaHandler.ValidationSchemaSMS(msg)
-			except fastjsonschema.exceptions.JsonSchemaException as e:
-				L.warning("Invalid notification format: {}".format(e))
+			if self.App.SendSMSOrchestrator is None:
+				L.warning("SMS service is not configured. Discarding notification.")
 				return
-			try:
-				if self.App.SendSMSOrchestrator is not None:
-					await self.App.SendSMSOrchestrator.send_sms(msg)
-				else:
-					L.warning("SMS is not configured, a notification is discarded")
-					return
-			except ASABIrisError as e:
-				# if it is a server error do not send notification.
-				if e.ErrorCode == ErrorCode.SERVER_ERROR:
-					L.warning("Notification to SMS unsuccessful: Explanation: {}".format(e.TechMessage))
-					return
-				else:
-					# Handle other errors using handle_exception function
-					await self.handle_exception(e.TechMessage, 'sms', msg)
-			except Exception as e:
-				# Handle any other unexpected exceptions using handle_exception function
-				await self.handle_exception(e, 'sms', msg)
-
+			await self.handle_sms(msg)
 		else:
 			L.warning(
-				"Notification sending failed: Unsupported message type '{}'. "
-				"Supported types are 'email', 'slack', and 'msteams'. ".format(msg_type)
+				"Notification sending failed: Unsupported message type '{}'. Supported types are 'email', 'slack', 'msteams', and 'sms'.".format(msg_type)
 			)
+
+	async def handle_email(self, msg):
+		try:
+			KafkaHandler.ValidationSchemaMail(msg)
+		except fastjsonschema.exceptions.JsonSchemaException as e:
+			L.warning("Invalid email notification format: {}".format(e))
+			return
+
+		try:
+			await self.send_email(msg)
+		except ASABIrisError as e:
+			server_errors = [
+				ErrorCode.SMTP_CONNECTION_ERROR,
+				ErrorCode.SMTP_AUTHENTICATION_ERROR,
+				ErrorCode.SMTP_RESPONSE_ERROR,
+				ErrorCode.SMTP_SERVER_DISCONNECTED,
+				ErrorCode.SMTP_GENERIC_ERROR,
+				ErrorCode.GENERAL_ERROR,
+			]
+			if e.ErrorCode in server_errors:
+				L.warning("Email dispatch failed: {}".format(e.TechMessage))
+			else:
+				await self.handle_exception(e.TechMessage, 'email', msg)
+		except Exception as e:
+			await self.handle_exception(e, 'email', msg)
+
+	async def handle_slack(self, msg):
+		try:
+			KafkaHandler.ValidationSchemaSlack(msg)
+		except fastjsonschema.exceptions.JsonSchemaException as e:
+			L.warning("Invalid Slack notification format: {}".format(e))
+			return
+
+		try:
+			await self.App.SendSlackOrchestrator.send_to_slack(msg)
+		except ASABIrisError as e:
+			if e.ErrorCode == ErrorCode.SLACK_API_ERROR:
+				L.warning("Slack notification failed: {}".format(e.TechMessage))
+			else:
+				await self.handle_exception(e.TechMessage, 'slack')
+		except Exception as e:
+			await self.handle_exception(e, 'slack')
+
+	async def handle_msteams(self, msg):
+		try:
+			KafkaHandler.ValidationSchemaMSTeams(msg)
+		except fastjsonschema.exceptions.JsonSchemaException as e:
+			L.warning("Invalid MSTeams notification format: {}".format(e))
+			return
+
+		try:
+			await self.App.SendMSTeamsOrchestrator.send_to_msteams(msg)
+		except ASABIrisError as e:
+			if e.ErrorCode == ErrorCode.SERVER_ERROR:
+				L.warning("MSTeams notification failed: {}".format(e.TechMessage))
+			else:
+				await self.handle_exception(e.TechMessage, 'msteams')
+		except Exception as e:
+			await self.handle_exception(e, 'msteams')
+
+	async def handle_sms(self, msg):
+		try:
+			KafkaHandler.ValidationSchemaSMS(msg)
+		except fastjsonschema.exceptions.JsonSchemaException as e:
+			L.warning("Invalid SMS notification format: {}".format(e))
+			return
+
+		try:
+			await self.App.SendSMSOrchestrator.send_sms(msg)
+		except ASABIrisError as e:
+			if e.ErrorCode == ErrorCode.SERVER_ERROR:
+				L.warning("SMS notification failed: {}".format(e.TechMessage))
+			else:
+				await self.handle_exception(e.TechMessage, 'sms', msg)
+		except Exception as e:
+			await self.handle_exception(e, 'sms', msg)
+
 
 	async def send_email(self, json_data):
 		await self.App.SendEmailOrchestrator.send_email(
@@ -227,12 +233,10 @@ class KafkaHandler(asab.Service):
 
 	async def handle_exception(self, exception, service_type, msg=None):
 		try:
-			# Log the problem first and then send error notification accordingly
 			L.warning("Encountered an issue while sending '{}'. Details: {}.".format(service_type, exception))
 
 			error_message, error_subject = self.generate_error_message(str(exception), service_type)
 
-			# Check if error_message is None
 			if error_message is None:
 				return
 
@@ -245,42 +249,35 @@ class KafkaHandler(asab.Service):
 						email_subject=error_subject,
 						body=error_message
 					)
-				except ASABIrisError as e:
-					L.info("Error notification to email unsuccessful: Explanation: {}".format(e.TechMessage))
 				except Exception:
 					L.exception("Error notification to email unsuccessful.")
 
 			elif service_type == 'slack':
 				try:
 					L.log(asab.LOG_NOTICE, "Sending error notification to slack.")
-					await self.App.SlackOutputService.send_message(None, error_message)
+					tenant = msg.get("tenant", None)
+					await self.App.SlackOutputService.send_message(None, error_message, tenant)
 				except ASABIrisError as e:
 					L.info("Error notification to Slack unsuccessful: Explanation: {}".format(e.TechMessage))
-				except Exception:
-					L.exception("Error notification to Slack unsuccessful.")
 
 			elif service_type == 'msteams':
 				try:
 					L.log(asab.LOG_NOTICE, "Sending error notification to MSTeams.")
-					await self.App.MSTeamsOutputService.send(error_message)
+					tenant = msg.get("tenant", None)
+					await self.App.MSTeamsOutputService.send(error_message, tenant)
 				except ASABIrisError as e:
 					L.info("Error notification to MSTeams unsuccessful: Explanation: {}".format(e.TechMessage))
-				except Exception:
-					L.exception("Error notification to MSTeams unsuccessful.")
 
 			elif service_type == 'sms':
 				try:
 					L.log(asab.LOG_NOTICE, "Sending error notification to SMS.")
-					msg['message_body'] = error_message
-					await self.App.SMSOutputService.send(msg)
-				except ASABIrisError as e:
-					L.info("Error notification to SMS unsuccessful: Explanation: {}".format(e.TechMessage))
+					msg_copy = msg.copy()
+					msg_copy['message_body'] = error_message
+					await self.App.SMSOutputService.send(msg_copy)
 				except Exception:
 					L.exception("Error notification to SMS unsuccessful.")
 
-
 		except Exception:
-			# Log any unexpected exceptions that might occur
 			L.exception("An unexpected error occurred while sending error message for {}.".format(service_type))
 
 	def generate_error_message(self, specific_error: str, service_type: str):
@@ -317,13 +314,13 @@ class KafkaHandler(asab.Service):
 					"Best regards,\nYour Team"
 				).format(specific_error, timestamp)
 				return error_message, None
+
 			elif service_type == 'sms':
 				error_message = (
-					"Hello! We encountered an issue while processing your request: {}. Please review your input and try again. Time: {} UTC. Best regards, Your Team"
-				).format(specific_error, timestamp)
+					"Hello! Issue processing your request: {}. Please check and retry. Time: {} UTC."
+				).format(specific_error[:50], timestamp)  # Truncate specific_error if necessary
 				return error_message, None
 
 		except Exception:
-			# Log any unexpected exceptions that might occur while generating error message
 			L.exception("An unexpected error occurred while generating error message.")
 			return None, None
