@@ -88,7 +88,7 @@ class SlackOutputService(asab.Service, OutputABC):
 			L.warning("Failed to send message to Slack: %s", e)
 			raise ASABIrisError(
 				ErrorCode.SLACK_API_ERROR,
-				tech_message=f"Slack API error occurred: {e}",
+				tech_message="Slack API error occurred: {}".format(str(e)),
 				error_i18n_key="Error occurred while sending message to Slack. Reason: '{{error_message}}'.",
 				error_dict={"error_message": str(e)}
 			)
