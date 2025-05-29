@@ -104,15 +104,6 @@ class SlackOutputService(asab.Service, OutputABC):
 		"""
 		Sends a message to a Slack channel with attachments.
 		"""
-		# Audit log of outgoing payload at NOTICE level
-		L.log(
-			asab.LOG_NOTICE,
-			"SlackOutputService.send_files → channel=%s, initial_comment=%r",
-			struct_data={
-				"channel": self.Channel,
-				"initial_comment": body,
-			}
-		)
 		if self.Client is None:
 			L.warning("SlackOutputService is not initialized properly. File will not be sent.")
 			return
