@@ -1,9 +1,0 @@
-SUBJECT: TeskaLabs LogMan.io | New user account
-
-Welcome to [TeskaLabs LogMan.io]({{public_url}})!
-
-Your user account {{username}} is ready.
-
-[Please follow this link to set a new password.]({{password_reset_url}})
-
-If you did not request this, please disregard this message — no further action is needed.
