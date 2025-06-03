@@ -95,7 +95,6 @@ class SendEmailOrchestrator:
 			L.info("Email sent via SMTP to: {}".format(', '.join(email_to)))
 		# MS365 path: ignore attachments
 		else:
-			print(body_html)
 			for rcpt in email_to:
 				await self.M365Service.send_email(
 					email_from,
