@@ -95,6 +95,7 @@ class SendEmailOrchestrator:
 			L.info("Email sent via SMTP to: {}".format(', '.join(email_to)))
 		# MS365 path: ignore attachments
 		else:
+			print(body_html)
 			for rcpt in email_to:
 				await self.M365Service.send_email(
 					email_from,
@@ -140,13 +141,24 @@ class SendEmailOrchestrator:
 			else:
 				html_body = convert_markdown_to_full_html(html_body)
 			return html_body, subject
-		if ext == '.txt':
-			body, subject = _extract_subject_txt(rendered)
+		if ext == ".txt":
+			# 1) Extract raw Markdown + subject
+			raw_md, subject = _extract_subject_txt(rendered)
+
 			if wrapper:
+				# 2) Convert the Markdown → HTML
+				html_inner = self.MarkdownToHTMLService.format(raw_md)
+
+				# 3) Now inject valid HTML into your wrapper
 				body = await self.JinjaService.format(
-					wrapper, {"content": body}
+					wrapper,
+					{"content": html_inner}
 				)
-			return body, subject
+				return body, subject
+
+			# If there is no wrapper, just return plain text (no HTML conversion)
+			return raw_md, subject
+
 		raise ASABIrisError(
 			ErrorCode.INVALID_FORMAT,
 			tech_message="Unsupported template format '{}'".format(ext),
