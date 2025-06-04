@@ -141,11 +141,11 @@ class ASABIRISApplication(asab.Application):
 		else:
 			self.SendSMSOrchestrator = None
 
-		# MS365 output service
+		# MS 365 output service
 		m365 = M365EmailOutputService(self)
 		self.M365EmailOutputService = m365 if getattr(m365, "is_configured", False) else None
 
-		# Single email orchestrator (SMTP or MS365)
+		# Single email orchestrator (SMTP or MS 365)
 		if self.M365EmailOutputService or self.EmailOutputService:
 			self.SendEmailOrchestrator = SendEmailOrchestrator(self)
 		else:
