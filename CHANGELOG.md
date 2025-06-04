@@ -6,6 +6,7 @@
 - Add MS365 Graph API Email support using. (#95 v25.19-alpha)
 - Add Wrapper support for MS365 Graph API service.(#96 v25.19-alpha2)
 - Fix token expiration issue in MS365 email service.(#98 v25.20-alpha)
+- Add logging to Slack service. (#99 v25.22-alpha)
 - Make smtp service as a fallback (#98 v25.23-alpha)
 ---
 
