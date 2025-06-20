@@ -1,11 +1,9 @@
 {
 	"to": [fromEmail],
 	"cc": ["sales@teskalabs.com"],
-	"subject": "TeskaLabs LogMan.io EPS Calculator",
 	"from": "no-reply@logman.io",
 	"body": {
-		"template": "/Templates/Email/epscalc.md",
-		"params": {
-		}
+		"template": "/Templates/Email/epscalc-" & language & ".md",
+		"params": $
 	}
 }

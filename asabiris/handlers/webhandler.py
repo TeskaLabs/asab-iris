@@ -114,6 +114,11 @@ class WebHandler(object):
 	async def send_email_jsonata(self, request):
 		"""
 		This endpoint is for sending emails - JSONata template is applied first to the request body.
+
+		It applies JSONata template (stored in `/Templates/JSONata`) to the request body and then the output is used as a body to /send_email endpoint.
+		It allows to transform arbitrary JSON data into a valid email body.
+
+		Build the JSONata template at https://try.jsonata.org
 		"""
 		jsonata_template = request.match_info["jsonata"]
 		assert '..' not in jsonata_template, "JSONata template cannot contain '..'"
