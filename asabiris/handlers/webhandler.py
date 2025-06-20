@@ -1,5 +1,7 @@
 import logging
 
+import jsonata
+
 import asab.web.rest
 
 import aiohttp.web
@@ -29,6 +31,7 @@ class WebHandler(object):
 		web_app.router.add_get(r"/features", self.get_features)
 		web_app.router.add_put(r"/send_email", self.send_email)
 		web_app.router.add_put(r"/send_mail", self.send_email)  # This one is for backward compatibility
+		web_app.router.add_put(r"/send_email_jsonata/{jsonata}", self.send_email_jsonata)
 		web_app.router.add_put(r"/render", self.render)
 		web_app.router.add_put(r"/send_sms", self.send_sms)
 		web_app.router.add_put(r"/send_slack", self.send_slack)
@@ -105,6 +108,26 @@ class WebHandler(object):
 		---
 		tags: ['Send mail']
 		"""
+		return await self._send_email(request, json_data)
+
+
+	async def send_email_jsonata(self, request):
+		"""
+		This endpoint is for sending emails - JSONata template is applied first to the request body.
+		"""
+		jsonata_template = request.match_info["jsonata"]
+		assert '..' not in jsonata_template, "JSONata template cannot contain '..'"
+		assert '/' not in jsonata_template, "JSONata template cannot contain '/'"
+
+		async with self.App.LibraryService.open('/Templates/JSONata/' + jsonata_template + '.txt') as b:
+			expr = jsonata.Jsonata(b.read().decode("utf-8"))
+
+		result = expr.evaluate(await request.json())
+		# TODO: Apply email_schema to the result
+		return await self._send_email(request, json_data=result)
+
+
+	async def _send_email(self, request, json_data):
 		# If neither SMTP nor MS365 was set up, fail early
 		if self.App.SendEmailOrchestrator is None:
 			L.info("Email orchestrator is not enabled.")
