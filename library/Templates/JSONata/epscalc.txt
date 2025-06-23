@@ -1,0 +1,9 @@
+{
+	"to": [fromEmail],
+	"cc": ["sales@teskalabs.com"],
+	"from": "no-reply@logman.io",
+	"body": {
+		"template": "/Templates/Email/epscalc-" & language & ".md",
+		"params": $
+	}
+}
