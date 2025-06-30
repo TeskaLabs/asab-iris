@@ -52,7 +52,6 @@ class M365EmailOutputService(asab.Service, OutputABC):
 		self.UserEmail = check_config(cfg, "m365_email", "user_email")
 		raw = check_config(cfg, "m365_email", "api_url") or "https://graph.microsoft.com/v1.0/users/{}/sendMail"
 		self.APIUrl = raw.format(self.UserEmail)
-		self.Subject = check_config(cfg, "m365_email", "subject")
 
 		if not all([self.TenantID, self.ClientID, self.ClientSecret, self.UserEmail]):
 			L.info("Incomplete M365 config—disabling email service")
