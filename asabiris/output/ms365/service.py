@@ -10,19 +10,20 @@ L = logging.getLogger(__name__)
 
 
 def check_config(config, section, parameter):
+	# if the section isn't in the file at all, just return None silently
 	try:
+		# config.get will raise NoSectionError if section missing,
+		# or NoOptionError if the parameter is missing
 		return config.get(section, parameter)
-	except configparser.NoOptionError as e:
-		L.warning("Configuration parameter '{}' missing in section '{}': {}".format(
-			parameter, section, e))
+	except configparser.NoSectionError:
 		return None
-
-
-asab.Config.add_defaults({
-	'm365_email': {
-		"subject": "ASAB Iris email",
-	}
-})
+	except configparser.NoOptionError as e:
+		L.warning(
+			"Configuration parameter '{}' missing in section '{}': {}".format(
+				parameter, section, e
+			)
+		)
+		return None
 
 
 class M365EmailOutputService(asab.Service, OutputABC):
@@ -43,16 +44,17 @@ class M365EmailOutputService(asab.Service, OutputABC):
 		super().__init__(app, service_name)
 
 		cfg = asab.Config
+		# grab subject with a fallback instead:
+		self.Subject = cfg.get('m365_email', 'subject', fallback='ASAB Iris email')
 		self.TenantID = check_config(cfg, "m365_email", "tenant_id")
 		self.ClientID = check_config(cfg, "m365_email", "client_id")
 		self.ClientSecret = check_config(cfg, "m365_email", "client_secret")
 		self.UserEmail = check_config(cfg, "m365_email", "user_email")
 		raw = check_config(cfg, "m365_email", "api_url") or "https://graph.microsoft.com/v1.0/users/{}/sendMail"
 		self.APIUrl = raw.format(self.UserEmail)
-		self.Subject = check_config(cfg, "m365_email", "subject")
 
 		if not all([self.TenantID, self.ClientID, self.ClientSecret, self.UserEmail]):
-			L.warning("Incomplete M365 config—disabling email service")
+			L.info("Incomplete M365 config—disabling email service")
 			self.MsalApp = None
 			return
 
