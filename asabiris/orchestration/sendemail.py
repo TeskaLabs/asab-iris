@@ -1,11 +1,3 @@
-"""
-Module to orchestrate the sending of emails.
-
-This module handles rendering email templates, processing attachments,
-and sending messages via SMTP or MS365 based on configuration.
-Attachments are only supported for SMTP; any provided for MS365 are ignored with a warning.
-Templates must reside under `/Templates/Email/`.
-"""
 import os
 import re
 import datetime
@@ -53,19 +45,6 @@ class SendEmailOrchestrator:
 		email_subject=None,
 		attachments=None
 	):
-		"""
-		Send an email using rendered template and delegate to the configured provider.
-
-		:param email_to:    List of recipient addresses
-		:param body_template:     Path under /Templates/Email/
-		:param body_template_wrapper: Optional wrapper template path
-		:param body_params:      Template parameters
-		:param email_from:       Sender address
-		:param email_cc:         CC addresses
-		:param email_bcc:        BCC addresses
-		:param email_subject:    Subject line
-		:param attachments:      List of attachments (only used by SMTP)
-		"""
 		body_params = body_params or {}
 		attachments = attachments or []
 		email_cc = email_cc or []
@@ -80,14 +59,11 @@ class SendEmailOrchestrator:
 		if not email_subject:
 			email_subject = rendered_subject
 
-		# ——————————————————————————————
-		# PREFER SMTP if available; only fall back to MS 365 if SMTP is None
-		# ——————————————————————————————
+		# PREFER SMTP if available; only fall back to MS365
 		if self.SmtpService is not None:
-			# SMTP path: support attachments
 			atts_gen = self.AttachmentRenderingService.render_attachment(attachments)
 			await self.SmtpService.send(
-				email_from=email_from,
+				email_from,
 				email_to=email_to,
 				email_cc=email_cc,
 				email_bcc=email_bcc,
@@ -98,25 +74,18 @@ class SendEmailOrchestrator:
 			L.info("Email sent via SMTP to: {}".format(', '.join(email_to)))
 
 		elif self.M365Service is not None:
-			# MS 365 path: ignore attachments
-			for rcpt in email_to:
-				await self.M365Service.send_email(
-					email_from,
-					rcpt,
-					email_subject,
-					body_html,
-					content_type="HTML"
-				)
-			L.info("Email sent via MS 365 to: {}".format(', '.join(email_to)))
-
-		else:
-			# Neither SMTP nor MS 365 is configured
-			raise ASABIrisError(
-				ErrorCode.INVALID_SERVICE_CONFIGURATION,
-				tech_message="No email service (SMTP or MS 365) is configured",
-				error_i18n_key="Email service unavailable",
-				error_dict={}
+			# MS365 path: use same async Attachment generator
+			atts_gen = self.AttachmentRenderingService.render_attachment(attachments)
+			await self.M365Service.send_email(
+				email_from,  # maps to from_recipient
+				email_to,  # maps to recipient
+				email_subject,  # maps to subject
+				body_html,  # maps to body
+				"HTML",  # content_type
+				atts_gen  # attachments
 			)
+			L.info("Email sent via MS365 to: {}".format(', '.join(email_to)))
+
 
 	async def _render_template(
 		self,
