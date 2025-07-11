@@ -177,3 +177,57 @@ class M365EmailOutputService(asab.Service, OutputABC):
 				error_i18n_key="Email service network error",
 				error_dict={"error_message": str(e)},
 			)
+		if resp.status_code == 401:
+			L.info("Token expired—refreshing and retrying")
+			token = self._get_access_token(force_refresh=True)
+			resp = _post(token)
+
+		if resp.status_code in (200, 202):
+			L.info("Microsoft 365 email sent successfully.")
+			return True
+
+		# … the rest of your error‐handling unchanged …
+		if resp.status_code == 400:
+			L.error("Bad request: %s", resp.text)
+			raise ASABIrisError(
+				ErrorCode.INVALID_REQUEST,
+				tech_message="Graph API returned 400: {}".format(resp.text),
+				error_i18n_key="Invalid email payload",
+				error_dict={"status": resp.status_code, "body": resp.text},
+			)
+
+		if resp.status_code == 403:
+			L.error("Permission denied: %s", resp.text)
+			raise ASABIrisError(
+				ErrorCode.AUTHENTICATION_FAILED,
+				tech_message="Graph API returned 403: {}".format(resp.text),
+				error_i18n_key="Insufficient permissions",
+				error_dict={"status": resp.status_code, "body": resp.text},
+			)
+
+		if resp.status_code == 429:
+			retry_after = resp.headers.get("Retry-After", "unknown")
+			L.warning("Rate limited (Retry-After: %s)", retry_after)
+			raise ASABIrisError(
+				ErrorCode.SERVER_ERROR,
+				tech_message="Rate limited by Graph API, retry after {}".format(retry_after),
+				error_i18n_key="Email rate limited",
+				error_dict={"status": resp.status_code, "retry_after": retry_after},
+			)
+
+		if 500 <= resp.status_code < 600:
+			L.error("Server error: %s %s", resp.status_code, resp.text)
+			raise ASABIrisError(
+				ErrorCode.SERVER_ERROR,
+				tech_message="Graph API server error {}: {}".format(resp.status_code, resp.text),
+				error_i18n_key="Email service error",
+				error_dict={"status": resp.status_code, "body": resp.text},
+			)
+
+		L.error("Unexpected status %s: %s", resp.status_code, resp.text)
+		raise ASABIrisError(
+			ErrorCode.SERVER_ERROR,
+			tech_message="Unexpected Graph response {}: {}".format(resp.status_code, resp.text),
+			error_i18n_key="Email service unexpected error",
+			error_dict={"status": resp.status_code, "body": resp.text},
+		)
