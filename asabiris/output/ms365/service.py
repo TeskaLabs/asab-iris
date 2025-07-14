@@ -163,7 +163,6 @@ class M365EmailOutputService(asab.Service, OutputABC):
 
 		# Acquire token and send
 		token = self._get_access_token()
-		resp = None
 		try:
 			resp = _post(token)
 		except requests.exceptions.Timeout as e:
