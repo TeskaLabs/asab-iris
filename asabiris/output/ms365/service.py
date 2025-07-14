@@ -11,6 +11,9 @@ L = logging.getLogger(__name__)
 
 
 def check_config(config, section, parameter):
+	"""
+	Helper to fetch configuration with warning on missing.
+	"""
 	try:
 		return config.get(section, parameter)
 	except (configparser.NoSectionError, configparser.NoOptionError) as e:
@@ -27,7 +30,7 @@ class M365EmailOutputService(asab.Service, OutputABC):
 	client_id     - Application (client) ID (required)
 	client_secret - Client secret (required)
 	user_email    - Sending user address (required)
-	api_url       - Optional URL template, defaults to
+	api_url       - Optional URL template: defaults to
 		"https://graph.microsoft.com/v1.0/users/{}/sendMail"
 	subject       - Default email subject
 	"""
@@ -40,6 +43,7 @@ class M365EmailOutputService(asab.Service, OutputABC):
 		self.ClientID = cfg.get("m365_email", "client_id", fallback=None)
 		self.ClientSecret = cfg.get("m365_email", "client_secret", fallback=None)
 		self.UserEmail = cfg.get("m365_email", "user_email", fallback=None)
+
 		raw_url = cfg.get(
 			"m365_email",
 			"api_url",
@@ -59,7 +63,7 @@ class M365EmailOutputService(asab.Service, OutputABC):
 			client_credential=self.ClientSecret,
 		)
 
-		# get the attachment renderer
+		# Attachment renderer service
 		self.AttachmentRenderer = app.get_service("AttachmentRenderingService")
 
 	@property
@@ -107,7 +111,7 @@ class M365EmailOutputService(asab.Service, OutputABC):
 		attachments=None,
 	):
 		"""
-		Send an email via Graph API. Attachments should be raw specs, rendered below.
+		Send an email via Microsoft Graph.
 		"""
 		if not self.is_configured:
 			raise ASABIrisError(
@@ -117,9 +121,8 @@ class M365EmailOutputService(asab.Service, OutputABC):
 				error_dict={}
 			)
 
-		# Determine sender
+		# Sender and endpoint
 		actual_from = email_from or self.UserEmail
-		# API URL with correct sender
 		api_url = self.APIUrl.replace(self.UserEmail, actual_from)
 
 		# Build message payload
@@ -127,14 +130,15 @@ class M365EmailOutputService(asab.Service, OutputABC):
 			"subject": subject or self.Subject,
 			"body": {"contentType": content_type, "content": body},
 			"toRecipients": [
-				{"emailAddress": {"address": addr}} for addr in (email_to if isinstance(email_to, list) else [email_to])
+				{"emailAddress": {"address": addr}} for addr in (
+					email_to if isinstance(email_to, list) else [email_to]
+				)
 			],
 		}
 
-		# Attachments
+		# Process attachments
 		if attachments:
 			file_atts = []
-			# attachments is already an async generator of Attachment
 			async for att in attachments:
 				att.Content.seek(0)
 				raw = att.Content.read()
@@ -147,9 +151,9 @@ class M365EmailOutputService(asab.Service, OutputABC):
 				})
 			message["attachments"] = file_atts
 
-		# Final payload and POST
 		payload = {"message": message}
 
+		# HTTP POST helper
 		def _post(token):
 			headers = {
 				"Authorization": "Bearer {}".format(token),
@@ -157,6 +161,7 @@ class M365EmailOutputService(asab.Service, OutputABC):
 			}
 			return requests.post(api_url, headers=headers, json=payload, timeout=10)
 
+		# Acquire token and send
 		token = self._get_access_token()
 		resp = None
 		try:
@@ -177,16 +182,19 @@ class M365EmailOutputService(asab.Service, OutputABC):
 				error_i18n_key="Email service network error",
 				error_dict={"error_message": str(e)},
 			)
+
+		# Retry on 401
 		if resp.status_code == 401:
-			L.info("Token expired—refreshing and retrying")
+			L.info("Token expired—retrying")
 			token = self._get_access_token(force_refresh=True)
 			resp = _post(token)
 
+		# Success
 		if resp.status_code in (200, 202):
-			L.info("Microsoft 365 email sent successfully.")
+			L.info("Email sent successfully.")
 			return True
 
-		# … the rest of your error‐handling unchanged …
+		# 400 Bad request
 		if resp.status_code == 400:
 			L.error("Bad request: %s", resp.text)
 			raise ASABIrisError(
@@ -196,6 +204,7 @@ class M365EmailOutputService(asab.Service, OutputABC):
 				error_dict={"status": resp.status_code, "body": resp.text},
 			)
 
+		# 403 Forbidden
 		if resp.status_code == 403:
 			L.error("Permission denied: %s", resp.text)
 			raise ASABIrisError(
@@ -205,29 +214,22 @@ class M365EmailOutputService(asab.Service, OutputABC):
 				error_dict={"status": resp.status_code, "body": resp.text},
 			)
 
+		# 429 Too many requests
 		if resp.status_code == 429:
 			retry_after = resp.headers.get("Retry-After", "unknown")
 			L.warning("Rate limited (Retry-After: %s)", retry_after)
 			raise ASABIrisError(
 				ErrorCode.SERVER_ERROR,
-				tech_message="Rate limited by Graph API, retry after {}".format(retry_after),
+				tech_message="Rate limited, retry after {}".format(retry_after),
 				error_i18n_key="Email rate limited",
 				error_dict={"status": resp.status_code, "retry_after": retry_after},
 			)
 
-		if 500 <= resp.status_code < 600:
-			L.error("Server error: %s %s", resp.status_code, resp.text)
-			raise ASABIrisError(
-				ErrorCode.SERVER_ERROR,
-				tech_message="Graph API server error {}: {}".format(resp.status_code, resp.text),
-				error_i18n_key="Email service error",
-				error_dict={"status": resp.status_code, "body": resp.text},
-			)
-
+		# 5xx and unexpected
 		L.error("Unexpected status %s: %s", resp.status_code, resp.text)
 		raise ASABIrisError(
 			ErrorCode.SERVER_ERROR,
-			tech_message="Unexpected Graph response {}: {}".format(resp.status_code, resp.text),
-			error_i18n_key="Email service unexpected error",
+			tech_message="Graph API error {}: {}".format(resp.status_code, resp.text),
+			error_i18n_key="Email service error",
 			error_dict={"status": resp.status_code, "body": resp.text},
 		)
