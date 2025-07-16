@@ -1,3 +1,10 @@
+"""
+Module to orchestrate the sending of emails.
+This module handles rendering email templates, processing attachments,
+and sending messages via SMTP or MS365 based on configuration.
+Attachments are only supported for SMTP; any provided for MS365 are ignored with a warning.
+Templates must reside under `/Templates/Email/`.
+"""
 import os
 import re
 import datetime
@@ -45,6 +52,18 @@ class SendEmailOrchestrator:
 		email_subject=None,
 		attachments=None
 	):
+		"""
+		Send an email using rendered template and delegate to the configured provider.
+		:param email_to:    List of recipient addresses
+		:param body_template:     Path under /Templates/Email/
+		:param body_template_wrapper: Optional wrapper template path
+		:param body_params:      Template parameters
+		:param email_from:       Sender address
+		:param email_cc:         CC addresses
+		:param email_bcc:        BCC addresses
+		:param email_subject:    Subject line
+		:param attachments:      List of attachments (only used by SMTP)
+		"""
 		body_params = body_params or {}
 		attachments = attachments or []
 		email_cc = email_cc or []
