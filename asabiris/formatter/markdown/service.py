@@ -18,8 +18,8 @@ class MarkdownFormatterService(asab.Service, FormatterABC):
 
 	def __init__(self, app, service_name="MarkdownToHTMLService"):
 		super().__init__(app, service_name)
-		self.ToHTML = markdown.Markdown()
-		self.ToTXT = markdown.Markdown(output_format="plain")
+		self.ToHTML = markdown.Markdown(extensions=['tables'])
+		self.ToTXT = markdown.Markdown(output_format="plain", extensions=['tables'])
 		self.ToTXT.stripTopLevelTags = False
 
 	def format(self, markdown_str):
