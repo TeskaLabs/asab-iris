@@ -160,6 +160,10 @@ class ASABIRISApplication(asab.Application):
 		if "kafka" in asab.Config.sections():
 			self.KafkaHandler = KafkaHandler(self)
 
+		self.TenantService = asab.web.tenant.TenantService(self)
+
+		self.AuthService = asab.web.auth.AuthService(self)
+
 
 	def enabled_orchestrators(self):
 		if self.SendEmailOrchestrator is not None:
