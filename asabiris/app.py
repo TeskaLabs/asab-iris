@@ -160,7 +160,7 @@ class ASABIRISApplication(asab.Application):
 		if "kafka" in asab.Config.sections():
 			self.KafkaHandler = KafkaHandler(self)
 
-		self.TenantService = asab.web.tenant.TenantService(self)
+		self.TenantService = asab.web.tenant.TenantService(self, strict=False)
 
 		self.AuthService = asab.web.auth.AuthService(self)
 
