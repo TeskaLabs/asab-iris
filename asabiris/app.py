@@ -17,6 +17,7 @@ from .output.smtp import EmailOutputService
 from .output.slack import SlackOutputService
 from .output.sms import SMSOutputService
 from .output.msteams import MSTeamsOutputService
+from .output.ms365 import M365EmailOutputService
 
 # orchestrators.
 from .orchestration.sendemail import SendEmailOrchestrator
@@ -97,12 +98,12 @@ class ASABIRISApplication(asab.Application):
 
 		# output services
 
-		if asab.Config.get("smtp", "host") != "":
+		# output services
+		# SMTP
+		if asab.Config.get("smtp", "host"):
 			self.EmailOutputService = EmailOutputService(self)
-			self.SendEmailOrchestrator = SendEmailOrchestrator(self)
 		else:
 			self.EmailOutputService = None
-			self.SendEmailOrchestrator = None
 
 		if 'slack' in asab.Config.sections():
 			# Initialize the SlackOutputService
@@ -140,6 +141,15 @@ class ASABIRISApplication(asab.Application):
 		else:
 			self.SendSMSOrchestrator = None
 
+		# MS 365 output service
+		m365 = M365EmailOutputService(self)
+		self.M365EmailOutputService = m365 if getattr(m365, "is_configured", False) else None
+
+		# Single email orchestrator (SMTP or MS 365)
+		if self.M365EmailOutputService or self.EmailOutputService:
+			self.SendEmailOrchestrator = SendEmailOrchestrator(self)
+		else:
+			self.SendEmailOrchestrator = None
 
 		# Orchestrators
 		self.RenderReportOrchestrator = RenderReportOrchestrator(self)

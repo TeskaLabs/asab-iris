@@ -1,57 +1,44 @@
 """
 Module to orchestrate the sending of emails.
-
-This module provides functionality to orchestrate the sending of emails,
-including rendering email templates, processing attachments, and sending
-emails through an SMTP service.
-
-Classes:
-	SendEmailOrchestrator: Orchestrates the sending of emails.
+This module handles rendering email templates, processing attachments,
+and sending messages via SMTP or MS365 based on configuration.
+Attachments are only supported for SMTP; any provided for MS365 are ignored with a warning.
+Templates must reside under `/Templates/Email/`.
 """
-import asab
 import os
 import re
 import datetime
 import logging
 from typing import List, Tuple, Dict
 
+import asab
 from ..errors import ASABIrisError, ErrorCode
 
-#
-
 L = logging.getLogger(__name__)
-
-#
 
 
 class SendEmailOrchestrator:
 	"""
-	A class to orchestrate the sending of emails.
-
-	This class handles rendering email templates, processing attachments, and
-	sending emails through an SMTP service.
-
+	Orchestrates sending emails via SMTP or MS365 based on configuration.
 	"""
-
 	def __init__(self, app):
-		"""
-		Initialize the SendEmailOrchestrator with necessary services.
-
-		Args:
-			app: The application object, used to get services.
-		"""
+		# Services for templating and attachments
 		self.JinjaService = app.get_service("JinjaService")
 		self.MarkdownToHTMLService = app.get_service("MarkdownToHTMLService")
 		self.AttachmentRenderingService = app.get_service("AttachmentRenderingService")
 
+		# Output services
 		self.SmtpService = app.get_service("SmtpService")
+		# Use MS365 only if configured on the app
+		m365 = getattr(app, "M365EmailOutputService", None)
+		self.M365Service = m365 if (m365 and getattr(m365, "is_configured", False)) else None
 
-		# Check if 'email' section exists and 'markdown_wrapper' is neither None nor empty
-		if 'email' in asab.Config and asab.Config.get("email", "markdown_wrapper"):
-			self.MarkdownWrapper = asab.Config.get("email", "markdown_wrapper")
+		# Optional markdown wrapper
+		cfg = asab.Config
+		if cfg.has_section("email") and cfg.get("email", "markdown_wrapper"):
+			self.MarkdownWrapper = cfg.get("email", "markdown_wrapper")
 		else:
 			self.MarkdownWrapper = None
-
 
 	async def send_email(
 		self,
@@ -66,42 +53,72 @@ class SendEmailOrchestrator:
 		attachments=None
 	):
 		"""
-		Send an email using specified parameters.
-		...
+		Send an email using rendered template and delegate to the configured provider.
+		:param email_to:    List of recipient addresses
+		:param body_template:     Path under /Templates/Email/
+		:param body_template_wrapper: Optional wrapper template path
+		:param body_params:      Template parameters
+		:param email_from:       Sender address
+		:param email_cc:         CC addresses
+		:param email_bcc:        BCC addresses
+		:param email_subject:    Subject line
+		:param attachments:      List of attachments (only used by SMTP)
 		"""
 		body_params = body_params or {}
 		attachments = attachments or []
 		email_cc = email_cc or []
 		email_bcc = email_bcc or []
 
-		# Rendering the template
-		body_html, email_subject_body = await self._render_template(body_template, body_params, body_template_wrapper)
-
-		# If email_subject is not provided or is empty use email_subject_body
-		if email_subject is None or email_subject == '':
-			email_subject = email_subject_body
-
-		# Processing attachments
-		atts_gen = self.AttachmentRenderingService.render_attachment(attachments)
-
-		# Sending the email
-		await self.SmtpService.send(
-			email_from=email_from,
-			email_to=email_to,
-			email_cc=email_cc,
-			email_bcc=email_bcc,
-			email_subject=email_subject,
-			body=body_html,
-			attachments=atts_gen,
+		# Render the body and subject
+		body_html, rendered_subject = await self._render_template(
+			body_template,
+			body_params,
+			body_template_wrapper or self.MarkdownWrapper
 		)
-		L.info("Email sent successfully to: {}".format(', '.join(email_to)))
+		if not email_subject:
+			email_subject = rendered_subject
 
-	async def _render_template(self, template: str, params: Dict, body_template_wrapper=None) -> Tuple[str, str]:
-		# First, determine if a default wrapper needs to be used
-		if body_template_wrapper in [None, '']:
-			body_template_wrapper = self.MarkdownWrapper
+		# PREFER SMTP if available; only fall back to MS365
+		if self.SmtpService is not None:
+			atts_gen = self.AttachmentRenderingService.render_attachment(attachments)
+			await self.SmtpService.send(
+				email_from=email_from,
+				email_to=email_to,
+				email_cc=email_cc,
+				email_bcc=email_bcc,
+				email_subject=email_subject,
+				body=body_html,
+				attachments=atts_gen
+			)
+			L.info("Email sent via SMTP to: {}".format(', '.join(email_to)))
 
-		# Check the template paths right after updating body_template_wrapper
+		elif self.M365Service is not None:
+			# MS365 path: use same async Attachment generator
+			atts_gen = self.AttachmentRenderingService.render_attachment(attachments)
+			await self.M365Service.send_email(
+				email_from,  # maps to from_recipient
+				email_to,  # maps to recipient
+				email_subject,  # maps to subject
+				body_html,  # maps to body
+				"HTML",  # content_type
+				atts_gen  # attachments
+			)
+			L.info("Email sent via MS365 to: {}".format(', '.join(email_to)))
+
+
+	async def _render_template(
+		self,
+		template: str,
+		params: Dict,
+		wrapper=None
+	) -> Tuple[str, str]:
+		"""
+		Render the template (HTML/MD/TXT), apply wrapper, extract subject.
+
+		Returns:
+			(html_body, subject)
+		"""
+		# Ensure correct template location
 		if not template.startswith('/Templates/Email/'):
 			raise ASABIrisError(
 				ErrorCode.INVALID_PATH,
@@ -110,53 +127,46 @@ class SendEmailOrchestrator:
 				error_dict={"incorrect_path": template}
 			)
 
-		if body_template_wrapper is not None and not body_template_wrapper.startswith('/Templates/Wrapper/'):
-			raise ASABIrisError(
-				ErrorCode.INVALID_PATH,
-				tech_message="Incorrect wrapper template path '{}'. Move wrapper templates to '/Templates/Wrapper/'.".format(
-					body_template_wrapper),
-				error_i18n_key="Incorrect wrapper template path '{{incorrect_path}}'. Please move your wrapper templates to '/Templates/Wrapper/'.",
-				error_dict={"incorrect_path": body_template_wrapper}
-			)
+		rendered = await self.JinjaService.format(template, params)
+		ext = os.path.splitext(template)[1].lower()
 
-		# Proceed with rendering the template
-		jinja_output = await self.JinjaService.format(template, params)
-
-		ext = os.path.splitext(template)[1]
 		if ext == '.html':
-			return find_subject_in_html(jinja_output)
-
-		elif ext == '.md':
-			body, subject = find_subject_in_md(jinja_output)
+			return _extract_subject_html(rendered)
+		if ext == '.md':
+			body, subject = _extract_subject_md(rendered)
 			html_body = self.MarkdownToHTMLService.format(body)
-
-			# Apply the wrapper if it exists and is not empty
-			if body_template_wrapper not in [None, '']:
-				html_body_param = {"content": html_body}
-				html_body = await self.JinjaService.format(body_template_wrapper, html_body_param)
+			if wrapper:
+				html_body = await self.JinjaService.format(
+					wrapper, {"content": html_body}
+				)
 			else:
 				html_body = convert_markdown_to_full_html(html_body)
-
 			return html_body, subject
+		if ext == ".txt":
+			# 1) Extract raw Markdown + subject
+			raw_md, subject = _extract_subject_txt(rendered)
 
-		elif ext == '.txt':
-			# Extract the subject from the text template
-			plain_text_body, subject = find_subject_in_txt(jinja_output)
+			if wrapper:
+				# 2) Convert the Markdown → HTML
+				html_inner = self.MarkdownToHTMLService.format(raw_md)
 
-			# Apply the wrapper if it exists and is not empty
-			if body_template_wrapper not in [None, '']:
-				plain_text_param = {"content": plain_text_body}
-				plain_text_body = await self.JinjaService.format(body_template_wrapper, plain_text_param)
+				# 3) Now inject valid HTML into your wrapper
+				body = await self.JinjaService.format(
+					wrapper,
+					{"content": html_inner}
+				)
+				return body, subject
 
-			return plain_text_body, subject
+			# If there is no wrapper, just return plain text (no HTML conversion)
+			return raw_md, subject
 
-		else:
-			raise ASABIrisError(
-				ErrorCode.INVALID_FORMAT,
-				tech_message="Unsupported conversion format '{}' for template '{}'".format(ext, template),
-				error_i18n_key="The format '{{invalid_format}}' is not supported",
-				error_dict={"invalid_format": ext}
-			)
+		raise ASABIrisError(
+			ErrorCode.INVALID_FORMAT,
+			tech_message="Unsupported template format '{}'".format(ext),
+			error_i18n_key="unsupported_format",
+			error_dict={"format": ext}
+		)
+
 
 	def _generate_error_message(self, specific_error: str) -> Tuple[str, str]:
 		timestamp = datetime.datetime.now(tz=datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
@@ -173,49 +183,39 @@ class SendEmailOrchestrator:
 		return error_message, "Error when generating email"
 
 
-def find_subject_in_html(body):
-	regex = r"(<title>(.*)</title>)"
-	match = re.search(regex, body)
-	if match is None:
-		return body, None
-	_, subject = match.groups()
-	return body, subject
+def _extract_subject_html(html: str) -> Tuple[str, str]:
+	match = re.search(r"<title>(.*?)</title>", html, re.IGNORECASE)
+	if match:
+		return html, match.group(1)
+	return html, None
 
 
-def find_subject_in_md(body):
-	if not body.startswith("SUBJECT:"):
-		return body, None
-	subject = body.split("\n")[0].replace("SUBJECT:", "").lstrip()
-	body = "\n".join(body.split("\n")[1:])
-	return body, subject
+def _extract_subject_md(text: str) -> Tuple[str, str]:
+	if text.startswith("SUBJECT:"):
+		parts = text.split("\n", 1)
+		subject = parts[0].split(":", 1)[1].strip()
+		return (parts[1] if len(parts) > 1 else ""), subject
+	return text, None
 
 
-def find_subject_in_txt(body: str) -> Tuple[str, str]:
-	# Check if the body starts with "Subject:" (case-insensitive)
-	if not body.lower().startswith("subject:"):
-		return body, None
-
-	# Extract the subject from the first line, case-insensitively
-	subject = body.split("\n")[0].replace("Subject:", "", 1).lstrip()
-
-	# Remove the subject line from the body
-	body = "\n".join(body.split("\n")[1:])
-
-	return body, subject
+def _extract_subject_txt(text: str) -> Tuple[str, str]:
+	if text.lower().startswith("subject:"):
+		parts = text.split("\n", 1)
+		subject = parts[0].split(":", 1)[1].strip()
+		return (parts[1] if len(parts) > 1 else ""), subject
+	return text, None
 
 
-def convert_markdown_to_full_html(html_text):
+def convert_markdown_to_full_html(html_text: str) -> str:
 	"""
 	Convert Markdown text to a full HTML document.
 
 	Args:
-	markdown_text (str): Markdown formatted text to be converted.
+		markdown_text (str): Markdown formatted text to be converted.
 
 	Returns:
-	str: A complete HTML document string.
+		str: A complete HTML document string.
 	"""
-
-	# Wrap the HTML content in a full HTML document structure
 	full_html_document = """
 <!DOCTYPE html>
 <html lang="en">
@@ -229,5 +229,4 @@ def convert_markdown_to_full_html(html_text):
 </body>
 </html>
 """.format(content=html_text)
-
 	return full_html_document
