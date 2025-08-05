@@ -93,17 +93,14 @@ class SMSOutputService(asab.Service, OutputABC):
                 api_url = api_url_tenant
             else:
                 L.warning(
-                    "Tenant '%s' SMS config incomplete—using global credentials.",
-                    tenant
+                    "Tenant '{}' SMS config incomplete—using global credentials.".format(tenant)
                 )
 
             # Override phone if tenant default exists
             if phone_tenant:
                 phone = phone_tenant
                 L.info(
-                    "Using tenant '%s' default phone %s",
-                    tenant,
-                    phone
+                    "Using tenant '{}' default phone {}".format(tenant, phone),
                 )
 
         # 3) Validate that we have a phone number
