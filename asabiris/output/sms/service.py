@@ -47,6 +47,9 @@ class SMSOutputService(asab.Service, OutputABC):
         self.TimestampFormat = asab.Config.get("sms", "timestamp_format")
         self.ApiUrl = asab.Config.get("sms", "api_url")
         self.TimeZone = pytz.timezone('Europe/Prague')
+
+        default_phone = asab.Config.get("sms", "phone").strip()
+        self.GlobalPhone = default_phone if default_phone else None
         # Get tenant configuration service
         self.ConfigService = app.get_service("TenantConfigExtractionService")
 
@@ -71,12 +74,40 @@ class SMSOutputService(asab.Service, OutputABC):
 
     async def send(self, sms_data, tenant=None):
         """
-        Sends an SMS using either tenant-specific or global SMS settings.
+        Sends an SMS using either tenant-specific or global SMS settings,
+        and falls back to a default phone if none is provided per-call.
         """
-        # Default to global configuration
+        # 1) Start with global credentials and optional global default phone
         login, password, api_url = self.Login, self.Password, self.ApiUrl
+        phone = sms_data.get("phone") or self.GlobalPhone
 
-        if not sms_data.get('phone'):
+        # 2) If tenant is specified, attempt to load tenant creds and phone
+        if tenant:
+            login_tenant, password_tenant, api_url_tenant, phone_tenant = \
+                self.ConfigService.get_sms_config(tenant)
+
+            # Override creds if all three tenant values are present
+            if all([login_tenant, password_tenant, api_url_tenant]):
+                login = login_tenant
+                password = password_tenant
+                api_url = api_url_tenant
+            else:
+                L.warning(
+                    "Tenant '%s' SMS config incomplete—using global credentials.",
+                    tenant
+                )
+
+            # Override phone if tenant default exists
+            if phone_tenant:
+                phone = phone_tenant
+                L.info(
+                    "Using tenant '%s' default phone %s",
+                    tenant,
+                    phone
+                )
+
+        # 3) Validate that we have a phone number
+        if not phone:
             L.warning("Empty or no phone number specified.")
             raise ASABIrisError(
                 ErrorCode.INVALID_SERVICE_CONFIGURATION,
@@ -85,27 +116,22 @@ class SMSOutputService(asab.Service, OutputABC):
                 error_dict={"error_message": "Empty or no phone number specified."}
             )
 
-        if tenant:
-            tenant_login, tenant_password, tenant_api_url = self.ConfigService.get_sms_config(tenant)
-
-            # Only override if all tenant values exist, otherwise retain global defaults
-            if tenant_login and tenant_password and tenant_api_url:
-                login, password, api_url = tenant_login, tenant_password, tenant_api_url
-            else:
-                L.warning("Tenant '{}' SMS configuration is incomplete. Using global config.".format(tenant))
-
-        if not login or not password or not api_url:
+        # 4) Validate that we have credentials and URL
+        if not (login and password and api_url):
             L.error("Missing SMS configuration (login, password, or API URL).")
             return
 
-        if isinstance(sms_data['message_body'], str):
-            message_list = [sms_data['message_body']]
+        # 5) Normalize message_body into a list of strings
+        if isinstance(sms_data["message_body"], str):
+            message_list = [sms_data["message_body"]]
         else:
-            message_list = sms_data['message_body']
+            message_list = sms_data["message_body"]
 
+        # 6) Iterate over each message, split into parts, and send
         for message in message_list:
-            # Clean the message content
-            message = message.replace('\n', ' ').strip()
+            # Clean message
+            message = message.replace("\n", " ").strip()
+
             if not message.isascii():
                 L.warning("Message contains non-ASCII characters.")
                 raise ASABIrisError(
@@ -115,11 +141,10 @@ class SMSOutputService(asab.Service, OutputABC):
                     error_dict={"error_message": "Message contains non-ASCII characters."}
                 )
 
-            # Split message into parts if it exceeds the allowed length for a single SMS
+            # Split long messages into SMS-sized parts
             message_parts = self.split_message(message)
 
             for part in message_parts:
-                # Pass the correct password
                 time_now, sul, auth = self.generate_auth_params(password)
                 params = {
                     "action": "send_sms",
@@ -127,47 +152,66 @@ class SMSOutputService(asab.Service, OutputABC):
                     "time": time_now,
                     "sul": sul,
                     "auth": auth,
-                    "number": sms_data['phone'],
+                    "number": phone,
                     "message": part
                 }
 
                 async with aiohttp.ClientSession() as session:
                     async with session.get(api_url, params=params) as resp:
                         response_body = await resp.text()
+
                         if resp.status != 200:
-                            L.warning("SMSBrana.cz responded with {}: {}".format(resp.status, response_body))
+                            L.warning(
+                                "SMSBrana.cz responded with %s: %s",
+                                resp.status, response_body
+                            )
                             raise ASABIrisError(
                                 ErrorCode.SERVER_ERROR,
-                                tech_message="SMSBrana.cz responded with '{}': '{}'".format(resp.status, response_body),
-                                error_i18n_key="Error occurred while sending SMS. Reason: '{{error_message}}'.",
+                                tech_message=(
+                                    "SMSBrana.cz responded with '%s': '%s'"
+                                ) % (resp.status, response_body),
+                                error_i18n_key=(
+                                    "Error occurred while sending SMS. "
+                                    "Reason: '{{error_message}}'."
+                                ),
                                 error_dict={"error_message": response_body}
                             )
 
-                        # Parse the XML response to extract the error code
+                        # Parse XML to extract error code
                         try:
                             root = ET.fromstring(response_body)
-                            err_code = root.find('err').text
-                            custom_message = self.ERROR_CODE_MAPPING.get(err_code, "Unknown error occurred.")
+                            err_code = root.find("err").text
+                            custom_message = self.ERROR_CODE_MAPPING.get(
+                                err_code, "Unknown error occurred."
+                            )
                         except ET.ParseError:
                             custom_message = "Failed to parse response from SMSBrana.cz."
-                            L.warning("Failed to parse XML response: {}".format(response_body))
+                            L.warning("Failed to parse XML response: %s", response_body)
                             raise ASABIrisError(
                                 ErrorCode.SERVER_ERROR,
                                 tech_message="Failed to parse response from SMSBrana.cz.",
-                                error_i18n_key="Error occurred while sending SMS. Reason: '{{error_message}}'.",
+                                error_i18n_key=(
+                                    "Error occurred while sending SMS. "
+                                    "Reason: '{{error_message}}'."
+                                ),
                                 error_dict={"error_message": custom_message}
                             )
 
-                        if err_code != '0':
-                            L.warning("SMS delivery failed. SMSBrana.cz response: {}".format(response_body))
+                        if err_code != "0":
+                            L.warning("SMS delivery failed. Response: %s", response_body)
                             raise ASABIrisError(
                                 ErrorCode.SERVER_ERROR,
-                                tech_message="SMS delivery failed. Error code: {}. Message: {}".format(err_code,
-                                                                                                       custom_message),
-                                error_i18n_key="Error occurred while sending SMS. Reason: '{{error_message}}'.",
+                                tech_message=(
+                                    "SMS delivery failed. Error code: %s. Message: %s"
+                                ) % (err_code, custom_message),
+                                error_i18n_key=(
+                                    "Error occurred while sending SMS. "
+                                    "Reason: '{{error_message}}'."
+                                ),
                                 error_dict={"error_message": custom_message}
                             )
                         else:
                             L.log(asab.LOG_NOTICE, "SMS part sent successfully")
 
         return True
+
