@@ -47,9 +47,9 @@ class SMSOutputService(asab.Service, OutputABC):
         self.TimestampFormat = asab.Config.get("sms", "timestamp_format")
         self.ApiUrl = asab.Config.get("sms", "api_url")
         self.TimeZone = pytz.timezone('Europe/Prague')
-
-        default_phone = asab.Config.get("sms", "phone").strip()
-        self.GlobalPhone = default_phone if default_phone else None
+        raw_phone = asab.Config.get("sms", "phone") or ""
+        cleaned  = raw_phone.strip()
+        self.global_phone = cleaned if cleaned else None
         # Get tenant configuration service
         self.ConfigService = app.get_service("TenantConfigExtractionService")
 
