@@ -164,7 +164,7 @@ class SMSOutputService(asab.Service, OutputABC):
 
                         if resp.status != 200:
                             L.warning(
-                                "SMSBrana.cz responded with {}: {}}".format(resp.status, response_body)
+                                "SMSBrana.cz responded with {}: {}".format(resp.status, response_body)
                             )
                             raise ASABIrisError(
                                 ErrorCode.SERVER_ERROR,
@@ -199,7 +199,7 @@ class SMSOutputService(asab.Service, OutputABC):
                             ) from err
 
                         if err_code != "0":
-                            L.warning("SMS delivery failed. Response: {}".format( response_body))
+                            L.warning("SMS delivery failed. Response: {}".format(response_body))
                             raise ASABIrisError(
                                 ErrorCode.SERVER_ERROR,
                                 tech_message=(
@@ -215,4 +215,3 @@ class SMSOutputService(asab.Service, OutputABC):
                             L.log(asab.LOG_NOTICE, "SMS part sent successfully")
 
         return True
-
