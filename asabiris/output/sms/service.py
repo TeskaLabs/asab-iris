@@ -116,7 +116,12 @@ class SMSOutputService(asab.Service, OutputABC):
         # 4) Validate that we have credentials and URL
         if not (login and password and api_url):
             L.error("Missing SMS configuration (login, password, or API URL).")
-            return
+            raise ASABIrisError(
+                ErrorCode.INVALID_SERVICE_CONFIGURATION,
+                tech_message="Missing SMS configuration (login, password, or API URL).",
+                error_i18n_key="Invalid input: {{error_message}}.",
+                error_dict={"error_message": "Missing SMS configuration (login, password, or API URL)."}
+            )
 
         # 5) Normalize message_body into a list of strings
         if isinstance(sms_data["message_body"], str):
