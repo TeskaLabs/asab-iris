@@ -164,14 +164,13 @@ class SMSOutputService(asab.Service, OutputABC):
 
                         if resp.status != 200:
                             L.warning(
-                                "SMSBrana.cz responded with %s: %s",
-                                resp.status, response_body
+                                "SMSBrana.cz responded with {}: {}}".format(resp.status, response_body)
                             )
                             raise ASABIrisError(
                                 ErrorCode.SERVER_ERROR,
                                 tech_message=(
-                                    "SMSBrana.cz responded with '%s': '%s'"
-                                ) % (resp.status, response_body),
+                                    "SMSBrana.cz responded with '{}': '{}'".format(resp.status, response_body)
+                                ),
                                 error_i18n_key=(
                                     "Error occurred while sending SMS. "
                                     "Reason: '{{error_message}}'."
@@ -186,9 +185,9 @@ class SMSOutputService(asab.Service, OutputABC):
                             custom_message = self.ERROR_CODE_MAPPING.get(
                                 err_code, "Unknown error occurred."
                             )
-                        except ET.ParseError:
+                        except ET.ParseError as err:
                             custom_message = "Failed to parse response from SMSBrana.cz."
-                            L.warning("Failed to parse XML response: %s", response_body)
+                            L.warning("Failed to parse XML response: {}".format(response_body))
                             raise ASABIrisError(
                                 ErrorCode.SERVER_ERROR,
                                 tech_message="Failed to parse response from SMSBrana.cz.",
@@ -197,15 +196,15 @@ class SMSOutputService(asab.Service, OutputABC):
                                     "Reason: '{{error_message}}'."
                                 ),
                                 error_dict={"error_message": custom_message}
-                            )
+                            ) from err
 
                         if err_code != "0":
-                            L.warning("SMS delivery failed. Response: %s", response_body)
+                            L.warning("SMS delivery failed. Response: {}".format( response_body))
                             raise ASABIrisError(
                                 ErrorCode.SERVER_ERROR,
                                 tech_message=(
-                                    "SMS delivery failed. Error code: %s. Message: %s"
-                                ) % (err_code, custom_message),
+                                    "SMS delivery failed. Error code: {}. Message: {}".format(err_code, custom_message)
+                                ),
                                 error_i18n_key=(
                                     "Error occurred while sending SMS. "
                                     "Reason: '{{error_message}}'."
