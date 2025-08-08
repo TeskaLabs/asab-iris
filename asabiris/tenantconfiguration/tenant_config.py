@@ -84,11 +84,12 @@ class TenantConfigExtractionService(asab.Service):
 				login = tenant_sms_config.get("login")
 				password = tenant_sms_config.get("password")
 				api_url = tenant_sms_config.get("api_url")
+				phone = tenant_sms_config.get("phone")
 
 				# Ensure all values are present; otherwise, use global config
 				if all([login, password, api_url]):
 					L.info("Loaded complete SMS config for tenant '{}'.".format(tenant))
-					return login, password, api_url
+					return login, password, api_url, phone
 				else:
 					L.warning("Tenant '{}' SMS config is incomplete. Using global config.".format(tenant))
 
