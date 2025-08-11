@@ -18,5 +18,5 @@ sms_schema = {
             "required": ["template"],
         },
     },
-    "required": ["phone", "body"],
+    "required": ["body"],
 }
