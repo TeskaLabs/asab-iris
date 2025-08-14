@@ -97,3 +97,65 @@ class TenantConfigExtractionService(asab.Service):
 				L.warning("Tenant-specific SMS configuration error for '{}'. Using global config. Error: '{}'".format(tenant, e))
 
 		return None, None, None
+
+
+	def _normalize_recipients(self, recipients):
+		"""
+		Accepts list|tuple|str (comma-separated or single).
+		Returns list[str] trimmed; empty entries removed.
+		"""
+		if recipients is None:
+			return []
+		if isinstance(recipients, (list, tuple)):
+			return [str(x).strip() for x in recipients if str(x).strip()]
+		s = str(recipients).strip()
+		if len(s) == 0:
+			return []
+		return [p.strip() for p in s.split(",") if p.strip()]
+
+	def get_email_config(self, tenant):
+		"""
+		Future-proof email config fetcher.
+
+		Returns a dict with keys:
+			- 'to': list[str]          (required for your current use)
+			- 'cc': list[str]          (optional; defaults to [])
+			- 'bcc': list[str]         (optional; defaults to [])
+			- 'from': str or None      (optional)
+			- 'subject': str or None   (optional)
+
+		Source: config['email'].
+		"""
+		if not tenant:
+			return {"to": [], "cc": [], "bcc": [], "from": None, "subject": None}
+
+		try:
+			cfg = self.load_tenant_config(tenant)
+			email_cfg = cfg.get("email", {}) if isinstance(cfg, dict) else {}
+			if not isinstance(email_cfg, dict):
+				# Legacy case: a plain string under "email" means it's 'to'
+				to_list = self._normalize_recipients(email_cfg)
+				return {"to": to_list, "cc": [], "bcc": [], "from": None, "subject": None}
+
+			to_list = self._normalize_recipients(email_cfg.get("to"))
+			cc_list = self._normalize_recipients(email_cfg.get("cc"))
+			bcc_list = self._normalize_recipients(email_cfg.get("bcc"))
+			from_addr = email_cfg.get("from")
+			subject = email_cfg.get("subject")
+
+			if to_list:
+				L.info("Loaded tenant email config (to) for '{}'.".format(tenant))
+			else:
+				L.warning("No tenant email.to configured for '{}'.".format(tenant))
+
+			return {
+				"to": to_list,
+				"cc": cc_list,
+				"bcc": bcc_list,
+				"from": from_addr if isinstance(from_addr, str) and len(from_addr.strip()) > 0 else None,
+				"subject": subject if isinstance(subject, str) and len(subject.strip()) > 0 else None,
+			}
+
+		except Exception as e:
+			L.warning("Failed to load tenant email config for '{}': {}".format(tenant, e))
+			return {"to": [], "cc": [], "bcc": [], "from": None, "subject": None}
