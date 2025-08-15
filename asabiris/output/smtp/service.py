@@ -27,6 +27,7 @@ asab.Config.add_defaults(
 			"starttls": "yes",  # Use STARTTLS protocol
 			"subject": "ASAB Iris email",
 			"message_body": "",
+			"to": ""
 		}
 	})
 
@@ -57,6 +58,9 @@ class EmailOutputService(asab.Service, OutputABC):
 		self.SenderNameEmailRegex = re.compile(r"<([^<>]*)>\s*([^<>]*)")
 		self.AngelBracketRegex = re.compile(r".*<.*>.*")
 
+		# NEW: tenant config accessor (same pattern as SMSOutputService)
+		self.ConfigService = app.get_service("TenantConfigExtractionService")
+
 	async def send(
 		self, *,
 		email_to,
@@ -65,7 +69,8 @@ class EmailOutputService(asab.Service, OutputABC):
 		email_bcc=[],
 		email_subject=None,
 		email_from=None,
-		attachments=None
+		attachments=None,
+		tenant=None,  # make sure this arg exists
 	):
 		"""
 		Send an outgoing email with the given parameters.
@@ -85,6 +90,36 @@ class EmailOutputService(asab.Service, OutputABC):
 			email_cc = []
 		if email_bcc is None:
 			email_bcc = []
+
+		# Normalize input body 'email_to' into a list
+		if email_to is None:
+			body_to = []
+		elif isinstance(email_to, list):
+			body_to = [str(x).strip() for x in email_to if str(x).strip()]
+		else:
+			_body_to = str(email_to).strip()
+			body_to = [_body_to] if _body_to else []
+
+		if tenant:
+			tenant_email_cfg = self.ConfigService.get_email_config(tenant)
+			tenant_to = tenant_email_cfg.get("to", []) if isinstance(tenant_email_cfg, dict) else []
+			if len(tenant_to) > 0:
+				to_list = tenant_to
+			elif len(body_to) > 0:
+				to_list = body_to
+			else:
+				to_list = self.DefaultTo
+		else:
+			# No tenant -> body > global
+			to_list = body_to if len(body_to) > 0 else self.DefaultTo
+
+		if len(to_list) == 0:
+			raise ASABIrisError(
+				ErrorCode.INVALID_SERVICE_CONFIGURATION,
+				tech_message="No recipient emails available (tenant/body/global).",
+				error_i18n_key="No default recipients configured for '{{tenant}}'.",
+				error_dict={"tenant": tenant or "global"}
+			)
 
 		# Prepare Message
 		msg = email.message.EmailMessage()
@@ -138,7 +173,7 @@ class EmailOutputService(asab.Service, OutputABC):
 				result = await aiosmtplib.send(
 					msg,
 					sender=sender,
-					recipients=email_to + email_cc + email_bcc,
+					recipients=to_list + (email_cc or []) + (email_bcc or []),
 					hostname=self.Host,
 					port=int(self.Port) if self.Port != "" else None,
 					username=self.User,
