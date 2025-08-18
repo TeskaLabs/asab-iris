@@ -103,12 +103,12 @@ class JinjaFormatterService(asab.Service, FormatterABC):
 				context = construct_context(dict(), self.Variables, template_params)
 				# Do the rendering
 				return template.render(context)
-		except asab.exceptions.LibraryNotReadyError:
+		except asab.exceptions.LibraryNotReadyError as e:
 			raise ASABIrisError(
 				ErrorCode.LIBRARY_NOT_READY,
 				tech_message="Template rendering failed because the library is not yet ready.",
 				error_i18n_key="Template rendering is currently unavailable because the library is still initializing. Please try again later.",
-			)
+			) from e
 		except jinja2.exceptions.UndefinedError as e:
 			raise ASABIrisError(
 				ErrorCode.TEMPLATE_VARIABLE_UNDEFINED,
