@@ -108,14 +108,19 @@ class SMSOutputService(asab.Service, OutputABC):
 
 		# 1) Start with global credentials and optional global default phone
 		login, password, api_url = self.Login, self.Password, self.ApiUrl
-		phone = sms_data.get("phone") or self.GlobalPhone
+
+		# Prefer not to trust blanks/whitespace
+		def _clean(s):
+			return str(s).strip() if s is not None else None
+
+		body_phone = _clean(sms_data.get("phone"))
+		phone_tenant = None
 
 		# 2) If tenant is specified, attempt to load tenant creds and phone
 		if tenant:
 			login_tenant = None
 			password_tenant = None
 			api_url_tenant = None
-			phone_tenant = None
 
 			try:
 				conf = self.ConfigService.get_sms_config(tenant)
@@ -129,14 +134,14 @@ class SMSOutputService(asab.Service, OutputABC):
 					if len(conf) >= 3:
 						login_tenant, password_tenant, api_url_tenant = conf[0], conf[1], conf[2]
 						if len(conf) >= 4:
-							phone_tenant = conf[3]
+							phone_tenant = _clean(conf[3])
 					else:
 						L.warning("Tenant '{}' SMS config tuple too short: {}".format(tenant, conf))
 				elif isinstance(conf, dict):
 					login_tenant = conf.get("login")
 					password_tenant = conf.get("password")
 					api_url_tenant = conf.get("api_url")
-					phone_tenant = conf.get("phone")
+					phone_tenant = _clean(conf.get("phone"))
 				else:
 					L.warning("Tenant '{}' SMS config in unexpected format.".format(tenant))
 
@@ -146,19 +151,18 @@ class SMSOutputService(asab.Service, OutputABC):
 			else:
 				L.warning("Tenant '{}' SMS config incomplete—using global credentials.".format(tenant))
 
-			# Override phone if tenant default exists
-			if phone_tenant:
-				phone = phone_tenant
-				L.info("Using tenant '{}' default phone {}".format(tenant, phone))
+		# Resolve phone with precedence: tenant > API body > global config
+		global_phone = _clean(self.GlobalPhone)
+		phone = next((p for p in (phone_tenant, body_phone, global_phone) if p), None)
 
-		# 3) Validate that we have a phone number
+		# 3) Validate that we have a phone number from at least one source
 		if not phone:
-			L.warning("Empty or no phone number specified.")
+			L.warning("No phone number provided (tenant/api/config).")
 			raise ASABIrisError(
 				ErrorCode.INVALID_SERVICE_CONFIGURATION,
-				tech_message="Empty or no phone number specified.",
+				tech_message="No phone number provided (tenant/api/config).",
 				error_i18n_key="Invalid input: {{error_message}}.",
-				error_dict={"error_message": "Empty or no phone number specified."}
+				error_dict={"error_message": "Phone number is required (tenant, request body, or config)."}
 			)
 
 		# 4) Validate that we have credentials and URL
