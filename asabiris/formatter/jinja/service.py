@@ -2,7 +2,7 @@ import logging
 import configparser
 
 import asab
-import asab.exception
+import asab.exceptions
 import datetime
 import pathlib
 import json
@@ -103,7 +103,7 @@ class JinjaFormatterService(asab.Service, FormatterABC):
 				context = construct_context(dict(), self.Variables, template_params)
 				# Do the rendering
 				return template.render(context)
-		except asab.exception.LibraryNotReadyError:
+		except asab.exceptions.LibraryNotReadyError:
 			raise ASABIrisError(
 				ErrorCode.LIBRARY_NOT_READY,
 				tech_message="Template rendering failed because the library is not yet ready.",
