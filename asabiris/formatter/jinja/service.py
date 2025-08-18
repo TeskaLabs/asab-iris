@@ -2,6 +2,7 @@ import logging
 import configparser
 
 import asab
+import asab.exception
 import datetime
 import pathlib
 import json
@@ -82,25 +83,32 @@ class JinjaFormatterService(asab.Service, FormatterABC):
 
 
 	async def format(self, template_path, template_params):
-		# Load the template
-		async with self.App.LibraryService.open(template_path) as b:
-			if b is None:
-				raise ASABIrisError(
-					ErrorCode.TEMPLATE_NOT_FOUND,
-					tech_message="Failed to render. Reason: Template {} does not exist.".format(template_path),
-					error_i18n_key="Template '{{incorrect_path}}' does not exist.",
-					error_dict={
-						"incorrect_path": template_path,
-					}
-				)
-			template_io = b.read().decode("utf-8")
-		try:
-			template = self.Environment.from_string(template_io)
 
-			# Prepare template variables (aka context)
-			context = construct_context(dict(), self.Variables, template_params)
-			# Do the rendering
-			return template.render(context)
+		try:
+			# Load the template
+			async with self.App.LibraryService.open(template_path) as b:
+				if b is None:
+					raise ASABIrisError(
+						ErrorCode.TEMPLATE_NOT_FOUND,
+						tech_message="Failed to render. Reason: Template {} does not exist.".format(template_path),
+						error_i18n_key="Template '{{incorrect_path}}' does not exist.",
+						error_dict={
+							"incorrect_path": template_path,
+						}
+					)
+				template_io = b.read().decode("utf-8")
+				template = self.Environment.from_string(template_io)
+
+				# Prepare template variables (aka context)
+				context = construct_context(dict(), self.Variables, template_params)
+				# Do the rendering
+				return template.render(context)
+		except asab.exception.LibraryNotReadyError:
+			raise ASABIrisError(
+				ErrorCode.LIBRARY_NOT_READY,
+				tech_message="Template rendering failed because the library is not yet ready.",
+				error_i18n_key="Template rendering is currently unavailable because the library is still initializing. Please try again later.",
+			)
 		except jinja2.exceptions.UndefinedError as e:
 			raise ASABIrisError(
 				ErrorCode.TEMPLATE_VARIABLE_UNDEFINED,
