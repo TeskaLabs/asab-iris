@@ -81,9 +81,7 @@ class JinjaFormatterService(asab.Service, FormatterABC):
 		self.Variables.update(json_data)
 		L.debug("Variables successfully loaded from JSON file '{}'.".format(json_path))
 
-
 	async def format(self, template_path, template_params):
-
 		try:
 			# Load the template
 			async with self.App.LibraryService.open(template_path) as b:
@@ -92,33 +90,36 @@ class JinjaFormatterService(asab.Service, FormatterABC):
 						ErrorCode.TEMPLATE_NOT_FOUND,
 						tech_message="Failed to render. Reason: Template {} does not exist.".format(template_path),
 						error_i18n_key="Template '{{incorrect_path}}' does not exist.",
-						error_dict={
-							"incorrect_path": template_path,
-						}
+						error_dict={"incorrect_path": template_path}
 					)
-				template_io = b.read().decode("utf-8")
+
+				template_io = b.read().decode("utf-8")  # use `await b.read()` if read() is async
 				template = self.Environment.from_string(template_io)
 
-				# Prepare template variables (aka context)
-				context = construct_context(dict(), self.Variables, template_params)
-				# Do the rendering
-				return template.render(context)
+			# Prepare template variables (aka context)
+			context = construct_context(dict(), self.Variables, template_params)
+
+			# Do the rendering
+			return template.render(context)
+
 		except asab.exceptions.LibraryNotReadyError as e:
 			raise ASABIrisError(
 				ErrorCode.LIBRARY_NOT_READY,
 				tech_message="Template rendering failed because the library is not yet ready.",
 				error_i18n_key="Template rendering is currently unavailable because the library is still initializing. Please try again later.",
 			) from e
+
 		except jinja2.exceptions.UndefinedError as e:
 			raise ASABIrisError(
 				ErrorCode.TEMPLATE_VARIABLE_UNDEFINED,
-				tech_message="'{}' is undefined in Jinja2 template '{}'.".format(template_path, e),
+				tech_message="'{}' is undefined in Jinja2 template '{}'.".format(str(e), template_path),
 				error_i18n_key="Undefined variable: '{{variable_name}}' found in template path: '{{template_path}}'.",
 				error_dict={
 					"variable_name": str(e),
 					"template_path": template_path
 				}
-			)
+			) from e
+
 		except jinja2.TemplateSyntaxError as e:
 			raise ASABIrisError(
 				ErrorCode.TEMPLATE_SYNTAX_ERROR,
@@ -128,7 +129,8 @@ class JinjaFormatterService(asab.Service, FormatterABC):
 					"syntax_error": str(e),
 					"template_path": template_path
 				}
-			)
+			) from e
+
 		except jinja2.exceptions.TemplateError as e:
 			raise ASABIrisError(
 				ErrorCode.JINJA2_ERROR,
@@ -138,7 +140,12 @@ class JinjaFormatterService(asab.Service, FormatterABC):
 					"jinja2_error": str(e),
 					"template_path": template_path
 				}
-			)
+			) from e
+
+		except ASABIrisError:
+			# Pass through already raised domain errors to avoid double-wrapping
+			raise
+
 		except Exception as e:
 			raise ASABIrisError(
 				ErrorCode.RENDERING_ERROR,
@@ -148,7 +155,7 @@ class JinjaFormatterService(asab.Service, FormatterABC):
 					"template_path": template_path,
 					"error_message": str(e)
 				}
-			)
+			) from e
 
 
 def construct_context(context, *other_dicts):
