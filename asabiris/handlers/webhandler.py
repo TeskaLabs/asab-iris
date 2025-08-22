@@ -461,7 +461,8 @@ class WebHandler(object):
 			ErrorCode.SMTP_SERVER_DISCONNECTED: 502,
 			ErrorCode.SMTP_GENERIC_ERROR: 400,
 			ErrorCode.SMTP_TIMEOUT: 504,
-			ErrorCode.INVALID_SERVICE_CONFIGURATION: 400
+			ErrorCode.INVALID_SERVICE_CONFIGURATION: 400,
+			ErrorCode.LIBRARY_NOT_READY: 503
 		}
 
 		return error_code_mapping.get(error_code, 400)  # Default to 400 Bad Request
