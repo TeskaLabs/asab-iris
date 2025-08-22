@@ -1,7 +1,6 @@
 email_schema = {
 	"type": "object",
 	"required": [
-		"to",
 		"body"
 	],
 	"properties": {

@@ -22,18 +22,6 @@ def check_config(config, section, parameter):
 
 
 class M365EmailOutputService(asab.Service, OutputABC):
-	"""
-	Service for sending emails via Microsoft 365 Graph API.
-
-	Config ([m365_email]):
-	tenant_id     - Azure AD tenant ID (required)
-	client_id     - Application (client) ID (required)
-	client_secret - Client secret (required)
-	user_email    - Sending user address (required)
-	api_url       - Optional URL template: defaults to
-		"https://graph.microsoft.com/v1.0/users/{}/sendMail"
-	subject       - Default email subject
-	"""
 
 	def __init__(self, app, service_name="M365EmailOutputService"):
 		super().__init__(app, service_name)
@@ -52,6 +40,16 @@ class M365EmailOutputService(asab.Service, OutputABC):
 		self.APIUrl = raw_url.format(self.UserEmail)
 		self.Subject = cfg.get("m365_email", "subject", fallback="ASAB Iris email")
 
+		# Use existing tenant config service for normalization too
+		self.ConfigService = app.get_service("TenantConfigExtractionService")
+
+		# Optional global default "to" (normalized by tenant service to avoid duplication)
+		global_to_raw = cfg.get("m365_email", "to", fallback="")
+		if self.ConfigService is not None:
+			self.DefaultTo = self.ConfigService._normalize_recipients(global_to_raw)
+		else:
+			self.DefaultTo = []
+
 		if not all([self.TenantID, self.ClientID, self.ClientSecret, self.UserEmail]):
 			L.info("Incomplete M365 config—disabling email service")
 			self.MsalApp = None
@@ -63,7 +61,6 @@ class M365EmailOutputService(asab.Service, OutputABC):
 			client_credential=self.ClientSecret,
 		)
 
-		# Attachment renderer service
 		self.AttachmentRenderer = app.get_service("AttachmentRenderingService")
 
 	@property
@@ -109,10 +106,9 @@ class M365EmailOutputService(asab.Service, OutputABC):
 		body,
 		content_type="HTML",
 		attachments=None,
+		tenant=None,  # only "to" respects tenant override
 	):
-		"""
-		Send an email via Microsoft Graph.
-		"""
+		print(tenant)
 		if not self.is_configured:
 			raise ASABIrisError(
 				ErrorCode.INVALID_SERVICE_CONFIGURATION,
@@ -120,29 +116,53 @@ class M365EmailOutputService(asab.Service, OutputABC):
 				error_i18n_key="Email service unavailable",
 				error_dict={}
 			)
+		tenant_to = []
+		if tenant is not None and self.ConfigService is not None:
+			try:
+				tcfg = self.ConfigService.get_email_config(tenant)
+				tenant_to = tcfg.get("to", []) if isinstance(tcfg, dict) else []
+			except Exception as e:
+				L.warning("Tenant email config fetch failed: {}".format(e), struct_data={"tenant": tenant})
 
-		# Sender and endpoint
+		# Body may be list or single string; do a light wrap (no comma splitting)
+		if email_to is None:
+			body_to = []
+		elif isinstance(email_to, list):
+			body_to = [str(x).strip() for x in email_to if str(x).strip()]
+		else:
+			s = str(email_to).strip()
+			body_to = [s] if s else []
+
+		if len(tenant_to) > 0:
+			to_list = tenant_to
+		elif len(body_to) > 0:
+			to_list = body_to
+		else:
+			to_list = list(self.DefaultTo)
+
+		if len(to_list) == 0:
+			raise ASABIrisError(
+				ErrorCode.INVALID_SERVICE_CONFIGURATION,
+				tech_message="No recipient emails available (tenant/body/global).",
+				error_i18n_key="No default recipients configured for '{{tenant}}'.",
+				error_dict={"tenant": tenant or "global"}
+			)
+
 		actual_from = email_from or self.UserEmail
 		api_url = self.APIUrl.replace(self.UserEmail, actual_from)
 
-		# Build message payload
 		message = {
 			"subject": subject or self.Subject,
 			"body": {"contentType": content_type, "content": body},
-			"toRecipients": [
-				{"emailAddress": {"address": addr}} for addr in (
-					email_to if isinstance(email_to, list) else [email_to]
-				)
-			],
+			"toRecipients": [{"emailAddress": {"address": addr}} for addr in to_list],
 		}
 
-		# Process attachments
 		if attachments:
 			file_atts = []
 			async for att in attachments:
 				att.Content.seek(0)
 				raw = att.Content.read()
-				enc = base64.b64encode(raw).decode('ascii')
+				enc = base64.b64encode(raw).decode("ascii")
 				file_atts.append({
 					"@odata.type": "#microsoft.graph.fileAttachment",
 					"name": att.FileName,
@@ -153,7 +173,6 @@ class M365EmailOutputService(asab.Service, OutputABC):
 
 		payload = {"message": message}
 
-		# HTTP POST helper
 		def _post(token):
 			headers = {
 				"Authorization": "Bearer {}".format(token),
@@ -161,10 +180,11 @@ class M365EmailOutputService(asab.Service, OutputABC):
 			}
 			return requests.post(api_url, headers=headers, json=payload, timeout=10)
 
-		# Acquire token and send
 		token = self._get_access_token()
+
 		try:
 			resp = _post(token)
+			print(resp)
 		except requests.exceptions.Timeout as e:
 			L.error("Timeout sending email: %s", e)
 			raise ASABIrisError(
@@ -188,9 +208,8 @@ class M365EmailOutputService(asab.Service, OutputABC):
 			token = self._get_access_token(force_refresh=True)
 			resp = _post(token)
 
-		# Success
-		if resp.status_code in (200, 202):
-			L.info("Email sent successfully.")
+		# Success cases
+		if resp.status_code in (200, 202, 204):
 			return True
 
 		# 400 Bad request
