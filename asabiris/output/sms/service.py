@@ -2,6 +2,8 @@ import logging
 import hashlib
 import datetime
 import secrets
+import re
+
 import xml.etree.ElementTree as ET
 
 import asab
@@ -83,13 +85,78 @@ class SMSOutputService(asab.Service, OutputABC):
 		auth = hashlib.md5(auth_string.encode('utf-8')).hexdigest()
 		return time_now, sul, auth
 
-	def split_message(self, message, first_segment_length=160, subsequent_segment_length=153):
-		parts = []
-		while message:
-			part = message[:first_segment_length] if len(parts) == 0 else message[:subsequent_segment_length]
-			parts.append(part)
-			message = message[len(part):]
-		return parts
+
+	def _normalize_message(self, s: str) -> str:
+		"""
+		Clean and compact a message for SMS:
+		- collapse whitespace
+		- normalize common separators and punctuation spacing
+		- keep ASCII only (your existing isascii() check will still enforce)
+		"""
+		if s is None:
+			return ""
+
+		# Unify line breaks/tabs -> space, then collapse whitespace
+		s = str(s).replace("\r\n", "\n").replace("\r", "\n").replace("\t", " ")
+		s = re.sub(r"\s+", " ", s)
+
+		# Normalize space around colons and dashes
+		# "Status :triaged" -> "Status: triaged"
+		s = re.sub(r"\s*:\s*", ": ", s)
+		# multiple hyphens or spaced hyphens -> " - "
+		s = re.sub(r"\s*-\s*", " - ", s)
+		# collapse repeated separators (e.g., " -  - ") -> " - "
+		s = re.sub(r"(?:\s-\s){2,}", " - ", s)
+
+		# Compact around commas and periods: "value , text" -> "value, text"
+		s = re.sub(r"\s+,", ",", s)
+		s = re.sub(r"\s+\.", ".", s)
+
+		# Remove leading/trailing spaces and fix stray separators at ends
+		s = s.strip()
+		s = re.sub(r"^(?:-\s+)+", "", s)
+		s = re.sub(r"(?:\s+-)+$", "", s)
+
+		return s
+
+	def _split_message_words(self, message: str, first_len: int = 160, next_len: int = 153):
+		"""
+		Split message on word boundaries for SMS segment sizes.
+		Falls back to hard cut if a single token exceeds the segment size.
+		"""
+		segments = []
+		limit = first_len
+		current = ""
+
+		for token in re.findall(r"\S+\s*", message):
+			# If token itself is longer than the limit, hard-split the token
+			if len(token) > limit:
+				# flush current if any
+				if current:
+					segments.append(current.rstrip())
+					current = ""
+					limit = next_len
+				start = 0
+				while start < len(token):
+					end = start + limit
+					segments.append(token[start:end].rstrip())
+					start = end
+					limit = next_len
+				continue
+
+			# normal packing
+			if len(current) + len(token) <= limit:
+				current += token
+			else:
+				segments.append(current.rstrip())
+				current = token
+				limit = next_len
+
+		if current:
+			segments.append(current.rstrip())
+
+		return segments
+
 
 	async def send(self, sms_data, tenant=None):
 		"""
@@ -185,8 +252,8 @@ class SMSOutputService(asab.Service, OutputABC):
 		timeout = aiohttp.ClientTimeout(total=15)
 		async with aiohttp.ClientSession(timeout=timeout) as session:
 			for message in message_list:
-				# Clean message
-				message = str(message).replace("\n", " ").strip()
+				# Clean + normalize
+				message = self._normalize_message(str(message))
 				if not message:
 					raise ASABIrisError(
 						ErrorCode.INVALID_SERVICE_CONFIGURATION,
@@ -204,8 +271,8 @@ class SMSOutputService(asab.Service, OutputABC):
 						error_dict={"error_message": "Message contains non-ASCII characters."}
 					)
 
-				# Split long messages into SMS-sized parts
-				message_parts = self.split_message(message)
+				# Split on word boundaries (first 160 chars, next 153)
+				message_parts = self._split_message_words(message)
 
 				for part in message_parts:
 					time_now, sul, auth = self.generate_auth_params(password)
