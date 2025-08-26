@@ -168,15 +168,15 @@ class SendEmailOrchestrator:
 		)
 
 	async def send_email_raw(
-			self,
-			email_from,
-			email_to,
-			email_subject,
-			body,
-			email_cc=None,
-			email_bcc=None,
-			attachments=None,
-			content_type="HTML"
+		self,
+		email_from,
+		email_to,
+		email_subject,
+		body,
+		email_cc=None,
+		email_bcc=None,
+		attachments=None,
+		content_type="HTML"
 	):
 		email_cc = email_cc or []
 		email_bcc = email_bcc or []
