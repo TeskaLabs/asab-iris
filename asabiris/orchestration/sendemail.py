@@ -167,6 +167,54 @@ class SendEmailOrchestrator:
 			error_dict={"format": ext}
 		)
 
+	async def send_email_raw(
+			self,
+			email_from,
+			email_to,
+			email_subject,
+			body,
+			email_cc=None,
+			email_bcc=None,
+			attachments=None,
+			content_type="HTML"
+	):
+		email_cc = email_cc or []
+		email_bcc = email_bcc or []
+		attachments = attachments or []
+
+		# Prefer SMTP
+		if self.SmtpService is not None:
+			await self.SmtpService.send(
+				email_from,
+				email_to=email_to,
+				email_cc=email_cc,
+				email_bcc=email_bcc,
+				email_subject=email_subject,
+				body=body,
+				attachments=attachments  # pass through untouched
+			)
+			L.info("Raw email sent via SMTP to: {}".format(', '.join(email_to)))
+			return
+
+		# Fallback: MS365
+		if self.M365Service is not None:
+			await self.M365Service.send_email(
+				email_from,
+				email_to,
+				email_subject,
+				body,
+				content_type,
+				attachments  # still just pass through
+			)
+			L.info("Raw email sent via MS365 to: {}".format(', '.join(email_to)))
+			return
+
+		raise ASABIrisError(
+			ErrorCode.INVALID_SERVICE_CONFIGURATION,
+			tech_message="No email provider configured.",
+			error_i18n_key="email_service_not_configured",
+			error_dict={}
+		)
 
 	def _generate_error_message(self, specific_error: str) -> Tuple[str, str]:
 		timestamp = datetime.datetime.now(tz=datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
