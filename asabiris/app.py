@@ -1,4 +1,5 @@
 import logging
+import configparser
 import asab.api
 import asab
 import asab.web.rest
@@ -97,11 +98,15 @@ class ASABIRISApplication(asab.Application):
 			self.TenantConfigExtractionService = None
 
 		# output services
-
-		# output services
 		# SMTP
-		if asab.Config.get("smtp", "host"):
-			self.EmailOutputService = EmailOutputService(self)
+		try:
+			host = asab.Config.get("smtp", "host")
+		except (configparser.NoSectionError, configparser.NoOptionError):
+			host = ""
+
+		if host:
+			# register under SmtpService so orchestrator can find it
+			self.EmailOutputService = EmailOutputService(self, service_name="SmtpService")
 		else:
 			self.EmailOutputService = None
 
