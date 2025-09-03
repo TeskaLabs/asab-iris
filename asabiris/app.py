@@ -156,9 +156,6 @@ class ASABIRISApplication(asab.Application):
 
 		self.WebHandler = WebHandler(self)
 
-		# Apache Kafka API is conditional
-		if "kafka" in asab.Config.sections():
-			self.KafkaHandler = KafkaHandler(self)
 
 
 	def enabled_orchestrators(self):

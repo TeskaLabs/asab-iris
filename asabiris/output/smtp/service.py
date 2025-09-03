@@ -27,6 +27,8 @@ asab.Config.add_defaults(
 			"starttls": "yes",  # Use STARTTLS protocol
 			"subject": "ASAB Iris email",
 			"message_body": "",
+			"validate_certs": "true",  # NEW
+			"cert_bundle": "",  # NEW
 		}
 	})
 
@@ -47,7 +49,8 @@ class EmailOutputService(asab.Service, OutputABC):
 		self.Password = asab.Config.get(config_section_name, "password")
 
 		self.Sender = asab.Config.get(config_section_name, "from")
-		self.Subject = asab.Config.get(config_section_name, "subject")
+		self.ValidateCerts = asab.Config.getboolean(config_section_name, "validate_certs", fallback=True)
+		self.Cert = asab.Config.get(config_section_name, "cert_bundle", fallback="").strip()
 
 		if len(self.User) == 0:
 			self.User = None
@@ -129,6 +132,9 @@ class EmailOutputService(asab.Service, OutputABC):
 					filename=attachment.FileName
 				)
 
+		L.warning("SMTP cfg host='{}' port='{}' ssl='{}' starttls='{}' validate_certs='{}' cert_bundle='{}'".format(
+			self.Host, self.Port, self.SSL, self.StartTLS, self.ValidateCerts, self.Cert
+		))
 		# Send the email with retry logic
 		retry_attempts = 3
 		delay = 5  # seconds
@@ -138,13 +144,17 @@ class EmailOutputService(asab.Service, OutputABC):
 				result = await aiosmtplib.send(
 					msg,
 					sender=sender,
-					recipients=email_to + email_cc + email_bcc,
+					recipients=(email_to or []) + (email_cc or []) + (email_bcc or []),
 					hostname=self.Host,
 					port=int(self.Port) if self.Port != "" else None,
 					username=self.User,
 					password=self.Password,
 					use_tls=self.SSL,
-					start_tls=self.StartTLS
+					start_tls=self.StartTLS,
+					cert_bundle=self.Cert or None, # server bundles
+					# client_cert='/Users/mithunshivashankar/PycharmProjects/asab-iris/etc/smtp-client-cert.pem',
+					# client_key ='/Users/mithunshivashankar/PycharmProjects/asab-iris/etc/smtp-client-key.pem',
+					validate_certs=self.ValidateCerts,  # <-- use config
 				)
 				L.log(asab.LOG_NOTICE, "Email sent", struct_data={'result': result[1], "host": self.Host})
 				break  # Email sent successfully, exit the retry loop
