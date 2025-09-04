@@ -296,7 +296,6 @@ class SMSOutputService(asab.Service, OutputABC):
 					}
 
 					try:
-						return
 						async with session.get(api_url, params=params) as resp:
 							response_body = await resp.text()
 					except aiohttp.ClientError as err:
