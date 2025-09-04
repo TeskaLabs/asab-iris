@@ -151,10 +151,8 @@ class EmailOutputService(asab.Service, OutputABC):
 					password=self.Password,
 					use_tls=self.SSL,
 					start_tls=self.StartTLS,
-					cert_bundle=self.Cert or None, # server bundles
-					# client_cert='/Users/mithunshivashankar/PycharmProjects/asab-iris/etc/smtp-client-cert.pem',
-					# client_key ='/Users/mithunshivashankar/PycharmProjects/asab-iris/etc/smtp-client-key.pem',
-					validate_certs=self.ValidateCerts,  # <-- use config
+					cert_bundle=self.Cert or None,
+					validate_certs=self.ValidateCerts
 				)
 				L.log(asab.LOG_NOTICE, "Email sent", struct_data={'result': result[1], "host": self.Host})
 				break  # Email sent successfully, exit the retry loop
