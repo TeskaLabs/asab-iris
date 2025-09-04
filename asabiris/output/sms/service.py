@@ -85,78 +85,94 @@ class SMSOutputService(asab.Service, OutputABC):
 		auth = hashlib.md5(auth_string.encode('utf-8')).hexdigest()
 		return time_now, sul, auth
 
-
 	def _normalize_message(self, s: str) -> str:
 		"""
-		Clean and compact a message for SMS:
-		- collapse whitespace
-		- normalize common separators and punctuation spacing
-		- keep ASCII only (your existing isascii() check will still enforce)
+		Clean and compact a message for SMS while preserving line breaks:
+		- collapse spaces/tabs but keep '\n'
+		- normalize common separators and punctuation spacing without crossing lines
 		"""
 		if s is None:
 			return ""
 
-		# Unify line breaks/tabs -> space, then collapse whitespace
-		s = str(s).replace("\r\n", "\n").replace("\r", "\n").replace("\t", " ")
-		s = re.sub(r"\s+", " ", s)
+		# Normalize CRLF/CR to LF, keep actual newlines
+		s = str(s).replace("\r\n", "\n").replace("\r", "\n")
 
-		# Normalize space around colons and dashes
-		# "Status :triaged" -> "Status: triaged"
-		s = re.sub(r"\s*:\s*", ": ", s)
-		# multiple hyphens or spaced hyphens -> " - "
-		s = re.sub(r"\s*-\s*", " - ", s)
-		# collapse repeated separators (e.g., " -  - ") -> " - "
-		s = re.sub(r"(?:\s-\s){2,}", " - ", s)
+		# Collapse runs of spaces/tabs but DO NOT touch '\n'
+		# [^\S\n] == whitespace except newline
+		s = re.sub(r"[^\S\n]+", " ", s)
 
-		# Compact around commas and periods: "value , text" -> "value, text"
-		s = re.sub(r"\s+,", ",", s)
-		s = re.sub(r"\s+\.", ".", s)
+		# Add a space after labels like "Severity:" but don't touch times "12:34" or URLs "http://"
+		s = re.sub(r"(?<=[A-Za-z])\s*:\s*(?!//)(?=\S)", ": ", s)
 
-		# Remove leading/trailing spaces and fix stray separators at ends
-		s = s.strip()
-		s = re.sub(r"^(?:-\s+)+", "", s)
-		s = re.sub(r"(?:\s+-)+$", "", s)
+		# Normalize hyphen spacing only if there's already whitespace on at least one side
+		# (so IDs like ALZA-000092 stay intact)
+		s = re.sub(r"(?<=\S)(?:\s+-\s*|\s*-\s+)(?=\S)", " - ", s)
+
+		# Remove leading/trailing spaces on each line but keep line structure
+		s = "\n".join(line.strip() for line in s.split("\n"))
+
+		# Optional: collapse multiple blank lines -> single blank line
+		s = re.sub(r"\n{3,}", "\n\n", s)
 
 		return s
 
-	def _split_message_words(self, message: str, first_len: int = 160, next_len: int = 153):
+	def _split_message_words(self, message: str, first_len: int = 160, next_len: int = 153, prefix_template: str = None, include_single: bool = False):
 		"""
 		Split message on word boundaries for SMS segment sizes.
-		Falls back to hard cut if a single token exceeds the segment size.
+		Supports optional part numbering via prefix_template, e.g. "{i}/{n} ".
+		Preserves '\n'. Uses an iterative pass so the prefix length is accounted for
+		even when numbering a single-part message.
 		"""
-		segments = []
-		limit = first_len
-		current = ""
+		# Tokens that keep newlines as their own tokens
+		tokens = re.findall(r"\S+(?:[ \t]+|(?=\n)|$)|\n", message)
 
-		for token in re.findall(r"\S+\s*", message):
-			# If token itself is longer than the limit, hard-split the token
-			if len(token) > limit:
-				# flush current if any
-				if current:
-					segments.append(current.rstrip())
-					current = ""
-					limit = next_len
-				start = 0
-				while start < len(token):
-					end = start + limit
-					segments.append(token[start:end].rstrip())
-					start = end
-					limit = next_len
-				continue
+		def pack(lim_first, lim_next):
+			segs = []
+			lim = lim_first
+			cur = ""
+			for tok in tokens:
+				# If token itself is longer than the limit, hard-split the token
+				if len(tok) > lim:
+					if cur:
+						segs.append(cur.rstrip(" "))  # don't strip '\n'
+						cur = ""
+						lim = lim_next
+					start = 0
+					while start < len(tok):
+						end = start + lim
+						segs.append(tok[start:end].rstrip(" "))
+						start = end
+						lim = lim_next
+					continue
 
-			# normal packing
-			if len(current) + len(token) <= limit:
-				current += token
-			else:
-				segments.append(current.rstrip())
-				current = token
-				limit = next_len
+				if len(cur) + len(tok) <= lim:
+					cur += tok
+				else:
+					segs.append(cur.rstrip(" "))
+					cur = tok
+					lim = lim_next
 
-		if current:
-			segments.append(current.rstrip())
+			if cur:
+				segs.append(cur.rstrip(" "))
+			return segs
+
+		# First pass without prefixes to estimate part count
+		segments = pack(first_len, next_len)
+
+		# If numbering requested and there are multiple parts OR we want 1/1
+		if prefix_template and (len(segments) > 1 or include_single):
+			# Stabilize n because adding a prefix can increase the part count
+			n = len(segments) if len(segments) > 0 else 1
+			while True:
+				prefix_len = len(prefix_template.format(i=n, n=n))
+				segs2 = pack(first_len - prefix_len, next_len - prefix_len)
+				n2 = len(segs2) if len(segs2) > 0 else 1
+				if n2 == n:
+					segments = ["{}{}".format(prefix_template.format(i=i + 1, n=n), seg) for i, seg in enumerate(segs2)]
+					break
+				n = n2
 
 		return segments
-
 
 	async def send(self, sms_data, tenant=None):
 		"""
@@ -270,9 +286,8 @@ class SMSOutputService(asab.Service, OutputABC):
 						error_i18n_key="Invalid input: {{error_message}}.",
 						error_dict={"error_message": "Message contains non-ASCII characters."}
 					)
-
 				# Split on word boundaries (first 160 chars, next 153)
-				message_parts = self._split_message_words(message)
+				message_parts = self._split_message_words(message, prefix_template="{i}/{n} ", include_single=True)
 
 				for part in message_parts:
 					time_now, sul, auth = self.generate_auth_params(password)
