@@ -22,7 +22,6 @@ asab.Config.add_defaults({
 		"timestamp_format": "%Y%m%dT%H%M%S",
 		"api_url": "https://api.smsbrana.cz/smsconnect/http.php",
 		# Optional keys (added to avoid NoOptionError and allow sane fallbacks)
-		"phone": "",
 		"timezone": "Europe/Prague",
 	}
 })
@@ -67,9 +66,6 @@ class SMSOutputService(asab.Service, OutputABC):
 		except Exception:
 			L.warning("Invalid timezone '{}', falling back to Europe/Prague.".format(tz_name))
 			self.TimeZone = pytz.timezone("Europe/Prague")
-
-		raw_phone = asab.Config.get("sms", "phone", fallback=None)
-		self.GlobalPhone = raw_phone.strip() if raw_phone else None
 
 		# Get tenant configuration service
 		self.ConfigService = app.get_service("TenantConfigExtractionService")
@@ -234,18 +230,16 @@ class SMSOutputService(asab.Service, OutputABC):
 			else:
 				L.warning("Tenant '{}' SMS config incomplete—using global credentials.".format(tenant))
 
-		# Resolve phone with precedence: tenant > API body > global config
-		global_phone = _clean(self.GlobalPhone)
-		phone = next((p for p in (phone_tenant, body_phone, global_phone) if p), None)
+		phone = next((p for p in (phone_tenant, body_phone) if p), None)
 
 		# 3) Validate that we have a phone number from at least one source
 		if not phone:
-			L.warning("No phone number provided (tenant/api/config).")
+			L.warning("No phone number provided (tenant or request body).")
 			raise ASABIrisError(
 				ErrorCode.INVALID_SERVICE_CONFIGURATION,
 				tech_message="No phone number provided (tenant/api/config).",
 				error_i18n_key="Invalid input: {{error_message}}.",
-				error_dict={"error_message": "Phone number is required (tenant, request body, or config)."}
+				error_dict={"error_message": "Phone number is required (tenant or request body)."}
 			)
 
 		# 4) Validate that we have credentials and URL
@@ -302,6 +296,7 @@ class SMSOutputService(asab.Service, OutputABC):
 					}
 
 					try:
+						return
 						async with session.get(api_url, params=params) as resp:
 							response_body = await resp.text()
 					except aiohttp.ClientError as err:
