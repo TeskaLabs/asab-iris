@@ -142,7 +142,7 @@ class EmailOutputService(asab.Service, OutputABC):
 				result = await aiosmtplib.send(
 					msg,
 					sender=sender,
-					recipients=(email_to or []) + (email_cc or []) + (email_bcc or []),
+					recipients=email_to + email_cc + email_bcc,
 					hostname=self.Host,
 					port=int(self.Port) if self.Port != "" else None,
 					username=self.User,
