@@ -132,9 +132,6 @@ class EmailOutputService(asab.Service, OutputABC):
 					filename=attachment.FileName
 				)
 
-		L.warning("SMTP cfg host='{}' port='{}' ssl='{}' starttls='{}' validate_certs='{}' cert_bundle='{}'".format(
-			self.Host, self.Port, self.SSL, self.StartTLS, self.ValidateCerts, self.Cert
-		))
 		# Send the email with retry logic
 		retry_attempts = 3
 		delay = 5  # seconds
