@@ -49,6 +49,7 @@ class EmailOutputService(asab.Service, OutputABC):
 		self.Password = asab.Config.get(config_section_name, "password")
 
 		self.Sender = asab.Config.get(config_section_name, "from")
+		self.Subject = asab.Config.get(config_section_name, "subject")
 		self.ValidateCerts = asab.Config.getboolean(config_section_name, "validate_certs", fallback=True)
 		self.Cert = asab.Config.get(config_section_name, "cert_bundle", fallback="").strip()
 
