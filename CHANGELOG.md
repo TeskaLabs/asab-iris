@@ -3,11 +3,22 @@
 
 ## v25.xx
 
+- Cert Bundle support to SMTP service. (#112 v25.36-alpha)
+---
+
+## v25.28.02
+
+### Features
+
+- Microsoft 365 support attachments (#104 v25.23-alpha)
 - Add MS365 Graph API Email support using. (#95 v25.19-alpha)
+
+### Enhancements
 - Add Wrapper support for MS365 Graph API service.(#96 v25.19-alpha2)
 - Fix token expiration issue in MS365 email service.(#98 v25.20-alpha)
 - Add logging to Slack service. (#99 v25.22-alpha)
 - Make smtp service as a fallback (#101 v25.23-alpha)
+
 ---
 
 ##  v25.17
