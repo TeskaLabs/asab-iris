@@ -129,6 +129,7 @@ cert_bundle     =                     ; Path to CA/chain PEM when validate_certs
 ```ini
 [smtp]
 host            = mail.internal.lan
+user            = admin
 port            = 465
 ssl             = yes
 starttls        = no
@@ -143,6 +144,7 @@ cert_bundle     = /etc/ssl/internal_ca.pem
 ```ini
 [smtp]
 host            = smtp.example.com
+user            = admin
 port            = 587
 ssl             = no
 starttls        = yes
@@ -157,6 +159,7 @@ cert_bundle     =                    ; empty = use system trust store
 ```ini
 [smtp]
 host            = 127.0.0.1
+user            = admin
 port            = 2525
 ssl             = no
 starttls        = no
