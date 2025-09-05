@@ -112,8 +112,7 @@ class SMSOutputService(asab.Service, OutputABC):
 
 		return s
 
-	def _split_message_words(self, message: str, first_len: int = 160, next_len: int = 153, prefix_template: str = None,
-							 include_single: bool = False):
+	def _split_message_words(self, message: str, first_len: int = 160, next_len: int = 153, prefix_template: str = None, include_single: bool = False):
 		"""
 		Split message on word boundaries for SMS segment sizes.
 		Supports optional part numbering via prefix_template, e.g. "{i}/{n} ".
