@@ -4,6 +4,7 @@
 ## v25.xx
 
 - Cert Bundle support to SMTP service. (#112 v25.36-alpha)
+- SMS Normalization & Prefix Handling. (#110 v25.36-alpha2)
 ---
 
 ## v25.28.02
