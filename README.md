@@ -111,6 +111,8 @@ validate_certs  = yes                 ; Verify server certificate (recommended i
 cert_bundle     =                     ; Path to CA/chain PEM when validate_certs=yes.
                                       ; Needed for self-signed/internal CAs.
                                       ; Leave empty to use system trust store.
+                                      ; When validate_certs=no, both chain and hostname checks are disabled and
+                                      ; cert_bundle is ignored.
 
 ```
 
