@@ -82,7 +82,7 @@ class SendEmailOrchestrator:
 		if self.SmtpService is not None:
 			atts_gen = self.AttachmentRenderingService.render_attachment(attachments)
 			await self.SmtpService.send(
-				email_from,
+				email_from=email_from,
 				email_to=email_to,
 				email_cc=email_cc,
 				email_bcc=email_bcc,

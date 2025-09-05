@@ -27,6 +27,8 @@ asab.Config.add_defaults(
 			"starttls": "yes",  # Use STARTTLS protocol
 			"subject": "ASAB Iris email",
 			"message_body": "",
+			"validate_certs": "true",  # NEW
+			"cert_bundle": "",  # NEW
 		}
 	})
 
@@ -48,6 +50,8 @@ class EmailOutputService(asab.Service, OutputABC):
 
 		self.Sender = asab.Config.get(config_section_name, "from")
 		self.Subject = asab.Config.get(config_section_name, "subject")
+		self.ValidateCerts = asab.Config.getboolean(config_section_name, "validate_certs", fallback=True)
+		self.Cert = asab.Config.get(config_section_name, "cert_bundle", fallback="").strip()
 
 		if len(self.User) == 0:
 			self.User = None
@@ -144,7 +148,9 @@ class EmailOutputService(asab.Service, OutputABC):
 					username=self.User,
 					password=self.Password,
 					use_tls=self.SSL,
-					start_tls=self.StartTLS
+					start_tls=self.StartTLS,
+					cert_bundle=self.Cert or None,
+					validate_certs=self.ValidateCerts
 				)
 				L.log(asab.LOG_NOTICE, "Email sent", struct_data={'result': result[1], "host": self.Host})
 				break  # Email sent successfully, exit the retry loop
