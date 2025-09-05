@@ -130,7 +130,6 @@ host            = mail.internal.lan
 port            = 465
 ssl             = yes
 starttls        = no
-user            = service
 password        = ****
 from            = noreply@internal.lan
 validate_certs  = yes
@@ -145,7 +144,6 @@ host            = smtp.example.com
 port            = 587
 ssl             = no
 starttls        = yes
-user            = service
 password        = ****
 from            = noreply@example.com
 validate_certs  = yes
@@ -160,19 +158,11 @@ host            = 127.0.0.1
 port            = 2525
 ssl             = no
 starttls        = no
-user            =
 password        =
 from            = dev@localhost
 validate_certs  = no
 cert_bundle     =
 ```
-
-**Troubleshooting**
-
-* **`TLSV1_ALERT_UNKNOWN_CA`** ⇒ `cert_bundle` missing/wrong. Point to the issuing CA/chain PEM.
-* **`SSLV3_ALERT_HANDSHAKE_FAILURE` / `WRONG_VERSION_NUMBER`** ⇒ mode/port mismatch or server policy. Use 465+`ssl=yes` **or** 587+`starttls=yes` (not both).
-* **Hostname mismatch** ⇒ connect using the hostname in the cert’s SAN/CN (not an IP).
-
 
 ### 🚨 2. Sending Slack messages
 
