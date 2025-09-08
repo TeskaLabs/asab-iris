@@ -90,6 +90,85 @@ markdown_wrapper=/Templates/Email/body_wrapper.html
 - `markdown_wrapper`: Specifies the path to the HTML template for wrapping email content.
 If this configuration is not provided, or if the value is left empty, the markdown_wrapper will default to None. In such cases, Markdown-formatted emails will be sent without any additional HTML wrapping. This means the emails will consist solely of the content converted from Markdown to HTML, without any extra styling or structure provided by a wrapper template.
 
+## 🔐 SMTP Transport & TLS Verification
+
+**Keys (under `[smtp]`)**
+
+```ini
+# Transport
+host            = smtp.example.com
+port            = 465                 ; 465 = implicit TLS (SMTPS), 587 = STARTTLS
+user            = admin
+password        = secret
+from            = info@example.com
+
+# TLS mode (choose ONE)
+ssl             = yes                 ; yes => implicit TLS (465)
+starttls        = no                  ; yes => STARTTLS (587). Do NOT enable both.
+
+# Verification
+validate_certs  = yes                 ; Verify server certificate (recommended in prod)
+cert_bundle     =                     ; Path to CA/chain PEM when validate_certs=yes.
+                                      ; Needed for self-signed/internal CAs.
+                                      ; Leave empty to use system trust store.
+                                      ; When validate_certs=no, both chain and hostname checks are disabled and
+                                      ; cert_bundle is ignored.
+
+```
+
+**Important**
+
+* Use real booleans: `yes|no` (not quoted strings).
+* `cert_bundle` must be a **CA/chain PEM**, **not** the server cert.
+* If you supply a custom TLS context in code, some clients ignore `validate_certs`/`cert_bundle`.
+
+**Common Setups**
+
+**A) Production — SMTPS (465) with internal CA**
+
+```ini
+[smtp]
+host            = mail.internal.lan
+user            = admin
+port            = 465
+ssl             = yes
+starttls        = no
+password        = ****
+from            = noreply@internal.lan
+validate_certs  = yes
+cert_bundle     = /etc/ssl/internal_ca.pem
+```
+
+**B) Production — STARTTLS (587) with public CA**
+
+```ini
+[smtp]
+host            = smtp.example.com
+user            = admin
+port            = 587
+ssl             = no
+starttls        = yes
+password        = ****
+from            = noreply@example.com
+validate_certs  = yes
+cert_bundle     =                    ; empty = use system trust store
+```
+
+**C) Local Dev — no TLS (not for prod)**
+
+```ini
+[smtp]
+host            = 127.0.0.1
+user            = admin
+port            = 2525
+ssl             = no
+starttls        = no
+password        =
+from            = dev@localhost
+validate_certs  = no
+cert_bundle     =
+```
+
 ### 🚨 2. Sending Slack messages
 
 **Overview**
