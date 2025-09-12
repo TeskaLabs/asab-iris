@@ -95,9 +95,10 @@ If this configuration is not provided, or if the value is left empty, the markdo
 **Keys (under `[smtp]`)**
 
 ```ini
+# Example: implicit TLS via 465
 # Transport
 host            = smtp.example.com
-port            = 465                 ; 465 = implicit TLS (SMTPS), 587 = STARTTLS
+port            = 465                 ; Example : 465 = implicit TLS (SMTPS), 587 = STARTTLS
 user            = admin
 password        = secret
 from            = info@example.com
@@ -125,12 +126,12 @@ cert_bundle     =                     ; Path to CA/chain PEM when validate_certs
 **Common Setups**
 
 **A) Production — SMTPS (465) with internal CA**
-
 ```ini
+# Example: implicit TLS via 465
 [smtp]
 host            = mail.internal.lan
 user            = admin
-port            = 465
+port            = 465  #Eaxmple
 ssl             = yes
 starttls        = no
 password        = ****
@@ -142,6 +143,7 @@ cert_bundle     = /etc/ssl/internal_ca.pem
 **B) Production — STARTTLS (587) with public CA**
 
 ```ini
+# Example: STARTTLS via 587
 [smtp]
 host            = smtp.example.com
 user            = admin
@@ -152,11 +154,20 @@ password        = ****
 from            = noreply@example.com
 validate_certs  = yes
 cert_bundle     =                    ; empty = use system trust store
+
+# NOTE: TLS is disabled (ssl=no AND starttls=no).
+# The following options have no effect in this mode:
+# - validate_certs
+# - cert_bundle
+
+# validate_certs = no    ; ignored when no TLS
+# cert_bundle    =       ; ignored when no TLS
 ```
 
 **C) Local Dev — no TLS (not for prod)**
 
 ```ini
+# Example: local SMTP (no TLS)
 [smtp]
 host            = 127.0.0.1
 user            = admin
@@ -169,6 +180,11 @@ validate_certs  = no
 cert_bundle     =
 ```
 
+###  Note: 
+```
+When ssl = no and starttls = no, the connection is plain TCP.
+validate_certs and cert_bundle are ignored.
+```
 ### 🚨 2. Sending Slack messages
 
 **Overview**
