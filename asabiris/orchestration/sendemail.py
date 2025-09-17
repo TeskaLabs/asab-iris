@@ -180,7 +180,7 @@ class SendEmailOrchestrator:
 	):
 		email_cc = email_cc or []
 		email_bcc = email_bcc or []
-		attachments = attachments or []
+		attachments = attachments or None
 
 		# Prefer SMTP
 		if self.SmtpService is not None:
