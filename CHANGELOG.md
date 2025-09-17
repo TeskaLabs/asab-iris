@@ -3,8 +3,17 @@
 
 ## v25.xx
 
+### Enhancements
 - Cert Bundle support to SMTP service. (#112 v25.36-alpha)
 - SMS Normalization & Prefix Handling. (#110 v25.36-alpha2)
+- Manage Library not ready exception.(#109, v25.34-alpha2)
+- SMS phone is tenant specific. (#106, v25.32-alpha2)
+- Update SMS Schema. (#107, v25.33-alpha2)
+
+### Fixes
+- Fix error while sending error notification in email. (#110 v25.38-alpha)
+- Introduce send email raw. (#111 v25.38-alpha)
+
 ---
 
 ## v25.28.02
