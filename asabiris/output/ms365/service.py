@@ -108,7 +108,6 @@ class M365EmailOutputService(asab.Service, OutputABC):
 		attachments=None,
 		tenant=None,  # only "to" respects tenant override
 	):
-		print(tenant)
 		if not self.is_configured:
 			raise ASABIrisError(
 				ErrorCode.INVALID_SERVICE_CONFIGURATION,
@@ -184,7 +183,6 @@ class M365EmailOutputService(asab.Service, OutputABC):
 
 		try:
 			resp = _post(token)
-			print(resp)
 		except requests.exceptions.Timeout as e:
 			L.error("Timeout sending email: %s", e)
 			raise ASABIrisError(
