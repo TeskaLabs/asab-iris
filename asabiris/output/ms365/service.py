@@ -119,6 +119,9 @@ class M365EmailOutputService(asab.Service, OutputABC):
 		if tenant is not None and self.ConfigService is not None:
 			try:
 				tcfg = self.ConfigService.get_email_config(tenant)
+				if isinstance(tcfg, dict):
+					tenant_to = tcfg.get("to", [])
+					tenant_subject = tcfg.get("subject")
 				tenant_to = tcfg.get("to", []) if isinstance(tcfg, dict) else []
 			except Exception as e:
 				L.warning("Tenant email config fetch failed: {}".format(e), struct_data={"tenant": tenant})
@@ -149,9 +152,9 @@ class M365EmailOutputService(asab.Service, OutputABC):
 
 		actual_from = email_from or self.UserEmail
 		api_url = self.APIUrl.replace(self.UserEmail, actual_from)
-
+		subject = tenant_subject or subject or self.Subject
 		message = {
-			"subject": subject or self.Subject,
+			"subject": subject,
 			"body": {"contentType": content_type, "content": body},
 			"toRecipients": [{"emailAddress": {"address": addr}} for addr in to_list],
 		}
