@@ -156,7 +156,7 @@ class WebHandler(object):
 				email_from=json_data.get("from"),
 				body_params=json_data["body"].get("params", {}),  # Optional
 				attachments=json_data.get("attachments", []),
-				tenant=request.query.get("tenant", None)  # Optional
+				tenant=json_data.get("tenant", None)  # Optional
 			)
 		except ASABIrisError as e:
 			# Map ErrorCode to HTTP status codes
