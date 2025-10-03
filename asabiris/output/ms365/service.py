@@ -105,6 +105,8 @@ class M365EmailOutputService(asab.Service, OutputABC):
 		subject,
 		body,
 		content_type="HTML",
+		email_cc=[],
+		email_bcc=[],
 		attachments=None,
 		tenant=None,  # only "to" respects tenant override
 	):
@@ -155,8 +157,8 @@ class M365EmailOutputService(asab.Service, OutputABC):
 		actual_from = email_from or self.UserEmail
 		api_url = self.APIUrl.replace(self.UserEmail, actual_from)
 		subject = tenant_subject or subject or self.Subject
-		cc_list = tenant_cc or []
-		bcc_list = tenant_bcc or []
+		cc_list = tenant_cc or email_cc or []
+		bcc_list = tenant_bcc or email_bcc or []
 		message = {
 			"subject": subject,
 			"body": {"contentType": content_type, "content": body},
