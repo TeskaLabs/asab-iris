@@ -103,7 +103,9 @@ class SendEmailOrchestrator:
 				email_subject,  # maps to subject
 				body_html,  # maps to body
 				"HTML",  # content_type
-				atts_gen,  # attachments
+				attachments=atts_gen,
+				email_cc=email_cc,
+				email_bcc=email_bcc,
 				tenant=tenant,
 			)
 			L.info("Email sent via MS365 to: {}".format(', '.join(email_to if isinstance(email_to, (list, tuple)) else [str(email_to)])))
