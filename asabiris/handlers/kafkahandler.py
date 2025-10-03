@@ -3,7 +3,6 @@ import configparser
 import json
 import logging
 import datetime
-import traceback
 
 from aiokafka import AIOKafkaConsumer
 import aiokafka.errors
@@ -391,7 +390,6 @@ def _build_exception_params(exception, service_type):
 		"service_type": service_type,
 		"exception_type": type(exception).__name__,
 		"exception_message": "{}".format(exception),
-		"traceback": "".join(traceback.format_exception(type(exception), exception, exception.__traceback__)),
 	}
 
 def _load_error_templates_from_config():
@@ -405,7 +403,7 @@ def _load_error_templates_from_config():
 		L.warning("Missing [{}] section.".format(sec))
 		return {}
 	tpls = {}
-	for key in ("email", "slack", "teams", "sms"):
+	for key in ("email", "slack", "msteams", "sms"):
 		if cfg.has_option(sec, key):
 			tpls[key] = cfg.get(sec, key).strip()
 	return tpls
