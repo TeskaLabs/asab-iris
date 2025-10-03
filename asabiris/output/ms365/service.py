@@ -121,6 +121,8 @@ class M365EmailOutputService(asab.Service, OutputABC):
 				tcfg = self.ConfigService.get_email_config(tenant)
 				if isinstance(tcfg, dict):
 					tenant_to = tcfg.get("to", [])
+					tenant_cc = tcfg.get("cc", [])
+					tenant_bcc = tcfg.get("bcc", [])
 					tenant_subject = tcfg.get("subject")
 				tenant_to = tcfg.get("to", []) if isinstance(tcfg, dict) else []
 			except Exception as e:
@@ -153,10 +155,14 @@ class M365EmailOutputService(asab.Service, OutputABC):
 		actual_from = email_from or self.UserEmail
 		api_url = self.APIUrl.replace(self.UserEmail, actual_from)
 		subject = tenant_subject or subject or self.Subject
+		cc_list = tenant_cc or []
+		bcc_list = tenant_bcc or []
 		message = {
 			"subject": subject,
 			"body": {"contentType": content_type, "content": body},
 			"toRecipients": [{"emailAddress": {"address": addr}} for addr in to_list],
+			"ccRecipients": [{"emailAddress": {"address": addr}} for addr in cc_list],
+			"bccRecipients": [{"emailAddress": {"address": addr}} for addr in bcc_list],
 		}
 
 		if attachments:
