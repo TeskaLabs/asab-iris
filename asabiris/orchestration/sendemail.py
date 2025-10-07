@@ -90,7 +90,7 @@ class SendEmailOrchestrator:
 				email_subject=email_subject,
 				body=body_html,
 				attachments=atts_gen,
-				tenant=None
+				tenant=tenant
 			)
 			L.info("Email sent via SMTP to: {}".format(', '.join(email_to)))
 
