@@ -26,8 +26,7 @@ asab.Config.add_defaults(
 			"ssl": "no",  # Use TLS/SSL for connection
 			"starttls": "yes",  # Use STARTTLS protocol
 			"subject": "ASAB Iris email",
-			"message_body": "",
-			"to": ""
+			"message_body": ""
 		}
 	})
 
