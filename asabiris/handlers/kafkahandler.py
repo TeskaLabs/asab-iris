@@ -249,7 +249,7 @@ class KafkaHandler(asab.Service):
 
 			tpl_email = self._ErrorTemplates.get("email")
 			tpl_slack = self._ErrorTemplates.get("slack")
-			tpl_teams = self._ErrorTemplates.get("teams")
+			tpl_teams = self._ErrorTemplates.get("msteams")
 			tpl_sms = self._ErrorTemplates.get("sms")
 
 			# 3) Orchestrator dispatch (no raw provider calls)
