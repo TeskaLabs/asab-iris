@@ -308,7 +308,7 @@ class KafkaHandler(asab.Service):
 					L.exception("Error notification to Slack unsuccessful.")
 				return
 
-			elif service_type in ("msteams", "teams"):
+			elif service_type == "msteams":
 				if tpl_teams is None:
 					L.info("No MS Teams template configured in [error_templats]. Skipping Teams error notification.")
 					return
