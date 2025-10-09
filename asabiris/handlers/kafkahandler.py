@@ -395,7 +395,7 @@ def _build_exception_params(exception, service_type):
 def _load_error_templates_from_config():
 	"""
 	Read [error_templats] once. Returns dict or {} if missing.
-	Expected keys (any subset is fine): email, slack, teams, sms
+	Expected keys (any subset is fine): email, slack, msteams, sms
 	"""
 	cfg = asab.Config
 	sec = "error_templats"
