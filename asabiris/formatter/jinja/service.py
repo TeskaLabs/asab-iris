@@ -100,12 +100,13 @@ class JinjaFormatterService(asab.Service, FormatterABC):
 							error_i18n_key="Template '{{template_path}}' is disabled.",
 							error_dict={"template_path": template_path}
 						)
-					raise ASABIrisError(
-						ErrorCode.TEMPLATE_NOT_FOUND,
-						tech_message="Failed to render. Reason: Template {} does not exist.".format(template_path),
-						error_i18n_key="Template '{{incorrect_path}}' does not exist.",
-						error_dict={"incorrect_path": template_path}
-					)
+					else:
+						raise ASABIrisError(
+							ErrorCode.TEMPLATE_NOT_FOUND,
+							tech_message="Failed to render. Reason: Template {} does not exist.".format(template_path),
+							error_i18n_key="Template '{{incorrect_path}}' does not exist.",
+							error_dict={"incorrect_path": template_path}
+						)
 
 				template_io = b.read().decode("utf-8")  # use `await b.read()` if read() is async
 				template = self.Environment.from_string(template_io)
