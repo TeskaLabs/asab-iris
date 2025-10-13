@@ -94,7 +94,7 @@ class JinjaFormatterService(asab.Service, FormatterABC):
 
 					if is_disabled:
 						raise ASABIrisError(
-							ErrorCode.TEMPLATE_NOT_FOUND,
+							ErrorCode.TEMPLATE_IS_DISABLED,
 							tech_message="Failed to render. Reason: Template {} is disabled.".format(
 								template_path),
 							error_i18n_key="Template '{{template_path}}' is disabled.",
