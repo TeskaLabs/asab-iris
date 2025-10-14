@@ -88,7 +88,7 @@ class JinjaFormatterService(asab.Service, FormatterABC):
 				if b is None:
 					# Call check_disabled() only once and reuse its value
 					try:
-						is_disabled = self.LibraryService.check_disabled(template_path)
+						is_disabled = self.App.LibraryService.check_disabled(template_path)
 					except AttributeError:
 						is_disabled = False
 
