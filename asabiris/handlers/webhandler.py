@@ -453,6 +453,7 @@ class WebHandler(object):
 			ErrorCode.JINJA2_ERROR: 400,
 			ErrorCode.RENDERING_ERROR: 400,
 			ErrorCode.TEMPLATE_NOT_FOUND: 404,
+			ErrorCode.TEMPLATE_IS_DISABLED: 404,
 			ErrorCode.SERVER_ERROR: 502,
 			ErrorCode.SLACK_API_ERROR: 401,
 			ErrorCode.SMTP_CONNECTION_ERROR: 502,
