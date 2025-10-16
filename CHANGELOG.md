@@ -1,7 +1,7 @@
 # CHANGELOG
 
 
-## v25.xx
+## v25.37
 
 ### Enhancements
 - Cert Bundle support to SMTP service. (#112 v25.36-alpha)
