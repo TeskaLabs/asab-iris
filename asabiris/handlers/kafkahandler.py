@@ -392,6 +392,7 @@ def _build_exception_params(exception, service_type):
 		"exception_message": "{}".format(exception),
 	}
 
+
 def _load_error_templates_from_config():
 	"""
 	Read [error_templates] once. Returns dict or {} if missing.
