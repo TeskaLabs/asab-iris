@@ -233,7 +233,7 @@ class KafkaHandler(asab.Service):
 
 	async def handle_exception(self, exception, service_type, msg=None):
 		"""
-		No hardcoded bodies. Use orchestrators + Jinja templates from [error_templats].
+		No hardcoded bodies. Use orchestrators + Jinja templates from [error_templates].
 		- service_type: 'email' | 'slack' | 'msteams' | 'sms'
 		- msg: optional dict carrying routing (to/cc/bcc/from/tenant/attachments)
 		"""
@@ -394,11 +394,11 @@ def _build_exception_params(exception, service_type):
 
 def _load_error_templates_from_config():
 	"""
-	Read [error_templats] once. Returns dict or {} if missing.
+	Read [error_templates] once. Returns dict or {} if missing.
 	Expected keys (any subset is fine): email, slack, msteams, sms
 	"""
 	cfg = asab.Config
-	sec = "error_templats"
+	sec = "error_templates"
 	if not cfg.has_section(sec):
 		L.warning("Missing [{}] section.".format(sec))
 		return {}
