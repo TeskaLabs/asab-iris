@@ -232,96 +232,178 @@ class KafkaHandler(asab.Service):
 		L.info("Email sent successfully")
 
 	async def handle_exception(self, exception, service_type, msg=None):
+		"""
+		No hardcoded bodies. Use orchestrators + Jinja templates from [error_templates].
+		- service_type: 'email' | 'slack' | 'msteams' | 'sms'
+		- msg: optional dict carrying routing (to/cc/bcc/from/tenant/attachments)
+		"""
 		try:
 			L.warning("Encountered an issue while sending '{}'. Details: {}.".format(service_type, exception))
 
-			error_message, error_subject = self.generate_error_message(str(exception), service_type)
+			# 1) Build params (exception + UTC time only)
+			params = _build_exception_params(exception, service_type)
 
-			if error_message is None:
-				return
+			# 2) Load templates once and cache on the instance
+			if not hasattr(self, "_ErrorTemplates") or not isinstance(self._ErrorTemplates, dict):
+				self._ErrorTemplates = _load_error_templates_from_config()
 
-			if service_type == 'email' and msg:
+			tpl_email = self._ErrorTemplates.get("email")
+			tpl_slack = self._ErrorTemplates.get("slack")
+			tpl_teams = self._ErrorTemplates.get("msteams")
+			tpl_sms = self._ErrorTemplates.get("sms")
+
+			# 3) Orchestrator dispatch (no raw provider calls)
+			msg = msg or {}
+
+			if service_type == "email":
+				if tpl_email is None:
+					L.info("No email template configured in [error_templates]. Skipping email error notification.")
+					return
+				if not tpl_email.startswith("/Templates/Email/"):
+					L.warning("Email template must start with /Templates/Email/: {}".format(tpl_email))
+					return
+
+				email_to = _ensure_list(msg.get("to"))
+				if not email_to:
+					L.info("Skip email notification: no recipients provided in 'msg.to'.")
+					return
+
 				try:
-					L.log(asab.LOG_NOTICE, "Sending error notification to email.")
-					await self.App.SendEmailOrchestrator.send_email_raw(
-						email_from=msg.get('from', None),
-						email_to=msg['to'],
-						email_subject=error_subject or "Error Notification",
-						body=error_message,
-						content_type="HTML"
+					L.log(asab.LOG_NOTICE, "Sending error notification via Email Orchestrator.")
+					await self.App.SendEmailOrchestrator.send_email(
+						email_to=email_to,
+						body_template=tpl_email,
+						body_params=params,
+						email_from=msg.get("from"),
+						email_cc=_ensure_list(msg.get("cc")),
+						email_bcc=_ensure_list(msg.get("bcc")),
+						email_subject=None,
+						attachments=_ensure_list(msg.get("attachments"))
 					)
 				except Exception:
-					L.exception("Error notification to email unsuccessful.")
+					L.exception("Error notification to Email unsuccessful.")
+				return
 
-			elif service_type == 'slack':
+			elif service_type == "slack":
+				if tpl_slack is None:
+					L.info("No Slack template configured in [error_templates]. Skipping Slack error notification.")
+					return
+				if not tpl_slack.startswith("/Templates/Slack/"):
+					L.warning("Slack template must start with /Templates/Slack/: {}".format(tpl_slack))
+					return
+
 				try:
-					L.log(asab.LOG_NOTICE, "Sending error notification to slack.")
-					tenant = msg.get("tenant", None)
-					await self.App.SlackOutputService.send_message(None, error_message, tenant)
+					L.log(asab.LOG_NOTICE, "Sending error notification via Slack Orchestrator.")
+					await self.App.SendSlackOrchestrator.send_to_slack({
+						"body": {
+							"template": tpl_slack,
+							"params": params
+						},
+						"attachments": msg.get("attachments"),
+						"tenant": msg.get("tenant")
+					})
 				except ASABIrisError as e:
 					L.info("Error notification to Slack unsuccessful: Explanation: {}".format(e.TechMessage))
+				except Exception:
+					L.exception("Error notification to Slack unsuccessful.")
+				return
 
-			elif service_type == 'msteams':
+			elif service_type == "msteams":
+				if tpl_teams is None:
+					L.info("No MS Teams template configured in [error_templates]. Skipping Teams error notification.")
+					return
+				# Your Teams orchestrator enforces '/Templates/MSTeams/' — we do not normalize here.
+				if not tpl_teams.startswith("/Templates/MSTeams/"):
+					L.warning("MS Teams template must start with /Templates/MSTeams/: {}".format(tpl_teams))
+					return
+
 				try:
-					L.log(asab.LOG_NOTICE, "Sending error notification to MSTeams.")
-					tenant = msg.get("tenant", None)
-					await self.App.MSTeamsOutputService.send(error_message, tenant)
+					L.log(asab.LOG_NOTICE, "Sending error notification via MS Teams Orchestrator.")
+					await self.App.SendMSTeamsOrchestrator.send_to_msteams({
+						"body": {
+							"template": tpl_teams,
+							"params": params
+						},
+						"tenant": msg.get("tenant")
+					})
 				except ASABIrisError as e:
 					L.info("Error notification to MSTeams unsuccessful: Explanation: {}".format(e.TechMessage))
+				except Exception:
+					L.exception("Error notification to MSTeams unsuccessful.")
+				return
 
-			elif service_type == 'sms':
+			elif service_type == "sms":
+				if tpl_sms is None:
+					L.info("No SMS template configured in [error_templates]. Skipping SMS error notification.")
+					return
+				if not tpl_sms.startswith("/Templates/SMS/"):
+					L.warning("SMS template must start with /Templates/SMS/: {}".format(tpl_sms))
+					return
+
+				to_numbers = _ensure_list(msg.get("to"))
+				if not to_numbers:
+					L.info("Skip SMS notification: no phone recipient in 'msg.to'.")
+					return
+
 				try:
-					L.log(asab.LOG_NOTICE, "Sending error notification to SMS.")
-					msg_copy = msg.copy()
-					msg_copy['message_body'] = error_message
-					await self.App.SMSOutputService.send(msg_copy)
+					L.log(asab.LOG_NOTICE, "Sending error notification via SMS Orchestrator.")
+					await self.App.SendSMSOrchestrator.send_sms({
+						"to": to_numbers[0],
+						"body": {
+							"template": tpl_sms,
+							"params": params
+						},
+						"tenant": msg.get("tenant")
+					})
 				except Exception:
 					L.exception("Error notification to SMS unsuccessful.")
+				return
+
+			else:
+				L.warning("Unknown service_type '{}'; no error notification sent.".format(service_type))
 
 		except Exception:
 			L.exception("An unexpected error occurred while sending error message for {}.".format(service_type))
 
-	def generate_error_message(self, specific_error: str, service_type: str):
-		try:
-			timestamp = datetime.datetime.now(tz=datetime.timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
 
-			if service_type == 'email':
-				error_subject = "Error Generating Email Notification."
-				error_message = (
-					"<p>Hello!</p>"
-					"<p>We encountered an issue while processing your request:<br><b>{}</b></p>"
-					"<p>Please review your input and try again.<p>"
-					"<p>Time: {} UTC</p>"
-					"<p>Best regards,<br>Your Team</p>"
-				).format(specific_error, timestamp)
-				return error_message, error_subject
+def _now_utc_iso():
+	return datetime.datetime.now(tz=datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
-			elif service_type == 'slack':
-				error_message = (
-					":warning: *Hello!*\n\n"
-					"We encountered an issue while processing your request:\n`{}`\n\n"
-					"Please review your input and try again.\n\n"
-					"*Time:* `{}` UTC\n\n"
-					"Best regards,\nYour Team :robot_face:"
-				).format(specific_error, timestamp)
-				return error_message, None
 
-			elif service_type == 'msteams':
-				error_message = (
-					"Warning: Hello!\n\n"
-					"We encountered following issue while processing your request.\n\n`{}`\n\n"
-					"Please review your input and try again.\n\n"
-					"Time: `{}` UTC\n\n"
-					"Best regards,\nYour Team"
-				).format(specific_error, timestamp)
-				return error_message, None
+def _split_csv(value):
+	if not value:
+		return []
+	return [x.strip() for x in value.split(",") if x.strip()]
 
-			elif service_type == 'sms':
-				error_message = (
-					"Hello! Issue processing your request: {}. Please check and retry. Time: {} UTC."
-				).format(specific_error[:50], timestamp)  # Truncate specific_error if necessary
-				return error_message, None
 
-		except Exception:
-			L.exception("An unexpected error occurred while generating error message.")
-			return None, None
+def _ensure_list(value):
+	if value is None:
+		return []
+	if isinstance(value, (list, tuple)):
+		return list(value)
+	return _split_csv(value)
+
+
+def _build_exception_params(exception, service_type):
+	return {
+		"ts_utc": _now_utc_iso(),
+		"service_type": service_type,
+		"exception_type": type(exception).__name__,
+		"exception_message": "{}".format(exception),
+	}
+
+def _load_error_templates_from_config():
+	"""
+	Read [error_templates] once. Returns dict or {} if missing.
+	Expected keys (any subset is fine): email, slack, msteams, sms
+	"""
+	cfg = asab.Config
+	sec = "error_templates"
+	if not cfg.has_section(sec):
+		L.warning("Missing [{}] section.".format(sec))
+		return {}
+	tpls = {}
+	for key in ("email", "slack", "msteams", "sms"):
+		if cfg.has_option(sec, key):
+			tpls[key] = cfg.get(sec, key).strip()
+	return tpls
