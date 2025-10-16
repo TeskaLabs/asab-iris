@@ -1,5 +1,13 @@
 # CHANGELOG
 
+## v25.xx
+
+### Features
+- Jinja template support for error notifications. (#112 v25.42-alpha2) 
+
+### Enhancements
+- Update ASABIRISERROR for disabled items. (#112 v25.42-alpha)
+
 
 ## v25.37
 
