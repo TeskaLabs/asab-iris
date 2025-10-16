@@ -257,7 +257,7 @@ class KafkaHandler(asab.Service):
 
 			if service_type == "email":
 				if tpl_email is None:
-					L.info("No email template configured in [error_templats]. Skipping email error notification.")
+					L.info("No email template configured in [error_templates]. Skipping email error notification.")
 					return
 				if not tpl_email.startswith("/Templates/Email/"):
 					L.warning("Email template must start with /Templates/Email/: {}".format(tpl_email))
@@ -286,7 +286,7 @@ class KafkaHandler(asab.Service):
 
 			elif service_type == "slack":
 				if tpl_slack is None:
-					L.info("No Slack template configured in [error_templats]. Skipping Slack error notification.")
+					L.info("No Slack template configured in [error_templates]. Skipping Slack error notification.")
 					return
 				if not tpl_slack.startswith("/Templates/Slack/"):
 					L.warning("Slack template must start with /Templates/Slack/: {}".format(tpl_slack))
@@ -310,7 +310,7 @@ class KafkaHandler(asab.Service):
 
 			elif service_type == "msteams":
 				if tpl_teams is None:
-					L.info("No MS Teams template configured in [error_templats]. Skipping Teams error notification.")
+					L.info("No MS Teams template configured in [error_templates]. Skipping Teams error notification.")
 					return
 				# Your Teams orchestrator enforces '/Templates/MSTeams/' — we do not normalize here.
 				if not tpl_teams.startswith("/Templates/MSTeams/"):
@@ -334,7 +334,7 @@ class KafkaHandler(asab.Service):
 
 			elif service_type == "sms":
 				if tpl_sms is None:
-					L.info("No SMS template configured in [error_templats]. Skipping SMS error notification.")
+					L.info("No SMS template configured in [error_templates]. Skipping SMS error notification.")
 					return
 				if not tpl_sms.startswith("/Templates/SMS/"):
 					L.warning("SMS template must start with /Templates/SMS/: {}".format(tpl_sms))
