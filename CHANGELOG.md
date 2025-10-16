@@ -3,11 +3,32 @@
 
 ## v25.xx
 
+### Enhancements
+- Cert Bundle support to SMTP service. (#112 v25.36-alpha)
+- SMS Normalization & Prefix Handling. (#110 v25.36-alpha2)
+- Manage Library not ready exception.(#109, v25.34-alpha2)
+- SMS phone is tenant specific. (#106, v25.32-alpha2)
+- Update SMS Schema. (#107, v25.33-alpha2)
+
+### Fixes
+- Fix error while sending error notification in email. (#110 v25.38-alpha)
+- Introduce send email raw. (#111 v25.38-alpha)
+
+---
+
+## v25.28.02
+
+### Features
+
+- Microsoft 365 support attachments (#104 v25.23-alpha)
 - Add MS365 Graph API Email support using. (#95 v25.19-alpha)
+
+### Enhancements
 - Add Wrapper support for MS365 Graph API service.(#96 v25.19-alpha2)
 - Fix token expiration issue in MS365 email service.(#98 v25.20-alpha)
 - Add logging to Slack service. (#99 v25.22-alpha)
 - Make smtp service as a fallback (#101 v25.23-alpha)
+
 ---
 
 ##  v25.17

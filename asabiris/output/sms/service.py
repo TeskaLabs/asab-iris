@@ -2,6 +2,8 @@ import logging
 import hashlib
 import datetime
 import secrets
+import re
+
 import xml.etree.ElementTree as ET
 
 import asab
@@ -20,7 +22,6 @@ asab.Config.add_defaults({
 		"timestamp_format": "%Y%m%dT%H%M%S",
 		"api_url": "https://api.smsbrana.cz/smsconnect/http.php",
 		# Optional keys (added to avoid NoOptionError and allow sane fallbacks)
-		"phone": "",
 		"timezone": "Europe/Prague",
 	}
 })
@@ -66,9 +67,6 @@ class SMSOutputService(asab.Service, OutputABC):
 			L.warning("Invalid timezone '{}', falling back to Europe/Prague.".format(tz_name))
 			self.TimeZone = pytz.timezone("Europe/Prague")
 
-		raw_phone = asab.Config.get("sms", "phone", fallback=None)
-		self.GlobalPhone = raw_phone.strip() if raw_phone else None
-
 		# Get tenant configuration service
 		self.ConfigService = app.get_service("TenantConfigExtractionService")
 
@@ -83,13 +81,94 @@ class SMSOutputService(asab.Service, OutputABC):
 		auth = hashlib.md5(auth_string.encode('utf-8')).hexdigest()
 		return time_now, sul, auth
 
-	def split_message(self, message, first_segment_length=160, subsequent_segment_length=153):
-		parts = []
-		while message:
-			part = message[:first_segment_length] if len(parts) == 0 else message[:subsequent_segment_length]
-			parts.append(part)
-			message = message[len(part):]
-		return parts
+	def _normalize_message(self, s: str) -> str:
+		"""
+		Clean and compact a message for SMS while preserving line breaks:
+		- collapse spaces/tabs but keep '\n'
+		- normalize common separators and punctuation spacing without crossing lines
+		"""
+		if s is None:
+			return ""
+
+		# Normalize CRLF/CR to LF, keep actual newlines
+		s = str(s).replace("\r\n", "\n").replace("\r", "\n")
+
+		# Collapse runs of spaces/tabs but DO NOT touch '\n'
+		# [^\S\n] == whitespace except newline
+		s = re.sub(r"[^\S\n]+", " ", s)
+
+		# Add a space after labels like "Severity:" but don't touch times "12:34" or URLs "http://"
+		s = re.sub(r"(?<=[A-Za-z])\s*:\s*(?!//)(?=\S)", ": ", s)
+
+		# Normalize hyphen spacing only if there's already whitespace on at least one side
+		# (so IDs like ALZA-000092 stay intact)
+		s = re.sub(r"(?<=\S)(?:\s+-\s*|\s*-\s+)(?=\S)", " - ", s)
+
+		# Remove leading/trailing spaces on each line but keep line structure
+		s = "\n".join(line.strip() for line in s.split("\n"))
+
+		# Optional: collapse multiple blank lines -> single blank line
+		s = re.sub(r"\n{3,}", "\n\n", s)
+
+		return s
+
+	def _split_message_words(self, message: str, first_len: int = 160, next_len: int = 153, prefix_template: str = None, include_single: bool = False):
+		"""
+		Split message on word boundaries for SMS segment sizes.
+		Supports optional part numbering via prefix_template, e.g. "{i}/{n} ".
+		Preserves '\n'. Uses an iterative pass so the prefix length is accounted for
+		even when numbering a single-part message.
+		"""
+		# Tokens that keep newlines as their own tokens
+		tokens = re.findall(r"\S+(?:[ \t]+|(?=\n)|$)|\n", message)
+
+		def pack(lim_first, lim_next):
+			segs = []
+			lim = lim_first
+			cur = ""
+			for tok in tokens:
+				# If token itself is longer than the limit, hard-split the token
+				if len(tok) > lim:
+					if cur:
+						segs.append(cur.rstrip(" "))  # don't strip '\n'
+						cur = ""
+						lim = lim_next
+					start = 0
+					while start < len(tok):
+						end = start + lim
+						segs.append(tok[start:end].rstrip(" "))
+						start = end
+						lim = lim_next
+					continue
+
+				if len(cur) + len(tok) <= lim:
+					cur += tok
+				else:
+					segs.append(cur.rstrip(" "))
+					cur = tok
+					lim = lim_next
+
+			if cur:
+				segs.append(cur.rstrip(" "))
+			return segs
+
+		# First pass without prefixes to estimate part count
+		segments = pack(first_len, next_len)
+
+		# If numbering requested and there are multiple parts OR we want 1/1
+		if prefix_template and (len(segments) > 1 or include_single):
+			# Stabilize n because adding a prefix can increase the part count
+			n = len(segments) if len(segments) > 0 else 1
+			while True:
+				prefix_len = len(prefix_template.format(i=n, n=n))
+				segs2 = pack(first_len - prefix_len, next_len - prefix_len)
+				n2 = len(segs2) if len(segs2) > 0 else 1
+				if n2 == n:
+					segments = ["{}{}".format(prefix_template.format(i=i + 1, n=n), seg) for i, seg in enumerate(segs2)]
+					break
+				n = n2
+
+		return segments
 
 	async def send(self, sms_data, tenant=None):
 		"""
@@ -108,14 +187,19 @@ class SMSOutputService(asab.Service, OutputABC):
 
 		# 1) Start with global credentials and optional global default phone
 		login, password, api_url = self.Login, self.Password, self.ApiUrl
-		phone = sms_data.get("phone") or self.GlobalPhone
+
+		# Prefer not to trust blanks/whitespace
+		def _clean(s):
+			return str(s).strip() if s is not None else None
+
+		body_phone = _clean(sms_data.get("phone"))
+		phone_tenant = None
 
 		# 2) If tenant is specified, attempt to load tenant creds and phone
 		if tenant:
 			login_tenant = None
 			password_tenant = None
 			api_url_tenant = None
-			phone_tenant = None
 
 			try:
 				conf = self.ConfigService.get_sms_config(tenant)
@@ -129,14 +213,14 @@ class SMSOutputService(asab.Service, OutputABC):
 					if len(conf) >= 3:
 						login_tenant, password_tenant, api_url_tenant = conf[0], conf[1], conf[2]
 						if len(conf) >= 4:
-							phone_tenant = conf[3]
+							phone_tenant = _clean(conf[3])
 					else:
 						L.warning("Tenant '{}' SMS config tuple too short: {}".format(tenant, conf))
 				elif isinstance(conf, dict):
 					login_tenant = conf.get("login")
 					password_tenant = conf.get("password")
 					api_url_tenant = conf.get("api_url")
-					phone_tenant = conf.get("phone")
+					phone_tenant = _clean(conf.get("phone"))
 				else:
 					L.warning("Tenant '{}' SMS config in unexpected format.".format(tenant))
 
@@ -146,19 +230,16 @@ class SMSOutputService(asab.Service, OutputABC):
 			else:
 				L.warning("Tenant '{}' SMS config incomplete—using global credentials.".format(tenant))
 
-			# Override phone if tenant default exists
-			if phone_tenant:
-				phone = phone_tenant
-				L.info("Using tenant '{}' default phone {}".format(tenant, phone))
+		phone = next((p for p in (phone_tenant, body_phone) if p), None)
 
-		# 3) Validate that we have a phone number
+		# 3) Validate that we have a phone number from at least one source
 		if not phone:
-			L.warning("Empty or no phone number specified.")
+			L.warning("No phone number provided (tenant or request body).")
 			raise ASABIrisError(
 				ErrorCode.INVALID_SERVICE_CONFIGURATION,
-				tech_message="Empty or no phone number specified.",
+				tech_message="No phone number provided (tenant/api/config).",
 				error_i18n_key="Invalid input: {{error_message}}.",
-				error_dict={"error_message": "Empty or no phone number specified."}
+				error_dict={"error_message": "Phone number is required (tenant or request body)."}
 			)
 
 		# 4) Validate that we have credentials and URL
@@ -181,8 +262,8 @@ class SMSOutputService(asab.Service, OutputABC):
 		timeout = aiohttp.ClientTimeout(total=15)
 		async with aiohttp.ClientSession(timeout=timeout) as session:
 			for message in message_list:
-				# Clean message
-				message = str(message).replace("\n", " ").strip()
+				# Clean + normalize
+				message = self._normalize_message(str(message))
 				if not message:
 					raise ASABIrisError(
 						ErrorCode.INVALID_SERVICE_CONFIGURATION,
@@ -199,9 +280,8 @@ class SMSOutputService(asab.Service, OutputABC):
 						error_i18n_key="Invalid input: {{error_message}}.",
 						error_dict={"error_message": "Message contains non-ASCII characters."}
 					)
-
-				# Split long messages into SMS-sized parts
-				message_parts = self.split_message(message)
+				# Split on word boundaries (first 160 chars, next 153)
+				message_parts = self._split_message_words(message, prefix_template="{i}/{n} ", include_single=True)
 
 				for part in message_parts:
 					time_now, sul, auth = self.generate_auth_params(password)

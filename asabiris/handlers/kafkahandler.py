@@ -243,11 +243,12 @@ class KafkaHandler(asab.Service):
 			if service_type == 'email' and msg:
 				try:
 					L.log(asab.LOG_NOTICE, "Sending error notification to email.")
-					await self.App.EmailOutputService.send(
+					await self.App.SendEmailOrchestrator.send_email_raw(
 						email_from=msg.get('from', None),
 						email_to=msg['to'],
-						email_subject=error_subject,
-						body=error_message
+						email_subject=error_subject or "Error Notification",
+						body=error_message,
+						content_type="HTML"
 					)
 				except Exception:
 					L.exception("Error notification to email unsuccessful.")
