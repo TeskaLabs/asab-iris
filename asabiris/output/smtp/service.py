@@ -103,25 +103,26 @@ class EmailOutputService(asab.Service, OutputABC):
 			_body_to = str(email_to).strip()
 			body_to = [_body_to] if _body_to else []
 
+		# Resolve tenant recipients (no global/default fallback)
+		to_list = []
 		if tenant:
 			tenant_email_cfg = self.TenantConfigService.get_email_config(tenant)
-			tenant_to = tenant_email_cfg.get("to", []) if isinstance(tenant_email_cfg, dict) else []
-			if len(tenant_to) > 0:
-				to_list = tenant_to
-			elif len(body_to) > 0:
-				to_list = body_to
-			else:
-				to_list = self.DefaultTo
-		else:
-			# No tenant -> body > global
-			to_list = body_to if len(body_to) > 0 else self.DefaultTo
+			if isinstance(tenant_email_cfg, dict):
+				tenant_to = tenant_email_cfg.get("to") or []
+				if isinstance(tenant_to, list):
+					to_list = [str(x).strip() for x in tenant_to if str(x).strip()]
 
-		if len(to_list) == 0:
+		# Prefer tenant list, else body list
+		if not to_list:
+			to_list = body_to
+
+		# Enforce "no default to"
+		if not to_list:
 			raise ASABIrisError(
 				ErrorCode.INVALID_SERVICE_CONFIGURATION,
-				tech_message="No recipient emails available (tenant/body/global).",
-				error_i18n_key="No default recipients configured for '{{tenant}}'.",
-				error_dict={"tenant": tenant or "global"}
+				tech_message="No recipient emails available (tenant/body).",
+				error_i18n_key="No recipients configured for '{{tenant}}'.",
+				error_dict={"tenant": tenant or "unspecified"}
 			)
 
 		# Prepare Message
