@@ -4,10 +4,11 @@
 
 ### Features
 - Jinja template support for error notifications. (#112 v25.42-alpha2) 
+- Tenant configuration support for email. To, Cc , Bcc and subject are supported. (#108 v25.42-alpha2) 
 
 ### Enhancements
 - Update ASABIRISERROR for disabled items. (#112 v25.42-alpha)
-
+---
 
 ## v25.37
 
