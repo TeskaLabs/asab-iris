@@ -147,7 +147,7 @@ class WebHandler(object):
 
 		try:
 			await self.App.SendEmailOrchestrator.send_email(
-				email_to=json_data["to"],
+				email_to=json_data.get("to", None),
 				body_template=json_data["body"]["template"],
 				body_template_wrapper=json_data["body"].get("wrapper", None),
 				email_cc=json_data.get("cc", []),  # Optional
@@ -155,7 +155,8 @@ class WebHandler(object):
 				email_subject=json_data.get("subject", None),  # Optional
 				email_from=json_data.get("from"),
 				body_params=json_data["body"].get("params", {}),  # Optional
-				attachments=json_data.get("attachments", []),  # Optional
+				attachments=json_data.get("attachments", []),
+				tenant=json_data.get("tenant", None)  # Optional
 			)
 		except ASABIrisError as e:
 			# Map ErrorCode to HTTP status codes

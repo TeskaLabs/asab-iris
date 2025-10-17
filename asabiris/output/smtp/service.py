@@ -61,6 +61,9 @@ class EmailOutputService(asab.Service, OutputABC):
 		self.SenderNameEmailRegex = re.compile(r"<([^<>]*)>\s*([^<>]*)")
 		self.AngelBracketRegex = re.compile(r".*<.*>.*")
 
+		# NEW: tenant config accessor (same pattern as SMSOutputService)
+		self.TenantConfigService = app.get_service("TenantConfigExtractionService")
+
 	async def send(
 		self, *,
 		email_to,
@@ -69,7 +72,8 @@ class EmailOutputService(asab.Service, OutputABC):
 		email_bcc=[],
 		email_subject=None,
 		email_from=None,
-		attachments=None
+		attachments=None,
+		tenant=None,  # make sure this arg exists
 	):
 		"""
 		Send an outgoing email with the given parameters.
@@ -89,6 +93,37 @@ class EmailOutputService(asab.Service, OutputABC):
 			email_cc = []
 		if email_bcc is None:
 			email_bcc = []
+
+		# Normalize input body 'email_to' into a list
+		if email_to is None:
+			body_to = []
+		elif isinstance(email_to, list):
+			body_to = [str(x).strip() for x in email_to if str(x).strip()]
+		else:
+			_body_to = str(email_to).strip()
+			body_to = [_body_to] if _body_to else []
+
+		# Resolve tenant recipients (no global/default fallback)
+		to_list = []
+		if tenant:
+			tenant_email_cfg = self.TenantConfigService.get_email_config(tenant)
+			if isinstance(tenant_email_cfg, dict):
+				tenant_to = tenant_email_cfg.get("to") or []
+				if isinstance(tenant_to, list):
+					to_list = [str(x).strip() for x in tenant_to if str(x).strip()]
+
+		# Prefer tenant list, else body list
+		if not to_list:
+			to_list = body_to
+
+		# Enforce "no default to"
+		if not to_list:
+			raise ASABIrisError(
+				ErrorCode.INVALID_SERVICE_CONFIGURATION,
+				tech_message="No recipient emails available (tenant/body).",
+				error_i18n_key="No recipients configured for '{{tenant}}'.",
+				error_dict={"tenant": tenant or "unspecified"}
+			)
 
 		# Prepare Message
 		msg = email.message.EmailMessage()
@@ -142,7 +177,7 @@ class EmailOutputService(asab.Service, OutputABC):
 				result = await aiosmtplib.send(
 					msg,
 					sender=sender,
-					recipients=email_to + email_cc + email_bcc,
+					recipients=to_list + (email_cc or []) + (email_bcc or []),
 					hostname=self.Host,
 					port=int(self.Port) if self.Port != "" else None,
 					username=self.User,
