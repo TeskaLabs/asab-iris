@@ -43,13 +43,6 @@ class M365EmailOutputService(asab.Service, OutputABC):
 		# Use existing tenant config service for normalization too
 		self.ConfigService = app.get_service("TenantConfigExtractionService")
 
-		# Optional global default "to" (normalized by tenant service to avoid duplication)
-		global_to_raw = cfg.get("m365_email", "to", fallback="")
-		if self.ConfigService is not None:
-			self.DefaultTo = self.ConfigService._normalize_recipients(global_to_raw)
-		else:
-			self.DefaultTo = []
-
 		if not all([self.TenantID, self.ClientID, self.ClientSecret, self.UserEmail]):
 			L.info("Incomplete M365 config—disabling email service")
 			self.MsalApp = None
@@ -117,10 +110,16 @@ class M365EmailOutputService(asab.Service, OutputABC):
 				error_i18n_key="Email service unavailable",
 				error_dict={}
 			)
+
+		# Defaults
 		tenant_to = []
+		tenant_cc = []
+		tenant_bcc = []
+		tenant_subject = None
 		if tenant is not None and self.ConfigService is not None:
 			try:
 				tcfg = self.ConfigService.get_email_config(tenant)
+				print(tcfg)
 				if isinstance(tcfg, dict):
 					tenant_to = tcfg.get("to", [])
 					tenant_cc = tcfg.get("cc", [])
@@ -141,16 +140,14 @@ class M365EmailOutputService(asab.Service, OutputABC):
 
 		if len(tenant_to) > 0:
 			to_list = tenant_to
-		elif len(body_to) > 0:
-			to_list = body_to
 		else:
-			to_list = list(self.DefaultTo)
+			to_list = body_to
 
 		if len(to_list) == 0:
 			raise ASABIrisError(
 				ErrorCode.INVALID_SERVICE_CONFIGURATION,
 				tech_message="No recipient emails available (tenant/body/global).",
-				error_i18n_key="No default recipients configured for '{{tenant}}'.",
+				error_i18n_key="No recipients configured for '{{tenant}}'.",
 				error_dict={"tenant": tenant or "global"}
 			)
 
