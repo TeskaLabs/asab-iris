@@ -48,11 +48,6 @@ subject   = Default SMTP Subject
 
 ---
 
-Good point — you should make that explicit so readers understand the **precedence** clearly.
-Here’s a concise, polished version you can drop in (replacing your current “How Microsoft 365 Email Works” section):
-
----
-
 ### ⚙️ How Microsoft 365 Email Works
 
 When **MS365** is configured, Iris sends emails through the **Microsoft Graph API** instead of SMTP.
