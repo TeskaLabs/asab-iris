@@ -44,6 +44,34 @@ subject   = Default SMTP Subject
 > * SMTP **supports** attachments and will include them in the outbound message.
 > * MS365 **ignores** attachments (you’ll see a warning in the logs if you pass any).
 > * All email templates must live under `/Templates/Email/`.
+> * If both SMTP and MS365 are configured, SMTP will be used as the default mail transport.
+
+---
+
+Good point — you should make that explicit so readers understand the **precedence** clearly.
+Here’s a concise, polished version you can drop in (replacing your current “How Microsoft 365 Email Works” section):
+
+---
+
+### ⚙️ How Microsoft 365 Email Works
+
+When **MS365** is configured, Iris sends emails through the **Microsoft Graph API** instead of SMTP.
+It uses **OAuth2 client-credentials flow** to authenticate using your Azure app credentials.
+
+**Flow summary:**
+
+1. Reads the `[m365_email]` configuration.
+2. Initializes an MSAL client with your `tenant_id`, `client_id`, and `client_secret`.
+3. Obtains an access token for the scope `https://graph.microsoft.com/.default`.
+4. Sends the message via `POST https://graph.microsoft.com/v1.0/users/{user_email}/sendMail`.
+5. Supports HTML body, CC/BCC, and inline base64-encoded attachments.
+
+**Transport selection logic:**
+
+* If **only `[m365_email]`** is configured → MS365 is used.
+* If **only `[smtp]`** is configured → SMTP is used.
+* If **both** are configured → **SMTP takes priority** and will be used as the default transport.
+* If **neither** is configured → the `/send_email` API returns `400 Email service not configured.`
 
 ---
 
