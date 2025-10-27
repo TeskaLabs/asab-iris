@@ -19,12 +19,13 @@ from .output.slack import SlackOutputService
 from .output.sms import SMSOutputService
 from .output.msteams import MSTeamsOutputService
 from .output.ms365 import M365EmailOutputService
-
+from .output.pushnotification import PushOutputService
 # orchestrators.
 from .orchestration.sendemail import SendEmailOrchestrator
 from .orchestration.render import RenderReportOrchestrator
 from .orchestration.sendsms import SendSMSOrchestrator
 from .orchestration.sendmsteams import SendMSTeamsOrchestrator
+from .orchestration.sendpushnotification import SendPushOrchestrator
 
 from .handlers.kafkahandler import KafkaHandler
 from .handlers.webhandler import WebHandler
@@ -145,6 +146,13 @@ class ASABIRISApplication(asab.Application):
 			self.SendSMSOrchestrator = SendSMSOrchestrator(self)
 		else:
 			self.SendSMSOrchestrator = None
+
+		if 'push' in asab.Config.sections():
+			self.PushOutputService = PushOutputService(self)
+			self.SendPushOrchestrator = SendPushOrchestrator(self)
+		else:
+			self.PushOutputService = None
+			self.SendPushOrchestrator = None
 
 		# MS 365 output service
 		m365 = M365EmailOutputService(self)
