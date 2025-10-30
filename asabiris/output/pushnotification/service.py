@@ -40,6 +40,9 @@ class PushOutputService(asab.Service):
 				error_i18n_key="Rendered message body is empty."
 			)
 
+		base = (self.Url or "").strip().rstrip("/")
+		topic = (push_data.get("topic") or self.DefaultTopic or "").strip()
+
 		topic = push_data.get("topic", self.DefaultTopic)
 		if not topic:
 			raise ASABIrisError(
@@ -48,7 +51,18 @@ class PushOutputService(asab.Service):
 				error_i18n_key="Missing topic in push request."
 			)
 
-		url = "{}/{}".format(self.Url, topic)
+		# Must be a *name*, not a URL or a path
+		if "://" in topic or "/" in topic:
+			raise ASABIrisError(
+				ErrorCode.INVALID_FORMAT,
+				tech_message="Invalid topic '{}'; provide only the topic name (no slashes/scheme).".format(topic),
+				error_i18n_key="Invalid topic",
+				error_dict={"topic": topic}
+			)
+
+		url = "{}/{}".format(base, topic)
+		L.warning("ntfy push URL = {}".format(url))
+
 		params = push_data.get("body", {}).get("params", {}) or {}
 
 		headers = {}
