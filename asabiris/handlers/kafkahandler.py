@@ -385,6 +385,35 @@ class KafkaHandler(asab.Service):
 					L.exception("Error notification to SMS unsuccessful.")
 				return
 
+			elif service_type == "push":
+				if not hasattr(self.App, "SendPushOrchestrator") or self.App.SendPushOrchestrator is None:
+					L.info("Push orchestrator not available. Skipping push error notification.")
+					return
+
+				tpl_push = self._ErrorTemplates.get("push")
+				if tpl_push is None:
+					L.info("No Push template configured in [error_templates]. Skipping push error notification.")
+					return
+				if not tpl_push.startswith("/Templates/Push/"):
+					L.warning("Push template must start with /Templates/Push/: {}".format(tpl_push))
+					return
+
+				try:
+					L.log(asab.LOG_NOTICE, "Sending error notification via Push Orchestrator.")
+					await self.App.SendPushOrchestrator.send_push({
+						"topic": msg.get("topic"),  # or use default_topic from config
+						"body": {
+							"template": tpl_push,
+							"params": params
+						},
+						"tenant": msg.get("tenant")
+					})
+				except ASABIrisError as e:
+					L.info("Error notification to Push unsuccessful: Explanation: {}".format(e.TechMessage))
+				except Exception:
+					L.exception("Error notification to Push unsuccessful.")
+				return
+
 			else:
 				L.warning("Unknown service_type '{}'; no error notification sent.".format(service_type))
 
@@ -422,7 +451,7 @@ def _build_exception_params(exception, service_type):
 def _load_error_templates_from_config():
 	"""
 	Read [error_templates] once. Returns dict or {} if missing.
-	Expected keys (any subset is fine): email, slack, msteams, sms
+	Expected keys (any subset is fine): email, slack, msteams, sms, push
 	"""
 	cfg = asab.Config
 	sec = "error_templates"
@@ -430,7 +459,7 @@ def _load_error_templates_from_config():
 		L.warning("Missing [{}] section.".format(sec))
 		return {}
 	tpls = {}
-	for key in ("email", "slack", "msteams", "sms"):
+	for key in ("email", "slack", "msteams", "sms", "push"):
 		if cfg.has_option(sec, key):
 			tpls[key] = cfg.get(sec, key).strip()
-	return tpls
+
