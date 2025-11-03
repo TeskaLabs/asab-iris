@@ -231,6 +231,25 @@ class KafkaHandler(asab.Service):
 		)
 		L.info("Email sent successfully")
 
+	async def handle_push(self, msg):
+		try:
+			KafkaHandler.ValidationSchemaPush(msg)
+		except fastjsonschema.exceptions.JsonSchemaException as e:
+			L.warning("Invalid Push notification format: {}".format(e))
+			return
+
+		try:
+			# Orchestrator is responsible for rendering the template & calling PushOutputService
+			await self.App.SendPushOrchestrator.send_push(msg)
+		except ASABIrisError as e:
+			# Network/remote errors are SERVER_ERROR; others bubble to error handler
+			if e.ErrorCode == ErrorCode.SERVER_ERROR:
+				L.warning("Push notification failed: {}".format(e.TechMessage))
+			else:
+				await self.handle_exception(e.TechMessage, 'push', msg)
+		except Exception as e:
+			await self.handle_exception(e, 'push', msg)
+
 	async def handle_exception(self, exception, service_type, msg=None):
 		"""
 		No hardcoded bodies. Use orchestrators + Jinja templates from [error_templates].
