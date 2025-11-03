@@ -137,6 +137,11 @@ class KafkaHandler(asab.Service):
 				L.warning("SMS service is not configured. Discarding notification.")
 				return
 			await self.handle_sms(msg)
+		elif msg_type == "push":
+			if self.App.SendPushOrchestrator is None:
+				L.warning("Push service is not configured. Discarding notification.")
+				return
+			await self.handle_push(msg)
 		else:
 			L.warning(
 				"Notification sending failed: Unsupported message type '{}'. Supported types are 'email', 'slack', 'msteams', and 'sms'.".format(msg_type)
