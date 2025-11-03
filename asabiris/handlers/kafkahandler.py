@@ -14,6 +14,7 @@ from asabiris.schemas.emailschema import email_schema
 from asabiris.schemas.slackschema import slack_schema
 from asabiris.schemas.teamsschema import teams_schema
 from asabiris.schemas.smsschema import sms_schema
+from asabiris.schemas.pushschema import push_schema
 
 from ..errors import ASABIrisError, ErrorCode
 
@@ -34,6 +35,7 @@ class KafkaHandler(asab.Service):
 	ValidationSchemaSlack = fastjsonschema.compile(slack_schema)
 	ValidationSchemaMSTeams = fastjsonschema.compile(teams_schema)
 	ValidationSchemaSMS = fastjsonschema.compile(sms_schema)
+	ValidationSchemaPush = fastjsonschema.compile(push_schema)
 
 	def __init__(self, app, service_name="KafkaHandler"):
 		super().__init__(app, service_name)
