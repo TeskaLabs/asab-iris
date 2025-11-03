@@ -260,9 +260,10 @@ class KafkaHandler(asab.Service):
 	async def handle_exception(self, exception, service_type, msg=None):
 		"""
 		No hardcoded bodies. Use orchestrators + Jinja templates from [error_templates].
-		- service_type: 'email' | 'slack' | 'msteams' | 'sms'
-		- msg: optional dict carrying routing (to/cc/bcc/from/tenant/attachments)
+		- service_type: 'email' | 'slack' | 'msteams' | 'sms' | 'push'
+		- msg: optional dict carrying routing (to/cc/bcc/from/tenant/attachments/topic)
 		"""
+
 		try:
 			L.warning("Encountered an issue while sending '{}'. Details: {}.".format(service_type, exception))
 
