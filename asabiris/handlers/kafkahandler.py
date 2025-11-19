@@ -175,6 +175,9 @@ class KafkaHandler(asab.Service):
 		try:
 			await self.App.SendSlackOrchestrator.send_to_slack(msg)
 		except ASABIrisError as e:
+			if e.ErrorCode == ErrorCode.SLACK_CHANNEL_NOT_FOUND:
+				L.warning("Slack channel not found: {}".format(e.TechMessage))
+				return  # don't send error notification
 			if e.ErrorCode == ErrorCode.SLACK_API_ERROR:
 				L.warning("Slack notification failed: {}".format(e.TechMessage))
 			else:

@@ -454,7 +454,7 @@ class WebHandler(object):
 			ErrorCode.JINJA2_ERROR: 400,
 			ErrorCode.RENDERING_ERROR: 400,
 			ErrorCode.TEMPLATE_NOT_FOUND: 404,
-			ErrorCode.TEMPLATE_IS_DISABLED: 404,
+			ErrorCode.TEMPLATE_IS_DISABLED: 403,
 			ErrorCode.SERVER_ERROR: 502,
 			ErrorCode.SLACK_API_ERROR: 401,
 			ErrorCode.SMTP_CONNECTION_ERROR: 502,
@@ -464,7 +464,8 @@ class WebHandler(object):
 			ErrorCode.SMTP_GENERIC_ERROR: 400,
 			ErrorCode.SMTP_TIMEOUT: 504,
 			ErrorCode.INVALID_SERVICE_CONFIGURATION: 400,
-			ErrorCode.LIBRARY_NOT_READY: 503
+			ErrorCode.LIBRARY_NOT_READY: 503,
+			ErrorCode.SLACK_CHANNEL_NOT_FOUND: 404
 		}
 
 		return error_code_mapping.get(error_code, 400)  # Default to 400 Bad Request
