@@ -178,9 +178,9 @@ class KafkaHandler(asab.Service):
 			if e.ErrorCode == ErrorCode.SLACK_API_ERROR:
 				L.warning("Slack notification failed: {}".format(e.TechMessage))
 			else:
-				await self.handle_exception(e.TechMessage, 'slack')
+				await self.handle_exception(e.TechMessage, 'slack', msg)
 		except Exception as e:
-			await self.handle_exception(e, 'slack')
+			await self.handle_exception(e, 'slack', msg)
 
 	async def handle_msteams(self, msg):
 		try:
@@ -195,9 +195,9 @@ class KafkaHandler(asab.Service):
 			if e.ErrorCode == ErrorCode.SERVER_ERROR:
 				L.warning("MSTeams notification failed: {}".format(e.TechMessage))
 			else:
-				await self.handle_exception(e.TechMessage, 'msteams')
+				await self.handle_exception(e.TechMessage, 'msteams', msg)
 		except Exception as e:
-			await self.handle_exception(e, 'msteams')
+			await self.handle_exception(e, 'msteams', msg)
 
 	async def handle_sms(self, msg):
 		try:
