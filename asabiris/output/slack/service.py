@@ -172,4 +172,9 @@ class SlackOutputService(asab.Service, OutputABC):
 				if channel['name'] == channel_name:
 					return channel['id']
 
-		raise KeyError("Slack channel '{}' not found.".format(channel_name))
+		raise ASABIrisError(
+			ErrorCode.SLACK_CHANNEL_NOT_FOUND,
+			tech_message="Slack channel '{}' not found.".format(channel_name),
+			error_i18n_key="Slack channel '{{channel}}' not found.",
+			error_dict={"channel": channel_name},
+		)
