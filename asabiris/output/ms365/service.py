@@ -43,22 +43,27 @@ class M365EmailOutputService(asab.Service, OutputABC):
 		# Use existing tenant config service for normalization too
 		self.ConfigService = app.get_service("TenantConfigExtractionService")
 
-		if not all([self.TenantID, self.ClientID, self.ClientSecret, self.UserEmail]):
-			L.info("Incomplete M365 config—disabling email service")
-			self.MsalApp = None
-			return
-
-		self.MsalApp = msal.ConfidentialClientApplication(
-			self.ClientID,
-			authority="https://login.microsoftonline.com/{}".format(self.TenantID),
-			client_credential=self.ClientSecret,
-		)
+		# MSAL app is OPTIONAL:
+		# - if TenantID/ClientID/ClientSecret are present → app-mode works
+		# - if they are missing → only delegated access_token mode works
+		self.MsalApp = None
+		if all([self.TenantID, self.ClientID, self.ClientSecret]):
+			self.MsalApp = msal.ConfidentialClientApplication(
+				self.ClientID,
+				authority="https://login.microsoftonline.com/{}".format(self.TenantID),
+				client_credential=self.ClientSecret,
+			)
+		else:
+			L.info("M365 application credentials incomplete – app-mode disabled, delegated access tokens only.")
 
 		self.AttachmentRenderer = app.get_service("AttachmentRenderingService")
 
+
 	@property
 	def is_configured(self):
-		return self.MsalApp is not None
+		# Service is usable if we at least know which user to send as
+		return self.UserEmail is not None
+
 
 	def _get_access_token(self, force_refresh=False):
 		if not self.MsalApp:
@@ -213,7 +218,6 @@ class M365EmailOutputService(asab.Service, OutputABC):
 				error_dict={"error_message": str(e)},
 			)
 
-		# Retry on 401
 		# Retry on 401 only when using app token (no delegated access_token)
 		if resp.status_code == 401 and access_token is None:
 			L.info("Token expired—retrying with refreshed app token")
