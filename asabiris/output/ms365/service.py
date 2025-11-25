@@ -102,6 +102,7 @@ class M365EmailOutputService(asab.Service, OutputABC):
 		email_bcc=[],
 		attachments=None,
 		tenant=None,  # only "to" respects tenant override
+		access_token=None,  # Delegated access token (optional)
 	):
 		if not self.is_configured:
 			raise ASABIrisError(
@@ -187,7 +188,11 @@ class M365EmailOutputService(asab.Service, OutputABC):
 			}
 			return requests.post(api_url, headers=headers, json=payload, timeout=10)
 
-		token = self._get_access_token()
+		# If caller passes delegated access token, use it; otherwise use app token
+		if access_token is not None:
+			token = access_token
+		else:
+			token = self._get_access_token()
 
 		try:
 			resp = _post(token)
@@ -209,8 +214,9 @@ class M365EmailOutputService(asab.Service, OutputABC):
 			)
 
 		# Retry on 401
-		if resp.status_code == 401:
-			L.info("Token expired—retrying")
+		# Retry on 401 only when using app token (no delegated access_token)
+		if resp.status_code == 401 and access_token is None:
+			L.info("Token expired—retrying with refreshed app token")
 			token = self._get_access_token(force_refresh=True)
 			resp = _post(token)
 
