@@ -236,7 +236,8 @@ class KafkaHandler(asab.Service):
 			body_params=json_data['body']['params'],
 			email_cc=json_data.get('cc', []),
 			email_bcc=json_data.get('bcc', []),
-			attachments=json_data.get('attachments', [])
+			attachments=json_data.get('attachments', []),
+			m365_access_token=json_data.get('m365_access_token')
 		)
 		L.info("Email sent successfully")
 
@@ -287,7 +288,7 @@ class KafkaHandler(asab.Service):
 						email_cc=_ensure_list(msg.get("cc")),
 						email_bcc=_ensure_list(msg.get("bcc")),
 						email_subject=None,
-						attachments=_ensure_list(msg.get("attachments"))
+						attachments=_ensure_list(msg.get("attachments")),
 					)
 				except Exception:
 					L.exception("Error notification to Email unsuccessful.")
