@@ -51,7 +51,8 @@ class SendEmailOrchestrator:
 		email_bcc=None,
 		email_subject=None,
 		attachments=None,
-		tenant=None
+		tenant=None,
+		m365_access_token=None,  # Only used when sending via M365
 	):
 		"""
 		Send an email using rendered template and delegate to the configured provider.
@@ -107,6 +108,7 @@ class SendEmailOrchestrator:
 				email_cc=email_cc,
 				email_bcc=email_bcc,
 				tenant=tenant,
+				access_token=m365_access_token,  # pass delegated token only to M365
 			)
 			L.info("Email sent via MS365 to: {}".format(', '.join(email_to if isinstance(email_to, (list, tuple)) else [str(email_to)])))
 
@@ -181,7 +183,8 @@ class SendEmailOrchestrator:
 		email_cc=None,
 		email_bcc=None,
 		attachments=None,
-		content_type="HTML"
+		content_type="HTML",
+		m365_access_token=None,  # Only used for M365 fallback
 	):
 		email_cc = email_cc or []
 		email_bcc = email_bcc or []
@@ -209,7 +212,10 @@ class SendEmailOrchestrator:
 				email_subject,
 				body,
 				content_type,
-				attachments  # still just pass through
+				attachments=attachments,
+				email_cc=email_cc,
+				email_bcc=email_bcc,
+				access_token=m365_access_token,  # delegated token only here
 			)
 			L.info("Raw email sent via MS365 to: {}".format(', '.join(email_to)))
 			return
