@@ -156,7 +156,8 @@ class WebHandler(object):
 				email_from=json_data.get("from"),
 				body_params=json_data["body"].get("params", {}),  # Optional
 				attachments=json_data.get("attachments", []),
-				tenant=json_data.get("tenant", None)  # Optional
+				tenant=json_data.get("tenant", None),  # Optional
+				m365_access_token=json_data.get("m365_access_token")  # Optional, M365-only
 			)
 		except ASABIrisError as e:
 			# Map ErrorCode to HTTP status codes
