@@ -250,10 +250,24 @@ class M365EmailOutputService(asab.Service, OutputABC):
 			)
 
 		# 5xx and unexpected
-		L.error("Unexpected status %s: %s", resp.status_code, resp.text)
+		L.error(
+			"Unexpected status {} for URL '{}': {}".format(
+				resp.status_code,
+				api_url,
+				resp.text,
+			)
+		)
 		raise ASABIrisError(
 			ErrorCode.SERVER_ERROR,
-			tech_message="Graph API error {}: {}".format(resp.status_code, resp.text),
+			tech_message="Graph API error {} for URL '{}': {}".format(
+				resp.status_code,
+				api_url,
+				resp.text,
+			),
 			error_i18n_key="Email service error",
-			error_dict={"status": resp.status_code, "body": resp.text},
+			error_dict={
+				"status": resp.status_code,
+				"body": resp.text,
+				"url": api_url,
+			},
 		)
