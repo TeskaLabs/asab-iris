@@ -465,7 +465,9 @@ class WebHandler(object):
 			ErrorCode.SMTP_TIMEOUT: 504,
 			ErrorCode.INVALID_SERVICE_CONFIGURATION: 400,
 			ErrorCode.LIBRARY_NOT_READY: 503,
-			ErrorCode.SLACK_CHANNEL_NOT_FOUND: 404
+			ErrorCode.SLACK_CHANNEL_NOT_FOUND: 404,
+			ErrorCode.AUTHENTICATION_FAILED: 401,
+			ErrorCode.INVALID_REQUEST: 400,
 		}
 
 		return error_code_mapping.get(error_code, 400)  # Default to 400 Bad Request
