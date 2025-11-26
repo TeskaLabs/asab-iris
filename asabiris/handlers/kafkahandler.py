@@ -157,6 +157,7 @@ class KafkaHandler(asab.Service):
 				ErrorCode.SMTP_SERVER_DISCONNECTED,
 				ErrorCode.SMTP_GENERIC_ERROR,
 				ErrorCode.GENERAL_ERROR,
+				ErrorCode.AUTHENTICATION_FAILED,
 			]
 			if e.ErrorCode in server_errors:
 				L.warning("Email dispatch failed: {}".format(e.TechMessage))
