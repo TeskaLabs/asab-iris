@@ -37,6 +37,7 @@ class WebHandler(object):
 		web_app.router.add_put(r"/send_sms", self.send_sms)
 		web_app.router.add_put(r"/send_slack", self.send_slack)
 		web_app.router.add_put(r"/send_msteams", self.send_msteams)
+		web_app.router.add_get(r"/authorize_ms365", self.authorize_ms365)
 
 
 	async def get_features(self, request):
@@ -469,6 +470,26 @@ class WebHandler(object):
 		}
 
 		return error_code_mapping.get(error_code, 400)  # Default to 400 Bad Request
+
+
+	async def authorize_ms365(self, request):
+		"""
+		OAuth 2.0 Authorization Code Flow handler
+		Serves both as the initiator and the callback endpoint
+		"""
+		if "code" not in request.query:
+			# TODO: Add security? Anyone can call this endpoint and initiate the flow
+			# Initiate oauth authorization code flow
+			# Respond with redirect to authorization URL
+			auth_url = await M365EmailOutputService.build_authorization_uri()
+			return aiohttp.web.HTTPFound(auth_url)
+
+		else:
+			# Second part of the flow - callback with "code"
+			# Exchange "code" for tokens
+			code = request.query["code"]
+			state = request.query.get("state", None)
+			await M365EmailOutputService.exchange_code_for_tokens(code, state)
 
 
 @aiohttp.payload_streamer.streamer

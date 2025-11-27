@@ -56,6 +56,96 @@ class M365EmailOutputService(asab.Service, OutputABC):
 
 		self.AttachmentRenderer = app.get_service("AttachmentRenderingService")
 
+
+	async def initialize(self, app):
+		await self._try_load_stored_tokens()
+
+
+	async def build_authorization_uri(self) -> str:
+		"""
+		Build authorization URI for obtaining delegated permissions.
+
+		Returns:
+			Authorization URI string.
+		"""
+		authorization_url = asab.Config.get("m365", "authorization_url")
+		client_id = asab.Config.get("m365", "client_id")
+		scope = "Mail.Send"  # or something similar
+		redirect_uri = ...  # This exact endpoint (public url)
+		params = {
+			"client_id": client_id,
+			"response_type": "code",
+			"redirect_uri": redirect_uri,
+			"response_mode": "query",
+			"scope": scope,
+			"state": "12345",  # TODO: generate a long random string, store it in memory
+		}
+		auth_url = authorization_url + "?" + aiohttp.web.Request.urlencode(params)
+		return auth_url
+
+
+	async def exchange_code_for_tokens(self, authorization_code: str, state: str):
+		"""
+		Exchange authorization code for access and refresh tokens.
+
+		Args:
+			authorization_code: The authorization code received from the authorization endpoint.
+			state: The state parameter to validate.
+		"""
+		# TODO: Check that the state matches the stored state value
+		token_url = asab.Config.get("m365", "token_url")
+		client_id = asab.Config.get("m365", "client_id")
+		client_secret = asab.Config.get("m365", "client_secret")
+		scope = "Mail.Send"  # or something similar
+		redirect_uri = ...  # This exact endpoint (public url)
+		data = {
+			"client_id": client_id,
+			"scope": scope,
+			"code": authorization_code,
+			"redirect_uri": redirect_uri,
+			"grant_type": "authorization_code",
+			"client_secret": client_secret,
+		}
+		# Call the token endpoint
+		async with aiohttp.ClientSession() as session:
+			async with session.post(token_url, data=data) as resp:
+				if resp.status != 200:
+					raise aiohttp.web.HTTPBadRequest(
+						text="Failed to obtain tokens from MS365. Status: {}".format(resp.status))
+				token_response = await resp.json()
+
+		# Store the tokens securely
+		# ! The refresh token should be persisted in filesystem or ZK
+		# so that it can be restored when the service is restarted.
+		self._store_tokens(token_response)
+		# Now you can use the access token to call graph API to send mails
+
+
+	async def _check_and_refresh_tokens(self, event_name):
+		"""
+		To be used in pubsub. Make sure that the refresh token does not expire.
+
+		Args:
+			event_name:
+
+		Returns:
+
+		"""
+		raise NotImplementedError()
+
+
+	def _store_tokens(self, token_response: dict):
+		"""
+		Store tokens received from MSAL.
+		Args:
+			token_response:
+
+		Returns:
+
+		"""
+		raise NotImplementedError()
+
+
 	@property
 	def is_configured(self):
 		return self.MsalApp is not None
