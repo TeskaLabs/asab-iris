@@ -181,13 +181,21 @@ class KafkaHandler(asab.Service):
 
 		try:
 			await self.App.SendSlackOrchestrator.send_to_slack(msg)
+
 		except ASABIrisError as e:
+			# 1. Business error (DO NOT trigger error notification)
+			if e.ErrorCode == ErrorCode.SLACK_CHANNEL_NOT_FOUND:
+				L.warning("Slack channel not found: {}".format(e.TechMessage))
+				return
+
+			# 2. Slack API / network error (DO NOT trigger error notification)
 			if e.ErrorCode == ErrorCode.SLACK_API_ERROR:
 				L.warning("Slack notification failed: {}".format(e.TechMessage))
-			else:
-				await self.handle_exception(e.TechMessage, 'slack')
+				return
+
+			await self.handle_exception(e.TechMessage, 'slack', msg)
 		except Exception as e:
-			await self.handle_exception(e, 'slack')
+			await self.handle_exception(e, 'slack', msg)
 
 	async def handle_msteams(self, msg):
 		try:
@@ -201,10 +209,11 @@ class KafkaHandler(asab.Service):
 		except ASABIrisError as e:
 			if e.ErrorCode == ErrorCode.SERVER_ERROR:
 				L.warning("MSTeams notification failed: {}".format(e.TechMessage))
+				return
 			else:
-				await self.handle_exception(e.TechMessage, 'msteams')
+				await self.handle_exception(e.TechMessage, 'msteams', msg)
 		except Exception as e:
-			await self.handle_exception(e, 'msteams')
+			await self.handle_exception(e, 'msteams', msg)
 
 	async def handle_sms(self, msg):
 		try:
