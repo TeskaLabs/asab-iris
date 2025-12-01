@@ -300,7 +300,119 @@ To send an SMS, you can configure the SMS service in your application and trigge
 - **Invalid Phone Number**: If the phone number is missing or invalid, an `ASABIrisError` is raised.
 - **Non-ASCII Characters**: If the message contains non-ASCII characters, an `ASABIrisError` is raised.
 - **Service Errors**: Errors returned by the SMSBrana.cz API are mapped to custom error messages and logged for troubleshooting.
+---
 
+# 📱 5. Sending Push Notifications (ntfy.sh)
+
+**Overview**
+
+ASAB Iris supports **real-time push notifications** using the **ntfy.sh** protocol (or a self-hosted ntfy server).
+This lets you send instant alerts to mobile devices, desktops, or browsers — perfect for ticketing, monitoring, or system events.
+
+* Trigger via HTTP REST API or Kafka.
+* Uses Jinja2 templates just like email/Slack/Teams/SMS.
+* Allows a fallback/default topic.
+* Supports configurable request timeout.
+
+---
+
+## Configuration
+
+```ini
+[push]
+url            = https://ntfy.sh       ; Base URL of the ntfy server
+default_topic  = send_ph               ; Default topic when request doesn't specify one
+timeout        = 10                    ; HTTP request timeout (seconds)
+```
+
+**Explanation**
+
+* `url`: Base ntfy endpoint (cloud or self-hosted).
+* `default_topic`: IRIS uses this topic if the message doesn’t specify one.
+* `timeout`: Max seconds to wait for ntfy response before aborting the request.
+
+---
+
+## How Push Notifications Work
+
+1. A **topic** (e.g., `alerts`, `tickets`, `errors`) is created simply by naming it — ntfy topics are auto-created.
+2. Users subscribe through:
+
+   * ntfy mobile app (Android/iOS)
+   * ntfy desktop app
+   * Browser subscription
+   * CLI
+3. IRIS posts the rendered message to that topic.
+4. All subscribers receive the notification instantly.
+
+---
+
+## Example Web Request
+
+```http
+PUT /send_push
+Content-Type: application/json
+
+{
+  "topic": "alerts",
+  "body": {
+    "template": "/Templates/Push/alert.md",
+    "params": {
+      "severity": "High",
+      "service": "Billing",
+      "message": "Payment processor timeout"
+    }
+  }
+}
+```
+
+* If `topic` is missing, IRIS falls back to `[push] default_topic`.
+
+---
+
+## Example Kafka Message
+
+```json
+{
+  "type": "push",
+  "topic": "tickets",
+  "body": {
+    "template": "/Templates/Push/ticket_update.md",
+    "params": {
+      "ticket_id": "INC-3021",
+      "status": "Resolved"
+    }
+  }
+}
+```
+
+**Explanation**
+
+* `type`: Must be `"push"`.
+* `topic`: Optional; overrides `[push] default_topic`.
+* `body.template`: Path to your template.
+* `params`: Values passed into the template.
+
+---
+
+## Templates
+
+Place all templates under:
+
+```
+/Templates/Push/
+```
+
+Example template (`alert.md`):
+
+```md
+🚨 *{{ severity }} Alert*
+
+Service: **{{ service }}**
+Message: {{ message }}
+
+{{ now()|datetimeformat("%Y-%m-%d %H:%M:%S") }}
+```
 
 ## 🛠 Supported Technologies
 
