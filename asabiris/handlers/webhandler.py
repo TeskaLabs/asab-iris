@@ -145,6 +145,14 @@ class WebHandler(object):
 				status=400
 			)
 
+		tenant = json_data.get("tenant", None)
+		current_tenant = asab.contextvars.Tenant.get()
+		token = None
+
+		# Only set tenant from body if there is no tenant already set from the request context
+		if tenant is not None and current_tenant is None:
+			token = asab.contextvars.Tenant.set(tenant)
+
 		try:
 			await self.App.SendEmailOrchestrator.send_email(
 				email_to=json_data.get("to", None),
@@ -180,6 +188,9 @@ class WebHandler(object):
 				}
 			}
 			return asab.web.rest.json_response(request, bad_response, status=400)
+		finally:
+			if token is not None:
+				asab.contextvars.Tenant.reset(token)
 
 		return asab.web.rest.json_response(request, {"result": "OK"})
 
@@ -214,6 +225,13 @@ class WebHandler(object):
 				status=400
 			)
 
+		tenant = json_data.get("tenant", None)
+		current_tenant = asab.contextvars.Tenant.get()
+		token = None
+
+		if tenant is not None and current_tenant is None:
+			token = asab.contextvars.Tenant.set(tenant)
+
 		try:
 			await self.App.SendSlackOrchestrator.send_to_slack(json_data)
 		except ASABIrisError as e:
@@ -241,6 +259,9 @@ class WebHandler(object):
 				}
 			}
 			return aiohttp.web.json_response(response, status=400)
+		finally:
+			if token is not None:
+				asab.contextvars.Tenant.reset(token)
 
 		return asab.web.rest.json_response(request, {"result": "OK"})
 
