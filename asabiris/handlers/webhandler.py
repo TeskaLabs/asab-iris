@@ -298,6 +298,12 @@ class WebHandler(object):
 				},
 				status=400
 			)
+		tenant = json_data.get("tenant", None)
+		current_tenant = asab.contextvars.Tenant.get()
+		token = None
+
+		if tenant is not None and current_tenant is None:
+			token = asab.contextvars.Tenant.set(tenant)
 
 		try:
 			await self.App.SendMSTeamsOrchestrator.send_to_msteams(json_data)
@@ -323,6 +329,9 @@ class WebHandler(object):
 				}
 			}
 			return aiohttp.web.json_response(response, status=400)
+		finally:
+			if token is not None:
+				asab.contextvars.Tenant.reset(token)
 
 		return asab.web.rest.json_response(request, {"result": "OK"})
 
