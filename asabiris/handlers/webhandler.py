@@ -3,6 +3,7 @@ import logging
 import jsonata
 
 import asab.web.rest
+import asab.contextvars
 
 import aiohttp.web
 import aiohttp.payload_streamer
