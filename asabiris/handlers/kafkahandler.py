@@ -2,13 +2,14 @@ import asyncio
 import configparser
 import json
 import logging
-import datetime
+import datetime1
 
 from aiokafka import AIOKafkaConsumer
 import aiokafka.errors
 import fastjsonschema
 
 import asab
+import asab.contextvar
 
 from asabiris.schemas.emailschema import email_schema
 from asabiris.schemas.slackschema import slack_schema
@@ -112,33 +113,52 @@ class KafkaHandler(asab.Service):
 				L.exception("General error when dispatching message: {}".format(e))
 
 	async def dispatch(self, msg):
-		try:
-			msg_type = msg.pop("type", "<missing>")
-		except (AttributeError, Exception) as e:
-			L.warning("Error extracting message type: {}".format(str(e)))
-			return
+		tenant = None
+		token = None
 
-		if msg_type == "email":
-			await self.handle_email(msg)
-		elif msg_type == "slack":
-			if self.App.SendSlackOrchestrator is None:
-				L.warning("Slack service is not configured. Discarding notification.")
+		# Set tenant context from Kafka message body (if present)
+		try:
+			if isinstance(msg, dict):
+				tenant = msg.get("tenant", None)
+			current_tenant = asab.contextvars.Tenant.get()
+			if tenant is not None and current_tenant is None:
+				token = asab.contextvars.Tenant.set(tenant)
+		except Exception as e:
+			L.warning("Failed to prepare tenant context for Kafka message: {}".format(e))
+		try:
+			try:
+				msg_type = msg.pop("type", "<missing>")
+			except (AttributeError, Exception) as e:
+				L.warning("Error extracting message type: {}".format(str(e)))
 				return
-			await self.handle_slack(msg)
-		elif msg_type == "msteams":
-			if self.App.SendMSTeamsOrchestrator is None:
-				L.warning("MS Teams service is not configured. Discarding notification.")
-				return
-			await self.handle_msteams(msg)
-		elif msg_type == "sms":
-			if self.App.SendSMSOrchestrator is None:
-				L.warning("SMS service is not configured. Discarding notification.")
-				return
-			await self.handle_sms(msg)
-		else:
-			L.warning(
-				"Notification sending failed: Unsupported message type '{}'. Supported types are 'email', 'slack', 'msteams', and 'sms'.".format(msg_type)
-			)
+
+			if msg_type == "email":
+				await self.handle_email(msg)
+			elif msg_type == "slack":
+				if self.App.SendSlackOrchestrator is None:
+					L.warning("Slack service is not configured. Discarding notification.")
+					return
+				await self.handle_slack(msg)
+			elif msg_type == "msteams":
+				if self.App.SendMSTeamsOrchestrator is None:
+					L.warning("MS Teams service is not configured. Discarding notification.")
+					return
+				await self.handle_msteams(msg)
+			elif msg_type == "sms":
+				if self.App.SendSMSOrchestrator is None:
+					L.warning("SMS service is not configured. Discarding notification.")
+					return
+				await self.handle_sms(msg)
+			else:
+				L.warning(
+					"Notification sending failed: Unsupported message type '{}'. Supported types are 'email', 'slack', 'msteams', and 'sms'.".format(msg_type)
+				)
+		finally:
+			if token is not None:
+				try:
+					asab.contextvars.Tenant.reset(token)
+				except Exception as e:
+					L.exception("Failed to reset tenant context after dispatch: {}".format(e))
 
 	async def handle_email(self, msg):
 		try:
