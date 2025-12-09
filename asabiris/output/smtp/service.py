@@ -130,7 +130,7 @@ class EmailOutputService(asab.Service, OutputABC):
 				ErrorCode.INVALID_SERVICE_CONFIGURATION,
 				tech_message="No recipient emails available (tenant/body).",
 				error_i18n_key="No recipients configured for '{{tenant}}'.",
-				error_dict={"tenant": tenant or "unspecified"}
+				error_dict={"tenant": effective_tenant or "unspecified"}
 			)
 
 		# Prepare Message
