@@ -33,18 +33,25 @@ class MSTeamsOutputService(asab.Service, OutputABC):
 
         self.ConfigService = app.get_service("TenantConfigExtractionService")
 
-    async def send(self, body, tenant):
+    async def send(self, body):
         """
         Sends a message to MS Teams with a provided body content.
         """
         webhook_url = self.TeamsWebhookUrl
 
+        try:
+            effective_tenant = asab.contextvars.Tenant.get()
+        except LookupError:
+            effective_tenant = None
+        except Exception:
+            effective_tenant = None
+
         # If tenant-specific MS Teams configuration is available, fetch the webhook URL
-        if tenant and self.ConfigService is not None:
+        if effective_tenant and self.ConfigService is not None:
             try:
-                webhook_url = self.ConfigService.get_msteams_config(tenant)
+                webhook_url = self.ConfigService.get_msteams_config(effective_tenant)
             except KeyError:
-                L.warning("Tenant-specific MS Teams configuration not found for '{}'. Using global config.".format(tenant))
+                L.warning("Tenant-specific MS Teams configuration not found for '{}'. Using global config.".format(effective_tenant))
 
         if webhook_url is None:
             L.error("MS Teams webhook URL is missing.")
