@@ -1,9 +1,12 @@
 import logging
 import configparser
+import time
+import base64
+
 import asab
 import requests
 import msal
-import base64
+
 from ...errors import ASABIrisError, ErrorCode
 from ...output_abc import OutputABC
 
@@ -13,11 +16,17 @@ L = logging.getLogger(__name__)
 def check_config(config, section, parameter):
 	"""
 	Helper to fetch configuration with warning on missing.
+	Kept for consistency even if not used now.
 	"""
 	try:
 		return config.get(section, parameter)
 	except (configparser.NoSectionError, configparser.NoOptionError) as e:
-		L.warning("Configuration parameter '%s' missing in section '%s': %s", parameter, section, e)
+		L.warning(
+			"Configuration parameter '%s' missing in section '%s': %s",
+			parameter,
+			section,
+			e,
+		)
 		return None
 
 
@@ -27,15 +36,23 @@ class M365EmailOutputService(asab.Service, OutputABC):
 		super().__init__(app, service_name)
 
 		cfg = asab.Config
+		# mode = "app" (client credentials) or "delegated" (auth code)
+		mode_raw = cfg.get("m365_email", "mode", fallback="app")
+		self.Mode = mode_raw.strip().lower() if mode_raw is not None else "app"
+		if self.Mode not in ("app", "delegated"):
+			L.warning("Unknown m365_email.mode '%s', falling back to 'app'.", self.Mode)
+			self.Mode = "app"
+
 		self.TenantID = cfg.get("m365_email", "tenant_id", fallback=None)
 		self.ClientID = cfg.get("m365_email", "client_id", fallback=None)
 		self.ClientSecret = cfg.get("m365_email", "client_secret", fallback=None)
 		self.UserEmail = cfg.get("m365_email", "user_email", fallback=None)
+		self.RedirectUri = cfg.get("m365_email", "redirect_uri", fallback=None)
 
 		raw_url = cfg.get(
 			"m365_email",
 			"api_url",
-			fallback="https://graph.microsoft.com/v1.0/users/{}/sendMail"
+			fallback="https://graph.microsoft.com/v1.0/users/{}/sendMail",
 		)
 		self.APIUrl = raw_url.format(self.UserEmail)
 		self.Subject = cfg.get("m365_email", "subject", fallback="ASAB Iris email")
@@ -43,9 +60,13 @@ class M365EmailOutputService(asab.Service, OutputABC):
 		# Use existing tenant config service for normalization too
 		self.ConfigService = app.get_service("TenantConfigExtractionService")
 
+		# Delegated tokens (access + refresh)
+		self._delegated_tokens = None
+
 		if not all([self.TenantID, self.ClientID, self.ClientSecret, self.UserEmail]):
 			L.info("Incomplete M365 config—disabling email service")
 			self.MsalApp = None
+			self.AttachmentRenderer = None
 			return
 
 		self.MsalApp = msal.ConfidentialClientApplication(
@@ -56,130 +77,305 @@ class M365EmailOutputService(asab.Service, OutputABC):
 
 		self.AttachmentRenderer = app.get_service("AttachmentRenderingService")
 
+	def _scopes_delegated(self):
+		"""
+		Scopes for delegated mode (authorization code).
+		Note: Do NOT include reserved scopes like offline_access here,
+		MSAL will reject them for ConfidentialClientApplication.
+		"""
+		return [
+			"https://graph.microsoft.com/Mail.Send",
+		]
+
+	def _scopes_app_only(self):
+		"""
+		Scopes for application (client credentials) mode.
+		"""
+		return [
+			"https://graph.microsoft.com/.default",
+		]
 
 	async def initialize(self, app):
-		await self._try_load_stored_tokens()
+		if self.Mode == "delegated":
+			await self._try_load_stored_tokens()
 
+	async def _try_load_stored_tokens(self):
+		"""
+		Load delegated tokens from persistent storage.
+
+		Currently a no-op placeholder that just resets in-memory state.
+		TODO: Replace with ZooKeeper / filesystem-backed storage.
+		"""
+		self._delegated_tokens = None
 
 	async def build_authorization_uri(self) -> str:
 		"""
 		Build authorization URI for obtaining delegated permissions.
 
-		Returns:
-			Authorization URI string.
-		"""
-		authorization_url = asab.Config.get("m365", "authorization_url")
-		client_id = asab.Config.get("m365", "client_id")
-		scope = "Mail.Send"  # or something similar
-		redirect_uri = ...  # This exact endpoint (public url)
-		params = {
-			"client_id": client_id,
-			"response_type": "code",
-			"redirect_uri": redirect_uri,
-			"response_mode": "query",
-			"scope": scope,
-			"state": "12345",  # TODO: generate a long random string, store it in memory
-		}
-		auth_url = authorization_url + "?" + aiohttp.web.Request.urlencode(params)
-		return auth_url
+		This is called from the /authorize_ms365 web endpoint.
 
+		Returns:
+			Authorization URI string that the user must open in a browser.
+		"""
+		if self.Mode != "delegated":
+			raise ASABIrisError(
+				ErrorCode.INVALID_SERVICE_CONFIGURATION,
+				tech_message="build_authorization_uri called but m365_email.mode is '{}' not 'delegated'.".format(self.Mode),
+				error_i18n_key="ms365_wrong_mode",
+				error_dict={"mode": self.Mode},
+			)
+
+		if self.MsalApp is None:
+			raise ASABIrisError(
+				ErrorCode.INVALID_SERVICE_CONFIGURATION,
+				tech_message="MSAL client not initialized",
+				error_i18n_key="Authentication misconfigured",
+				error_dict={},
+			)
+
+		if self.RedirectUri is None:
+			raise ASABIrisError(
+				ErrorCode.INVALID_SERVICE_CONFIGURATION,
+				tech_message="Missing 'redirect_uri' in [m365_email] config",
+				error_i18n_key="Authentication misconfigured",
+				error_dict={},
+			)
+
+		state = "12345"  # TODO: generate random and store/validate if you care about CSRF
+
+		auth_url = self.MsalApp.get_authorization_request_url(
+			scopes=self._scopes_delegated(),
+			redirect_uri=self.RedirectUri,
+			state=state,
+		)
+
+		return auth_url
 
 	async def exchange_code_for_tokens(self, authorization_code: str, state: str):
 		"""
 		Exchange authorization code for access and refresh tokens.
 
-		Args:
-			authorization_code: The authorization code received from the authorization endpoint.
-			state: The state parameter to validate.
+		Called from the /authorize_ms365 callback once user logs in.
 		"""
-		# TODO: Check that the state matches the stored state value
-		token_url = asab.Config.get("m365", "token_url")
-		client_id = asab.Config.get("m365", "client_id")
-		client_secret = asab.Config.get("m365", "client_secret")
-		scope = "Mail.Send"  # or something similar
-		redirect_uri = ...  # This exact endpoint (public url)
-		data = {
-			"client_id": client_id,
-			"scope": scope,
-			"code": authorization_code,
-			"redirect_uri": redirect_uri,
-			"grant_type": "authorization_code",
-			"client_secret": client_secret,
-		}
-		# Call the token endpoint
-		async with aiohttp.ClientSession() as session:
-			async with session.post(token_url, data=data) as resp:
-				if resp.status != 200:
-					raise aiohttp.web.HTTPBadRequest(
-						text="Failed to obtain tokens from MS365. Status: {}".format(resp.status))
-				token_response = await resp.json()
+		if self.Mode != "delegated":
+			raise ASABIrisError(
+				ErrorCode.INVALID_SERVICE_CONFIGURATION,
+				tech_message="exchange_code_for_tokens called but m365_email.mode is '{}' not 'delegated'.".format(self.Mode),
+				error_i18n_key="ms365_wrong_mode",
+				error_dict={"mode": self.Mode},
+			)
 
-		# Store the tokens securely
-		# ! The refresh token should be persisted in filesystem or ZK
-		# so that it can be restored when the service is restarted.
-		self._store_tokens(token_response)
-		# Now you can use the access token to call graph API to send mails
+		if self.MsalApp is None:
+			raise ASABIrisError(
+				ErrorCode.INVALID_SERVICE_CONFIGURATION,
+				tech_message="MSAL client not initialized",
+				error_i18n_key="Authentication misconfigured",
+				error_dict={},
+			)
 
+		# TODO: Validate `state` against stored state value (if you implement that)
+		if self.RedirectUri is None:
+			raise ASABIrisError(
+				ErrorCode.INVALID_SERVICE_CONFIGURATION,
+				tech_message="Missing 'redirect_uri' in [m365_email] config",
+				error_i18n_key="Authentication misconfigured",
+				error_dict={},
+			)
+
+		result = self.MsalApp.acquire_token_by_authorization_code(
+			authorization_code,
+			scopes=self._scopes_delegated(),
+			redirect_uri=self.RedirectUri,
+		)
+
+		if "access_token" not in result:
+			L.error("Authorization code exchange failed: %r", result)
+			raise ASABIrisError(
+				ErrorCode.INVALID_SERVICE_CONFIGURATION,
+				tech_message="Failed to exchange code for tokens: {}".format(result),
+				error_i18n_key="Could not authenticate with Microsoft 365",
+				error_dict={"msal_result": result},
+			)
+
+		self._store_tokens(result)
+		L.info("MS365 delegated tokens stored (expires_in=%s)", result.get("expires_in"))
 
 	async def _check_and_refresh_tokens(self, event_name):
 		"""
-		To be used in pubsub. Make sure that the refresh token does not expire.
-
-		Args:
-			event_name:
-
-		Returns:
-
+		Hook for pubsub if you want proactive refresh.
+		Currently just forces a delegated refresh if tokens exist and mode is delegated.
 		"""
-		raise NotImplementedError()
+		if self.Mode != "delegated":
+			return
 
+		if self._delegated_tokens is None:
+			return
+
+		try:
+			# Force a refresh, so tokens stay valid
+			self._get_delegated_access_token(force_refresh=True)
+		except ASABIrisError as e:
+			L.warning(
+				"Failed to refresh MS365 delegated tokens on event '%s': %s",
+				event_name,
+				str(e),
+			)
 
 	def _store_tokens(self, token_response: dict):
 		"""
 		Store tokens received from MSAL.
+
 		Args:
-			token_response:
-
-		Returns:
-
+			token_response: Token response dict from MSAL.
 		"""
-		raise NotImplementedError()
+		expires_in_raw = token_response.get("expires_in", 0)
+		try:
+			expires_in = int(expires_in_raw)
+		except (TypeError, ValueError):
+			expires_in = 0
 
+		now = int(time.time())
+		expires_at = now + expires_in
+
+		self._delegated_tokens = {
+			"access_token": token_response.get("access_token"),
+			"refresh_token": token_response.get("refresh_token"),
+			"expires_at": expires_at,
+			"scope": token_response.get("scope"),
+			"token_type": token_response.get("token_type"),
+		}
+
+		# TODO: Persist `self._delegated_tokens` to ZK / filesystem
+		# Example (pseudo-code):
+		# await self.App.LibraryService.write(
+		# 	"/System/MS365/tokens.json",
+		# 	json.dumps(self._delegated_tokens).encode("utf-8"),
+		# )
 
 	@property
 	def is_configured(self):
 		return self.MsalApp is not None
 
+	def _delegated_auth_error(self, tech_message):
+		"""
+		Helper to raise a consistent 'authorization required' error.
+
+		This is where we tell the caller that they MUST call /authorize_ms365
+		when in delegated mode and tokens are missing/invalid.
+		"""
+		return ASABIrisError(
+			ErrorCode.INVALID_SERVICE_CONFIGURATION,
+			tech_message=tech_message,
+			error_i18n_key="ms365_delegated_auth_required",
+			error_dict={
+				"authorize_url": "/authorize_ms365",
+				"reason": "Iris is configured for delegated MS365 email, but there is no valid delegated token.",
+				"what_to_do": (
+					"Open '/authorize_ms365' in a browser and sign in with the "
+					"Microsoft 365 account that should send emails. This "
+					"authorizes Iris to send email on your behalf and stores an "
+					"access token and refresh token for future use."
+				),
+			},
+		)
+
 	def _get_access_token(self, force_refresh=False):
+		"""
+		Return an access token in either app or delegated mode.
+
+		mode = "app"       -> client credentials (application permissions)
+		mode = "delegated" -> authorization code + refresh token
+		"""
 		if not self.MsalApp:
 			raise ASABIrisError(
 				ErrorCode.INVALID_SERVICE_CONFIGURATION,
 				tech_message="MSAL client not initialized",
 				error_i18n_key="Authentication misconfigured",
-				error_dict={}
+				error_dict={},
 			)
 
+		if self.Mode == "delegated":
+			return self._get_delegated_access_token(force_refresh=force_refresh)
+
+		# default: app mode
+		return self._get_app_only_access_token(force_refresh=force_refresh)
+
+	def _get_app_only_access_token(self, force_refresh=False):
+		"""
+		Application permissions flow (client credentials).
+		Uses acquire_token_for_client; acquire_token_silent is mostly a no-op
+		for this flow but we keep the pattern for completeness.
+		"""
 		result = None
 		if not force_refresh:
-			result = self.MsalApp.acquire_token_silent(
-				scopes=["https://graph.microsoft.com/.default"],
-				account=None
-			)
+			try:
+				result = self.MsalApp.acquire_token_silent(
+					scopes=self._scopes_app_only(),
+					account=None,
+				)
+			except Exception as e:
+				L.debug("Silent token acquisition failed (ignored): %s", e)
+
 		if not result or "access_token" not in result:
 			result = self.MsalApp.acquire_token_for_client(
-				scopes=["https://graph.microsoft.com/.default"]
+				scopes=self._scopes_app_only(),
 			)
 
 		if "access_token" in result:
 			return result["access_token"]
 
-		L.error("Token acquisition failed: %r", result)
+		L.error("App-only token acquisition failed: %r", result)
 		raise ASABIrisError(
-			ErrorCode.AUTHENTICATION_FAILED,
-			tech_message="Failed to obtain token: {}".format(result),
-			error_i18n_key="Could not authenticate",
-			error_dict={"msal_result": result}
+			ErrorCode.INVALID_SERVICE_CONFIGURATION,
+			tech_message="Failed to obtain app-only token: {}".format(result),
+			error_i18n_key="Could not authenticate (app mode)",
+			error_dict={"msal_result": result},
 		)
+
+	def _get_delegated_access_token(self, force_refresh=False):
+		"""
+		Return a delegated access token, refreshing via refresh_token when needed.
+
+		If there are no tokens, or refresh fails, raise ASABIrisError with
+		an authorize_url pointing to /authorize_ms365.
+		"""
+		if self._delegated_tokens is None:
+			# No tokens at all -> we expect user/admin to hit /authorize_ms365
+			raise self._delegated_auth_error(
+				"Delegated tokens not available. Call /authorize_ms365 first."
+			)
+
+		now = int(time.time())
+		expires_at = self._delegated_tokens.get("expires_at", 0)
+
+		if (not force_refresh) and expires_at > now + 60:
+			# Token still valid (with a small safety margin)
+			access_token = self._delegated_tokens.get("access_token")
+			if access_token:
+				return access_token
+
+		# Need to refresh using refresh_token
+		refresh_token = self._delegated_tokens.get("refresh_token")
+		if not refresh_token:
+			raise self._delegated_auth_error(
+				"Missing refresh token for MS365 delegated mode."
+			)
+
+		L.info("Refreshing MS365 delegated access token using refresh_token.")
+		result = self.MsalApp.acquire_token_by_refresh_token(
+			refresh_token,
+			scopes=self._scopes_delegated(),
+		)
+
+		if "access_token" not in result:
+			L.error("Refresh token flow failed: %r", result)
+			# Again: we tell caller to re-run /authorize_ms365
+			raise self._delegated_auth_error(
+				"Failed to refresh token: {}".format(result)
+			)
+
+		self._store_tokens(result)
+		return self._delegated_tokens.get("access_token")
 
 	async def send_email(
 		self,
@@ -188,8 +384,8 @@ class M365EmailOutputService(asab.Service, OutputABC):
 		subject,
 		body,
 		content_type="HTML",
-		email_cc=[],
-		email_bcc=[],
+		email_cc=None,
+		email_bcc=None,
 		attachments=None,
 		tenant=None,  # only "to" respects tenant override
 	):
@@ -198,10 +394,15 @@ class M365EmailOutputService(asab.Service, OutputABC):
 				ErrorCode.INVALID_SERVICE_CONFIGURATION,
 				tech_message="Email service disabled (missing config)",
 				error_i18n_key="Email service unavailable",
-				error_dict={}
+				error_dict={},
 			)
 
-		# Defaults
+		if email_cc is None:
+			email_cc = []
+		if email_bcc is None:
+			email_bcc = []
+
+		# Defaults from tenant config
 		tenant_to = []
 		tenant_cc = []
 		tenant_bcc = []
@@ -209,15 +410,16 @@ class M365EmailOutputService(asab.Service, OutputABC):
 		if tenant is not None and self.ConfigService is not None:
 			try:
 				tcfg = self.ConfigService.get_email_config(tenant)
-				print(tcfg)
 				if isinstance(tcfg, dict):
 					tenant_to = tcfg.get("to", [])
 					tenant_cc = tcfg.get("cc", [])
 					tenant_bcc = tcfg.get("bcc", [])
 					tenant_subject = tcfg.get("subject")
-				tenant_to = tcfg.get("to", []) if isinstance(tcfg, dict) else []
 			except Exception as e:
-				L.warning("Tenant email config fetch failed: {}".format(e), struct_data={"tenant": tenant})
+				L.warning(
+					"Tenant email config fetch failed: {}".format(e),
+					extra={"tenant": tenant},
+				)
 
 		# Body may be list or single string; do a light wrap (no comma splitting)
 		if email_to is None:
@@ -238,7 +440,7 @@ class M365EmailOutputService(asab.Service, OutputABC):
 				ErrorCode.INVALID_SERVICE_CONFIGURATION,
 				tech_message="No recipient emails available (tenant/body/global).",
 				error_i18n_key="No recipients configured for '{{tenant}}'.",
-				error_dict={"tenant": tenant or "global"}
+				error_dict={"tenant": tenant or "global"},
 			)
 
 		actual_from = email_from or self.UserEmail
@@ -246,6 +448,7 @@ class M365EmailOutputService(asab.Service, OutputABC):
 		subject = tenant_subject or subject or self.Subject
 		cc_list = tenant_cc or email_cc or []
 		bcc_list = tenant_bcc or email_bcc or []
+
 		message = {
 			"subject": subject,
 			"body": {"contentType": content_type, "content": body},
@@ -277,6 +480,7 @@ class M365EmailOutputService(asab.Service, OutputABC):
 			}
 			return requests.post(api_url, headers=headers, json=payload, timeout=10)
 
+		# Get token (app or delegated depending on self.Mode)
 		token = self._get_access_token()
 
 		try:
@@ -298,10 +502,14 @@ class M365EmailOutputService(asab.Service, OutputABC):
 				error_dict={"error_message": str(e)},
 			)
 
-		# Retry on 401
+		# Retry on 401 (token expired, consent revoked, etc.)
 		if resp.status_code == 401:
-			L.info("Token expired—retrying")
-			token = self._get_access_token(force_refresh=True)
+			L.info("Token expired or invalid—retrying with force_refresh.")
+			try:
+				token = self._get_access_token(force_refresh=True)
+			except ASABIrisError as e:
+				# Refresh failed → bubble up
+				raise e
 			resp = _post(token)
 
 		# Success cases
@@ -318,11 +526,11 @@ class M365EmailOutputService(asab.Service, OutputABC):
 				error_dict={"status": resp.status_code, "body": resp.text},
 			)
 
-		# 403 Forbidden
+		# 403 Forbidden (e.g. permissions or mailbox issues)
 		if resp.status_code == 403:
 			L.error("Permission denied: %s", resp.text)
 			raise ASABIrisError(
-				ErrorCode.AUTHENTICATION_FAILED,
+				ErrorCode.INVALID_SERVICE_CONFIGURATION,
 				tech_message="Graph API returned 403: {}".format(resp.text),
 				error_i18n_key="Insufficient permissions",
 				error_dict={"status": resp.status_code, "body": resp.text},
