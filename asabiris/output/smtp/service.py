@@ -93,9 +93,6 @@ class EmailOutputService(asab.Service, OutputABC):
 			effective_tenant = asab.contextvars.Tenant.get()
 		except LookupError:
 			effective_tenant = None
-		except Exception:
-			effective_tenant = None
-
 
 		if email_cc is None:
 			email_cc = []

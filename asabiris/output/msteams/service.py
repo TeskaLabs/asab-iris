@@ -43,8 +43,6 @@ class MSTeamsOutputService(asab.Service, OutputABC):
             effective_tenant = asab.contextvars.Tenant.get()
         except LookupError:
             effective_tenant = None
-        except Exception:
-            effective_tenant = None
 
         # If tenant-specific MS Teams configuration is available, fetch the webhook URL
         if effective_tenant and self.ConfigService is not None:
