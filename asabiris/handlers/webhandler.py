@@ -474,22 +474,73 @@ class WebHandler(object):
 
 	async def authorize_ms365(self, request):
 		"""
-		OAuth 2.0 Authorization Code Flow handler
-		Serves both as the initiator and the callback endpoint
+		OAuth 2.0 Authorization Code Flow handler.
+		Serves both as the initiator (no ?code) and the callback (with ?code).
 		"""
+		# Get the actual service instance from the app
+		m365_service = getattr(self.App, "M365EmailOutputService", None)
+		if m365_service is None:
+			# Service not configured
+			return aiohttp.web.json_response(
+				{
+					"result": "ERROR",
+					"message": "M365EmailOutputService is not configured.",
+				},
+				status=500,
+			)
+
+		# 1) First call: no ?code -> redirect user to Microsoft login
 		if "code" not in request.query:
-			# TODO: Add security? Anyone can call this endpoint and initiate the flow
-			# Initiate oauth authorization code flow
-			# Respond with redirect to authorization URL
-			auth_url = await M365EmailOutputService.build_authorization_uri()
+			try:
+				auth_url = await m365_service.build_authorization_uri()
+			except ASABIrisError as e:
+				# Nicely propagate Iris errors
+				return aiohttp.web.json_response(
+					{
+						"result": "ERROR",
+						"error": e.Errori18nKey,
+						"error_dict": e.ErrorDict,
+						"tech_err": e.TechMessage,
+					},
+					status=400,
+				)
+			# Redirect browser to Microsoft login page
 			return aiohttp.web.HTTPFound(auth_url)
 
-		else:
-			# Second part of the flow - callback with "code"
-			# Exchange "code" for tokens
-			code = request.query["code"]
-			state = request.query.get("state", None)
-			await M365EmailOutputService.exchange_code_for_tokens(code, state)
+		# 2) Callback from Microsoft: we have ?code=...
+		code = request.query["code"]
+		state = request.query.get("state", None)
+
+		try:
+			await m365_service.exchange_code_for_tokens(code, state)
+		except ASABIrisError as e:
+			return aiohttp.web.json_response(
+				{
+					"result": "ERROR",
+					"error": e.Errori18nKey,
+					"error_dict": e.ErrorDict,
+					"tech_err": e.TechMessage,
+				},
+				status=400,
+			)
+		except Exception as e:
+			L.exception("Unexpected error during MS365 token exchange: %s", e)
+			return aiohttp.web.json_response(
+				{
+					"result": "ERROR",
+					"message": "Internal Server Error in authorize_ms365",
+				},
+				status=500,
+			)
+
+		# IMPORTANT: return something to the browser
+		return aiohttp.web.Response(
+			text=(
+				"MS365 delegated authorization successful. "
+				"You can close this window and retry sending the email from Iris."
+			)
+		)
+
 
 
 @aiohttp.payload_streamer.streamer
