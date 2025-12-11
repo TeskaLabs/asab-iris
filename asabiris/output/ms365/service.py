@@ -120,7 +120,8 @@ class M365EmailOutputService(asab.Service, OutputABC):
 		if self.Mode != "delegated":
 			raise ASABIrisError(
 				ErrorCode.INVALID_SERVICE_CONFIGURATION,
-				tech_message="build_authorization_uri called but m365_email.mode is '{}' not 'delegated'.".format(self.Mode),
+				tech_message="build_authorization_uri called but m365_email.mode is '{}' not 'delegated'.".format(
+					self.Mode),
 				error_i18n_key="ms365_wrong_mode",
 				error_dict={"mode": self.Mode},
 			)
@@ -160,7 +161,8 @@ class M365EmailOutputService(asab.Service, OutputABC):
 		if self.Mode != "delegated":
 			raise ASABIrisError(
 				ErrorCode.INVALID_SERVICE_CONFIGURATION,
-				tech_message="exchange_code_for_tokens called but m365_email.mode is '{}' not 'delegated'.".format(self.Mode),
+				tech_message="exchange_code_for_tokens called but m365_email.mode is '{}' not 'delegated'.".format(
+					self.Mode),
 				error_i18n_key="ms365_wrong_mode",
 				error_dict={"mode": self.Mode},
 			)
@@ -245,12 +247,12 @@ class M365EmailOutputService(asab.Service, OutputABC):
 			"token_type": token_response.get("token_type"),
 		}
 
-		# TODO: Persist `self._delegated_tokens` to ZK / filesystem
-		# Example (pseudo-code):
-		# await self.App.LibraryService.write(
-		# 	"/System/MS365/tokens.json",
-		# 	json.dumps(self._delegated_tokens).encode("utf-8"),
-		# )
+	# TODO: Persist `self._delegated_tokens` to ZK / filesystem
+	# Example (pseudo-code):
+	# await self.App.LibraryService.write(
+	# 	"/System/MS365/tokens.json",
+	# 	json.dumps(self._delegated_tokens).encode("utf-8"),
+	# )
 
 	@property
 	def is_configured(self):
@@ -378,16 +380,16 @@ class M365EmailOutputService(asab.Service, OutputABC):
 		return self._delegated_tokens.get("access_token")
 
 	async def send_email(
-		self,
-		email_from,
-		email_to,
-		subject,
-		body,
-		content_type="HTML",
-		email_cc=None,
-		email_bcc=None,
-		attachments=None,
-		tenant=None,  # only "to" respects tenant override
+			self,
+			email_from,
+			email_to,
+			subject,
+			body,
+			content_type="HTML",
+			email_cc=None,
+			email_bcc=None,
+			attachments=None,
+			tenant=None,  # only "to" respects tenant override
 	):
 		if not self.is_configured:
 			raise ASABIrisError(
