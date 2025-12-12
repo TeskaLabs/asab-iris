@@ -12,32 +12,101 @@ Welcome to ASAB Iris, your go-to multifunctional messenger microservice, designe
 - Trigger through the single `/send_email` endpoint (HTTP or Kafka).
 
 ---
+### MS365 Email (App & Delegated Mode)
 
-**Configuration**
+ASAB Iris supports sending email using Microsoft 365 Graph API in two modes:
 
-IRIS will automatically choose **MS365** if *all* of these settings are present in your `asab.Config`:
+- **`mode = app`** → Application Permissions (default)  
+- **`mode = delegated`** → User-delegated OAuth flow (requires one-time browser login)
+
+Iris automatically falls back to **SMTP** when `[m365_email]` is missing or incomplete.
+
+---
+
+## App Mode (Default)
+
+Use this mode when Iris sends email **as the application**, with no user interaction.
 
 ```ini
 [m365_email]
+mode          = app                  ; optional, "app" is default
 tenant_id     = YOUR_AZURE_TENANT_ID
 client_id     = YOUR_APP_CLIENT_ID
 client_secret = YOUR_APP_CLIENT_SECRET
 user_email    = sender@yourdomain.com
 subject       = Default MS365 Subject
+api_url       = https://graph.microsoft.com/v1.0/users/{}/sendMail
 ````
 
-Otherwise, if `[m365_email]` is missing or incomplete, IRIS falls back to **SMTP** when you set a non-empty `host`:
+**Characteristics**
+
+* No `/authorize_ms365` required
+* Suitable for backend automation
+* Requires **Application permission** `Mail.Send`
+* Runs fully headless
+
+---
+
+## Delegated Mode (User Login Required)
+
+Use this mode when Iris must send email **on behalf of a signed-in Microsoft 365 user**.
 
 ```ini
-[smtp]
-host      = smtp.example.com
-user      = admin
-password  = secret
-from      = info@example.com
-ssl       = no
-starttls  = yes
-subject   = Default SMTP Subject
+[m365_email]
+mode          = delegated
+tenant_id     = YOUR_AZURE_TENANT_ID
+client_id     = YOUR_APP_CLIENT_ID
+client_secret = YOUR_APP_CLIENT_SECRET
+user_email    = sender@yourdomain.com
+redirect_uri  = http://localhost:8082/authorize_ms365
+subject       = Default MS365 Subject
+api_url       = https://graph.microsoft.com/v1.0/users/{}/sendMail
 ```
+
+### How Delegated Mode Works
+
+1. Open this in a browser:
+
+   ```
+   http://localhost:8082/authorize_ms365
+   ```
+2. Iris redirects to Microsoft Login
+3. User signs in
+4. Microsoft calls back with `?code=...`
+5. Iris exchanges the code → saves:
+
+   * access_token
+   * refresh_token
+6. `/send_email` now works silently
+
+---
+
+### When `/authorize_ms365` Is Required
+
+If tokens are missing or expired, `/send_email` returns:
+
+```json
+{
+  "result": "ERROR",
+  "error": "IrisError|ms365_delegated_auth_required",
+  "error_dict": {
+    "authorize_url": "/authorize_ms365",
+    "reason": "Iris is configured for delegated MS365 email, but there is no valid delegated token.",
+    "what_to_do": "Open '/authorize_ms365' in a browser and sign in with the Microsoft 365 account that should send emails."
+  }
+}
+```
+
+---
+
+### Azure Requirements for Delegated Mode
+
+* The App Registration must have **Delegated** permission: `Mail.Send`
+* Redirect URI must **exactly match** your `redirect_uri`
+* The signed-in user must be allowed to send mail from `user_email`
+
+---
+
 
 > **Note**
 >
