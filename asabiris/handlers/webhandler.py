@@ -147,7 +147,10 @@ class WebHandler(object):
 			)
 
 		tenant = json_data.get("tenant", None)
-		current_tenant = asab.contextvars.Tenant.get()
+		try:
+			current_tenant = asab.contextvars.Tenant.get()
+		except LookupError:
+			current_tenant = None
 		token = None
 
 		# Only set tenant from body if there is no tenant already set from the request context
@@ -226,7 +229,10 @@ class WebHandler(object):
 			)
 
 		tenant = json_data.get("tenant", None)
-		current_tenant = asab.contextvars.Tenant.get()
+		try:
+			current_tenant = asab.contextvars.Tenant.get()
+		except LookupError:
+			current_tenant = None
 		token = None
 
 		if tenant is not None and current_tenant is None:
@@ -298,10 +304,13 @@ class WebHandler(object):
 				},
 				status=400
 			)
-		tenant = json_data.get("tenant", None)
-		current_tenant = asab.contextvars.Tenant.get()
-		token = None
 
+		tenant = json_data.get("tenant", None)
+		try:
+			current_tenant = asab.contextvars.Tenant.get()
+		except LookupError:
+			current_tenant = None
+		token = None
 		if tenant is not None and current_tenant is None:
 			token = asab.contextvars.Tenant.set(tenant)
 
@@ -368,7 +377,10 @@ class WebHandler(object):
 		template_data = await request.json()
 
 		tenant = json_data.get("tenant", None)
-		current_tenant = asab.contextvars.Tenant.get()
+		try:
+			current_tenant = asab.contextvars.Tenant.get()
+		except LookupError:
+			current_tenant = None
 		token = None
 
 		if tenant is not None and current_tenant is None:
@@ -460,9 +472,11 @@ class WebHandler(object):
 			)
 
 		tenant = json_data.get("tenant", None)
-		current_tenant = asab.contextvars.Tenant.get()
+		try:
+			current_tenant = asab.contextvars.Tenant.get()
+		except LookupError:
+			current_tenant = None
 		token = None
-
 		if tenant is not None and current_tenant is None:
 			token = asab.contextvars.Tenant.set(tenant)
 
