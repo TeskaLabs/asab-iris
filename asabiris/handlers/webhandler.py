@@ -49,7 +49,7 @@ class WebHandler(object):
 		}
 		return asab.web.rest.json_response(request, response)
 
-
+	@asab.web.tenant.allow_no_tenant
 	@asab.web.rest.json_schema_handler(email_schema)
 	async def send_email(self, request, *, json_data):
 		"""
@@ -112,7 +112,7 @@ class WebHandler(object):
 		"""
 		return await self._send_email(request, json_data)
 
-
+	@asab.web.tenant.allow_no_tenant
 	async def send_email_jsonata(self, request):
 		"""
 		This endpoint is for sending emails - JSONata template is applied first to the request body.
@@ -132,7 +132,6 @@ class WebHandler(object):
 		result = expr.evaluate(await request.json())
 		# TODO: Apply email_schema to the result
 		return await self._send_email(request, json_data=result)
-
 
 	async def _send_email(self, request, json_data):
 		# If neither SMTP nor MS365 was set up, fail early
@@ -197,7 +196,7 @@ class WebHandler(object):
 
 		return asab.web.rest.json_response(request, {"result": "OK"})
 
-
+	@asab.web.tenant.allow_no_tenant
 	@asab.web.rest.json_schema_handler(slack_schema)
 	async def send_slack(self, request, *, json_data):
 		"""
@@ -271,7 +270,7 @@ class WebHandler(object):
 
 		return asab.web.rest.json_response(request, {"result": "OK"})
 
-
+	@asab.web.tenant.allow_no_tenant
 	@asab.web.rest.json_schema_handler(teams_schema)
 	async def send_msteams(self, request, *, json_data):
 		"""
@@ -346,7 +345,7 @@ class WebHandler(object):
 
 	L = logging.getLogger(__name__)
 
-
+	@asab.web.tenant.allow_no_tenant
 	@asab.web.rest.json_schema_handler({"type": "object"})
 	async def render(self, request, *, json_data):
 		"""
@@ -429,6 +428,7 @@ class WebHandler(object):
 			body=html if content_type == "text/html" else file_sender(pdf)
 		)
 
+	@asab.web.tenant.allow_no_tenant
 	@asab.web.rest.json_schema_handler(sms_schema)
 	async def send_sms(self, request, *, json_data):
 		"""Send an SMS message to the phone number specified in the request body.
