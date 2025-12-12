@@ -472,4 +472,3 @@ def _load_error_templates_from_config():
 	for key in ("email", "slack", "msteams", "sms", "push"):
 		if cfg.has_option(sec, key):
 			tpls[key] = cfg.get(sec, key).strip()
-
