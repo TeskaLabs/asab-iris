@@ -170,12 +170,17 @@ class SMSOutputService(asab.Service, OutputABC):
 
 		return segments
 
-	async def send(self, sms_data, tenant=None):
+	async def send(self, sms_data):
 		"""
 		Sends an SMS using either tenant-specific or global SMS settings,
 		and falls back to a default phone if none is provided per-call.
 		"""
 		# 0) Validate message_body presence early
+		try:
+			effective_tenant = asab.contextvars.Tenant.get()
+		except LookupError:
+			effective_tenant = None
+
 		message_body = sms_data.get("message_body")
 		if not message_body:
 			raise ASABIrisError(
@@ -196,15 +201,15 @@ class SMSOutputService(asab.Service, OutputABC):
 		phone_tenant = None
 
 		# 2) If tenant is specified, attempt to load tenant creds and phone
-		if tenant:
+		if effective_tenant:
 			login_tenant = None
 			password_tenant = None
 			api_url_tenant = None
 
 			try:
-				conf = self.ConfigService.get_sms_config(tenant)
+				conf = self.ConfigService.get_sms_config(effective_tenant)
 			except Exception as err:
-				L.warning("Failed to load tenant '{}' SMS config: {}".format(tenant, err))
+				L.warning("Failed to load tenant '{}' SMS config: {}".format(effective_tenant, err))
 				conf = None
 
 			# Accept tuple/list (3 or 4 items) or dict
@@ -215,20 +220,20 @@ class SMSOutputService(asab.Service, OutputABC):
 						if len(conf) >= 4:
 							phone_tenant = _clean(conf[3])
 					else:
-						L.warning("Tenant '{}' SMS config tuple too short: {}".format(tenant, conf))
+						L.warning("Tenant '{}' SMS config tuple too short: {}".format(effective_tenant, conf))
 				elif isinstance(conf, dict):
 					login_tenant = conf.get("login")
 					password_tenant = conf.get("password")
 					api_url_tenant = conf.get("api_url")
 					phone_tenant = _clean(conf.get("phone"))
 				else:
-					L.warning("Tenant '{}' SMS config in unexpected format.".format(tenant))
+					L.warning("Tenant '{}' SMS config in unexpected format.".format(effective_tenant))
 
 			# Override creds if all three tenant values are present
 			if login_tenant and password_tenant and api_url_tenant:
 				login, password, api_url = login_tenant, password_tenant, api_url_tenant
 			else:
-				L.warning("Tenant '{}' SMS config incomplete—using global credentials.".format(tenant))
+				L.warning("Tenant '{}' SMS config incomplete—using global credentials.".format(effective_tenant))
 
 		phone = next((p for p in (phone_tenant, body_phone) if p), None)
 

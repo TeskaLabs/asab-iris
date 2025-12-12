@@ -3,6 +3,7 @@ import logging
 import jsonata
 
 import asab.web.rest
+import asab.contextvars
 
 import aiohttp.web
 import aiohttp.payload_streamer
@@ -145,6 +146,17 @@ class WebHandler(object):
 				status=400
 			)
 
+		tenant = json_data.get("tenant", None)
+		try:
+			current_tenant = asab.contextvars.Tenant.get()
+		except LookupError:
+			current_tenant = None
+		token = None
+
+		# Only set tenant from body if there is no tenant already set from the request context
+		if tenant is not None and current_tenant is None:
+			token = asab.contextvars.Tenant.set(tenant)
+
 		try:
 			await self.App.SendEmailOrchestrator.send_email(
 				email_to=json_data.get("to", None),
@@ -156,7 +168,6 @@ class WebHandler(object):
 				email_from=json_data.get("from"),
 				body_params=json_data["body"].get("params", {}),  # Optional
 				attachments=json_data.get("attachments", []),
-				tenant=json_data.get("tenant", None)  # Optional
 			)
 		except ASABIrisError as e:
 			# Map ErrorCode to HTTP status codes
@@ -180,6 +191,9 @@ class WebHandler(object):
 				}
 			}
 			return asab.web.rest.json_response(request, bad_response, status=400)
+		finally:
+			if token is not None:
+				asab.contextvars.Tenant.reset(token)
 
 		return asab.web.rest.json_response(request, {"result": "OK"})
 
@@ -214,6 +228,16 @@ class WebHandler(object):
 				status=400
 			)
 
+		tenant = json_data.get("tenant", None)
+		try:
+			current_tenant = asab.contextvars.Tenant.get()
+		except LookupError:
+			current_tenant = None
+		token = None
+
+		if tenant is not None and current_tenant is None:
+			token = asab.contextvars.Tenant.set(tenant)
+
 		try:
 			await self.App.SendSlackOrchestrator.send_to_slack(json_data)
 		except ASABIrisError as e:
@@ -241,6 +265,9 @@ class WebHandler(object):
 				}
 			}
 			return aiohttp.web.json_response(response, status=400)
+		finally:
+			if token is not None:
+				asab.contextvars.Tenant.reset(token)
 
 		return asab.web.rest.json_response(request, {"result": "OK"})
 
@@ -278,6 +305,15 @@ class WebHandler(object):
 				status=400
 			)
 
+		tenant = json_data.get("tenant", None)
+		try:
+			current_tenant = asab.contextvars.Tenant.get()
+		except LookupError:
+			current_tenant = None
+		token = None
+		if tenant is not None and current_tenant is None:
+			token = asab.contextvars.Tenant.set(tenant)
+
 		try:
 			await self.App.SendMSTeamsOrchestrator.send_to_msteams(json_data)
 		except ASABIrisError as e:
@@ -302,6 +338,9 @@ class WebHandler(object):
 				}
 			}
 			return aiohttp.web.json_response(response, status=400)
+		finally:
+			if token is not None:
+				asab.contextvars.Tenant.reset(token)
 
 		return asab.web.rest.json_response(request, {"result": "OK"})
 
@@ -337,6 +376,17 @@ class WebHandler(object):
 		template = request.query.get("template", None)
 		template_data = await request.json()
 
+		tenant = json_data.get("tenant", None)
+		try:
+			current_tenant = asab.contextvars.Tenant.get()
+		except LookupError:
+			current_tenant = None
+		token = None
+
+		if tenant is not None and current_tenant is None:
+			token = asab.contextvars.Tenant.set(tenant)
+
+
 		# Render a body
 		try:
 			html = await self.App.RenderReportOrchestrator.render(template, template_data)
@@ -361,6 +411,9 @@ class WebHandler(object):
 				}
 			}
 			return aiohttp.web.json_response(response, status=400)
+		finally:
+			if token is not None:
+				asab.contextvars.Tenant.reset(token)
 
 		# get pdf from html if present.
 		if fmt == 'pdf':
@@ -417,6 +470,16 @@ class WebHandler(object):
 				},
 				status=400
 			)
+
+		tenant = json_data.get("tenant", None)
+		try:
+			current_tenant = asab.contextvars.Tenant.get()
+		except LookupError:
+			current_tenant = None
+		token = None
+		if tenant is not None and current_tenant is None:
+			token = asab.contextvars.Tenant.set(tenant)
+
 		# Render a body
 		try:
 			await self.App.SendSMSOrchestrator.send_sms(json_data)
@@ -442,6 +505,9 @@ class WebHandler(object):
 				}
 			}
 			return aiohttp.web.json_response(response, status=400)
+		finally:
+			if token is not None:
+				asab.contextvars.Tenant.reset(token)
 
 		return asab.web.rest.json_response(request, {"result": "OK"})
 
@@ -465,7 +531,9 @@ class WebHandler(object):
 			ErrorCode.SMTP_TIMEOUT: 504,
 			ErrorCode.INVALID_SERVICE_CONFIGURATION: 400,
 			ErrorCode.LIBRARY_NOT_READY: 503,
-			ErrorCode.SLACK_CHANNEL_NOT_FOUND: 404
+			ErrorCode.SLACK_CHANNEL_NOT_FOUND: 404,
+			ErrorCode.INVALID_REQUEST: 400,
+			ErrorCode.AUTHENTICATION_FAILED: 401,
 		}
 
 		return error_code_mapping.get(error_code, 400)  # Default to 400 Bad Request

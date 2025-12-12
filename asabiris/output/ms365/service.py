@@ -101,8 +101,12 @@ class M365EmailOutputService(asab.Service, OutputABC):
 		email_cc=[],
 		email_bcc=[],
 		attachments=None,
-		tenant=None,  # only "to" respects tenant override
 	):
+		try:
+			effective_tenant = asab.contextvars.Tenant.get()
+		except LookupError:
+			effective_tenant = None
+
 		if not self.is_configured:
 			raise ASABIrisError(
 				ErrorCode.INVALID_SERVICE_CONFIGURATION,
@@ -116,9 +120,9 @@ class M365EmailOutputService(asab.Service, OutputABC):
 		tenant_cc = []
 		tenant_bcc = []
 		tenant_subject = None
-		if tenant is not None and self.ConfigService is not None:
+		if effective_tenant is not None and self.ConfigService is not None:
 			try:
-				tcfg = self.ConfigService.get_email_config(tenant)
+				tcfg = self.ConfigService.get_email_config(effective_tenant)
 				print(tcfg)
 				if isinstance(tcfg, dict):
 					tenant_to = tcfg.get("to", [])
@@ -127,7 +131,7 @@ class M365EmailOutputService(asab.Service, OutputABC):
 					tenant_subject = tcfg.get("subject")
 				tenant_to = tcfg.get("to", []) if isinstance(tcfg, dict) else []
 			except Exception as e:
-				L.warning("Tenant email config fetch failed: {}".format(e), struct_data={"tenant": tenant})
+				L.warning("Tenant email config fetch failed: {}".format(e), struct_data={"tenant": effective_tenant})
 
 		# Body may be list or single string; do a light wrap (no comma splitting)
 		if email_to is None:
@@ -148,7 +152,7 @@ class M365EmailOutputService(asab.Service, OutputABC):
 				ErrorCode.INVALID_SERVICE_CONFIGURATION,
 				tech_message="No recipient emails available (tenant/body/global).",
 				error_i18n_key="No recipients configured for '{{tenant}}'.",
-				error_dict={"tenant": tenant or "global"}
+				error_dict={"tenant": effective_tenant or "global"}
 			)
 
 		actual_from = email_from or self.UserEmail

@@ -50,8 +50,7 @@ class SendEmailOrchestrator:
 		email_cc=None,
 		email_bcc=None,
 		email_subject=None,
-		attachments=None,
-		tenant=None
+		attachments=None
 	):
 		"""
 		Send an email using rendered template and delegate to the configured provider.
@@ -89,8 +88,7 @@ class SendEmailOrchestrator:
 				email_bcc=email_bcc,
 				email_subject=email_subject,
 				body=body_html,
-				attachments=atts_gen,
-				tenant=tenant
+				attachments=atts_gen
 			)
 			L.info("Email sent via SMTP to: {}".format(', '.join(email_to)))
 
@@ -105,8 +103,7 @@ class SendEmailOrchestrator:
 				"HTML",  # content_type
 				attachments=atts_gen,
 				email_cc=email_cc,
-				email_bcc=email_bcc,
-				tenant=tenant,
+				email_bcc=email_bcc
 			)
 			L.info("Email sent via MS365 to: {}".format(', '.join(email_to if isinstance(email_to, (list, tuple)) else [str(email_to)])))
 

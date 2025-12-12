@@ -39,7 +39,6 @@ class SendSlackOrchestrator(object):
 		body = msg['body']
 		template = body["template"]
 		attachments = msg.get("attachments", None)
-		tenant = msg.get("tenant", None)
 		# if params no provided pass empty params
 		# - primarily use absolute path - starts with "/"
 		# - if absolute path is used, check it start with "/Templates/Slack"
@@ -82,14 +81,14 @@ class SendSlackOrchestrator(object):
 				fallback_message = output
 				blocks = None
 
-			await self.SlackOutputService.send_message(blocks, fallback_message, tenant)
+			await self.SlackOutputService.send_message(blocks, fallback_message)
 			return
 
 		# Sending attachments
 
 		output = self.MarkdownFormatterService.unformat(output)
 		atts_gen = self.AttachmentRenderingService.render_attachment(attachments)
-		await self.SlackOutputService.send_files(output, atts_gen, tenant)
+		await self.SlackOutputService.send_files(output, atts_gen)
 
 
 	async def render_attachment(self, template, params):

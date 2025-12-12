@@ -41,7 +41,7 @@ class SlackOutputService(asab.Service, OutputABC):
 		self.Client = WebClient(token=self.SlackWebhookUrl)
 
 
-	async def send_message(self, blocks, fallback_message, tenant=None) -> None:
+	async def send_message(self, blocks, fallback_message) -> None:
 		"""
 		Sends a message to a Slack channel.
 		"""
@@ -49,15 +49,20 @@ class SlackOutputService(asab.Service, OutputABC):
 			L.warning("SlackOutputService is not initialized properly. Message will not be sent.")
 			return
 
+		try:
+			effective_tenant = asab.contextvars.Tenant.get()
+		except LookupError:
+			effective_tenant = None
+
 		# determine which token/channel to use
 		token, channel = (self.SlackWebhookUrl, self.Channel)
-		if tenant and self.ConfigService is not None:
+		if effective_tenant and self.ConfigService is not None:
 			try:
-				token, channel = self.ConfigService.get_slack_config(tenant)
+				token, channel = self.ConfigService.get_slack_config(effective_tenant)
 			except KeyError:
 				L.warning(
 					"Tenant-specific Slack configuration not found for '%s'. Using global config.",
-					tenant
+					effective_tenant
 				)
 
 		if channel is None:
@@ -100,7 +105,7 @@ class SlackOutputService(asab.Service, OutputABC):
 		)
 
 
-	async def send_files(self, body: str, atts_gen, tenant=None):
+	async def send_files(self, body: str, atts_gen,):
 		"""
 		Sends a message to a Slack channel with attachments.
 		"""
@@ -108,12 +113,17 @@ class SlackOutputService(asab.Service, OutputABC):
 			L.warning("SlackOutputService is not initialized properly. File will not be sent.")
 			return
 
+		try:
+			effective_tenant = asab.contextvars.Tenant.get()
+		except LookupError:
+			effective_tenant = None
+
 		token, channel = (self.SlackWebhookUrl, self.Channel)
-		if tenant:
+		if effective_tenant:
 			try:
-				token, channel = self.ConfigService.get_slack_config(tenant)
+				token, channel = self.ConfigService.get_slack_config(effective_tenant)
 			except KeyError:
-				L.warning("Tenant-specific Slack configuration not found for '{}'. Using global config.".format(tenant))
+				L.warning("Tenant-specific Slack configuration not found for '{}'. Using global config.".format(effective_tenant))
 
 		if channel is None:
 			raise ValueError("Cannot send message to Slack. Reason: Missing Slack channel")
