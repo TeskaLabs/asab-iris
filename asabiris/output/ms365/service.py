@@ -2,6 +2,10 @@ import logging
 import configparser
 import time
 import base64
+import json
+import jwt
+import kazoo.exceptions
+
 
 import asab
 import requests
@@ -142,12 +146,9 @@ class M365EmailOutputService(asab.Service, OutputABC):
 				error_dict={},
 			)
 
-		state = "12345"  # TODO: generate random and store/validate if you care about CSRF
-
 		auth_url = self.MsalApp.get_authorization_request_url(
 			scopes=self._scopes_delegated(),
 			redirect_uri=self.RedirectUri,
-			state=state,
 		)
 
 		return auth_url
@@ -175,7 +176,6 @@ class M365EmailOutputService(asab.Service, OutputABC):
 				error_dict={},
 			)
 
-		# TODO: Validate `state` against stored state value (if you implement that)
 		if self.RedirectUri is None:
 			raise ASABIrisError(
 				ErrorCode.INVALID_SERVICE_CONFIGURATION,
