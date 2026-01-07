@@ -3,7 +3,6 @@ import configparser
 import time
 import base64
 import json
-import jwt
 import kazoo.exceptions
 
 
@@ -104,13 +103,48 @@ class M365EmailOutputService(asab.Service, OutputABC):
 			await self._try_load_stored_tokens()
 
 	async def _try_load_stored_tokens(self):
-		"""
-		Load delegated tokens from persistent storage.
-
-		Currently a no-op placeholder that just resets in-memory state.
-		TODO: Replace with ZooKeeper / filesystem-backed storage.
-		"""
 		self._delegated_tokens = None
+
+		path = self._tokens_storage_zk_path()
+		raw = await self._zk_read_bytes(path)
+		if raw is None:
+			L.info("No stored MS365 delegated tokens at %s", path)
+			return
+
+		try:
+			data = json.loads(raw.decode("utf-8"))
+		except Exception as e:
+			L.warning("Failed to decode MS365 delegated tokens from %s: %s", path, e)
+			return
+
+		if not isinstance(data, dict):
+			L.warning("Invalid delegated token format at %s", path)
+			return
+
+		if not data.get("refresh_token"):
+			L.warning("Stored delegated tokens at %s have no refresh_token", path)
+			return
+
+		# Optional: if you stored authorized_user, sanity-check it matches configured sender
+		authorized_user = data.get("authorized_user")
+		if authorized_user:
+			expected = (self.UserEmail or "").strip().lower()
+			got = str(authorized_user).strip().lower()
+			if expected and got != expected:
+				L.warning(
+					"Stored delegated tokens authorized_user '%s' does not match configured sender '%s'. Ignoring tokens.",
+					authorized_user,
+					self.UserEmail,
+				)
+				return
+
+		self._delegated_tokens = data
+		L.info(
+			"Loaded MS365 delegated tokens from %s (expires_at=%s)",
+			path,
+			data.get("expires_at"),
+		)
+
 
 	async def build_authorization_uri(self) -> str:
 		"""
@@ -184,11 +218,20 @@ class M365EmailOutputService(asab.Service, OutputABC):
 				error_dict={},
 			)
 
-		result = self.MsalApp.acquire_token_by_authorization_code(
-			authorization_code,
-			scopes=self._scopes_delegated(),
-			redirect_uri=self.RedirectUri,
-		)
+		# NOTE: state is currently ignored (you decided not to implement it yet)
+
+		def do_exchange(_client):
+			return self.MsalApp.acquire_token_by_authorization_code(
+				authorization_code,
+				scopes=self._scopes_delegated(),
+				redirect_uri=self.RedirectUri,
+			)
+
+		# MSAL call is blocking -> run via Proactor
+		result = await self._proactor_execute(do_exchange, None)
+
+		# Security check: prevent anyone from authorizing Iris with their own mailbox
+		self._verify_id_token_sender_email(result)
 
 		if "access_token" not in result:
 			L.error("Authorization code exchange failed: %r", result)
@@ -200,7 +243,13 @@ class M365EmailOutputService(asab.Service, OutputABC):
 			)
 
 		self._store_tokens(result)
-		L.info("MS365 delegated tokens stored (expires_in=%s)", result.get("expires_in"))
+
+		# Persist to ZooKeeper so restart doesn't require login
+		await self._persist_delegated_tokens()
+
+		L.info("MS365 delegated tokens stored+persistent (expires_in=%s)", result.get("expires_in"))
+		return True
+
 
 	async def _check_and_refresh_tokens(self, event_name):
 		"""
@@ -215,7 +264,7 @@ class M365EmailOutputService(asab.Service, OutputABC):
 
 		try:
 			# Force a refresh, so tokens stay valid
-			self._get_delegated_access_token(force_refresh=True)
+			await self._get_delegated_access_token_async(force_refresh=True)
 		except ASABIrisError as e:
 			L.warning(
 				"Failed to refresh MS365 delegated tokens on event '%s': %s",
@@ -224,12 +273,6 @@ class M365EmailOutputService(asab.Service, OutputABC):
 			)
 
 	def _store_tokens(self, token_response: dict):
-		"""
-		Store tokens received from MSAL.
-
-		Args:
-			token_response: Token response dict from MSAL.
-		"""
 		expires_in_raw = token_response.get("expires_in", 0)
 		try:
 			expires_in = int(expires_in_raw)
@@ -239,20 +282,20 @@ class M365EmailOutputService(asab.Service, OutputABC):
 		now = int(time.time())
 		expires_at = now + expires_in
 
+		authorized_user = None
+		id_token = token_response.get("id_token")
+		if id_token:
+			claims = self._jwt_claims_unverified(id_token)
+			authorized_user = self._extract_sender_from_claims(claims)
+
 		self._delegated_tokens = {
 			"access_token": token_response.get("access_token"),
 			"refresh_token": token_response.get("refresh_token"),
 			"expires_at": expires_at,
 			"scope": token_response.get("scope"),
 			"token_type": token_response.get("token_type"),
+			"authorized_user": authorized_user,
 		}
-
-	# TODO: Persist `self._delegated_tokens` to ZK / filesystem
-	# Example (pseudo-code):
-	# await self.App.LibraryService.write(
-	# 	"/System/MS365/tokens.json",
-	# 	json.dumps(self._delegated_tokens).encode("utf-8"),
-	# )
 
 	@property
 	def is_configured(self):
@@ -283,10 +326,10 @@ class M365EmailOutputService(asab.Service, OutputABC):
 
 	def _get_access_token(self, force_refresh=False):
 		"""
-		Return an access token in either app or delegated mode.
+		Synchronous token getter.
 
-		mode = "app"       -> client credentials (application permissions)
-		mode = "delegated" -> authorization code + refresh token
+		We keep this ONLY for app-mode (client credentials), because delegated
+		flow needs async refresh (Proactor) and should use _get_access_token_async().
 		"""
 		if not self.MsalApp:
 			raise ASABIrisError(
@@ -297,10 +340,15 @@ class M365EmailOutputService(asab.Service, OutputABC):
 			)
 
 		if self.Mode == "delegated":
-			return self._get_delegated_access_token(force_refresh=force_refresh)
+			raise ASABIrisError(
+				ErrorCode.INVALID_SERVICE_CONFIGURATION,
+				tech_message="Synchronous token retrieval not supported in delegated mode. Use _get_access_token_async().",
+				error_i18n_key="ms365_delegated_auth_required",
+				error_dict={},
+			)
 
-		# default: app mode
 		return self._get_app_only_access_token(force_refresh=force_refresh)
+
 
 	def _get_app_only_access_token(self, force_refresh=False):
 		"""
@@ -334,15 +382,8 @@ class M365EmailOutputService(asab.Service, OutputABC):
 			error_dict={"msal_result": result},
 		)
 
-	def _get_delegated_access_token(self, force_refresh=False):
-		"""
-		Return a delegated access token, refreshing via refresh_token when needed.
-
-		If there are no tokens, or refresh fails, raise ASABIrisError with
-		an authorize_url pointing to /authorize_ms365.
-		"""
+	async def _get_delegated_access_token_async(self, force_refresh=False):
 		if self._delegated_tokens is None:
-			# No tokens at all -> we expect user/admin to hit /authorize_ms365
 			raise self._delegated_auth_error(
 				"Delegated tokens not available. Call /authorize_ms365 first."
 			)
@@ -351,33 +392,214 @@ class M365EmailOutputService(asab.Service, OutputABC):
 		expires_at = self._delegated_tokens.get("expires_at", 0)
 
 		if (not force_refresh) and expires_at > now + 60:
-			# Token still valid (with a small safety margin)
-			access_token = self._delegated_tokens.get("access_token")
-			if access_token:
-				return access_token
+			token = self._delegated_tokens.get("access_token")
+			if token:
+				return token
 
-		# Need to refresh using refresh_token
 		refresh_token = self._delegated_tokens.get("refresh_token")
 		if not refresh_token:
 			raise self._delegated_auth_error(
 				"Missing refresh token for MS365 delegated mode."
 			)
 
-		L.info("Refreshing MS365 delegated access token using refresh_token.")
-		result = self.MsalApp.acquire_token_by_refresh_token(
-			refresh_token,
-			scopes=self._scopes_delegated(),
-		)
+		L.info("Refreshing MS365 delegated access token (proactor).")
+		result = await self._refresh_delegated_tokens(refresh_token)
+
+		if "id_token" in result:
+			self._verify_id_token_sender_email(result)
+
 
 		if "access_token" not in result:
-			L.error("Refresh token flow failed: %r", result)
-			# Again: we tell caller to re-run /authorize_ms365
 			raise self._delegated_auth_error(
 				"Failed to refresh token: {}".format(result)
 			)
 
 		self._store_tokens(result)
-		return self._delegated_tokens.get("access_token")
+		await self._persist_delegated_tokens()
+		return self._delegated_tokens["access_token"]
+
+
+	def _tokens_storage_zk_path(self):
+		safe_client = (self.ClientID or "unknown").replace("/", "_")
+		safe_user = (self.UserEmail or "unknown").replace("/", "_")
+		return "/asab-iris/ms365/delegated_tokens/{}_{}.json".format(
+			safe_client,
+			safe_user,
+		)
+
+	async def _zk_write_bytes(self, path, data):
+		zk = self.App.ZooKeeperContainer.ZooKeeper.Client
+
+		def do_write(client):
+			parent = path.rsplit("/", 1)[0]
+			client.ensure_path(parent)
+			try:
+				client.set(path, data)
+			except kazoo.exceptions.NoNodeError:
+				client.create(path, data, makepath=True)
+
+		await self._proactor_execute(do_write, zk)
+
+	async def _zk_read_bytes(self, path):
+		zk = self.App.ZooKeeperContainer.ZooKeeper.Client
+
+		def do_read(client):
+			try:
+				data, _stat = client.get(path)
+				return data
+			except kazoo.exceptions.NoNodeError:
+				return None
+
+		return await self._proactor_execute(do_read, zk)
+
+	def _proactor_execute(self, func, *args):
+		"""
+		Run a blocking function using ASAB ProactorService.
+
+		The callable `func` should accept the first argument `client`,
+		so it can be compatible with ASAB's Proactor execution pattern.
+		"""
+		return self.App.ProactorService.execute(func, *args)
+
+	async def _persist_delegated_tokens(self):
+		if not isinstance(self._delegated_tokens, dict):
+			return
+
+		path = self._tokens_storage_zk_path()
+		try:
+			raw = json.dumps(self._delegated_tokens, sort_keys=True).encode("utf-8")
+		except Exception as e:
+			L.warning("Failed to serialize delegated tokens for persistence: %s", e)
+			return
+
+		await self._zk_write_bytes(path, raw)
+		L.info("Persisted MS365 delegated tokens to %s", path)
+
+	async def _graph_post(self, api_url, payload, token):
+		def do_post(_client):
+			headers = {
+				"Authorization": "Bearer {}".format(token),
+				"Content-Type": "application/json",
+			}
+			return requests.post(api_url, headers=headers, json=payload, timeout=10)
+
+		return await self._proactor_execute(do_post, None)
+
+
+	async def _refresh_delegated_tokens(self, refresh_token):
+		def do_refresh(_client):
+			return self.MsalApp.acquire_token_by_refresh_token(
+				refresh_token,
+				scopes=self._scopes_delegated(),
+			)
+
+		return await self._proactor_execute(do_refresh, None)
+
+
+	async def _get_access_token_async(self, force_refresh=False):
+		if self.Mode == "delegated":
+			return await self._get_delegated_access_token_async(force_refresh)
+
+		# app mode (client credentials)
+		def do_app_token(_client):
+			return self._get_app_only_access_token(force_refresh)
+
+		return await self._proactor_execute(do_app_token, None)
+
+	def _jwt_claims_unverified(self, jwt_token: str) -> dict:
+		"""
+		Decode JWT payload without verifying signature.
+		This is OK here because we only use it as a *sanity check* after MSAL already did the auth flow.
+		"""
+		if not jwt_token or not isinstance(jwt_token, str):
+			return {}
+
+		try:
+			parts = jwt_token.split(".")
+			if len(parts) < 2:
+				return {}
+
+			payload_b64 = parts[1]
+			# base64url padding
+			pad = "=" * (-len(payload_b64) % 4)
+			payload_b64 += pad
+
+			raw = base64.urlsafe_b64decode(payload_b64.encode("ascii"))
+			import json  # local import to keep module deps minimal
+			return json.loads(raw.decode("utf-8"))
+		except Exception:
+			return {}
+
+	def _extract_sender_from_claims(self, claims: dict):
+		"""
+		Best-effort extraction of an email/UPN from id_token claims.
+		Azure AD often uses 'preferred_username' or 'upn'.
+		"""
+		if not isinstance(claims, dict):
+			return None
+
+		for key in ("preferred_username", "email", "upn", "unique_name"):
+			val = claims.get(key)
+			if isinstance(val, str) and val.strip():
+				return val.strip()
+
+		return None
+
+	def _verify_id_token_sender_email(self, token_result: dict):
+		"""
+		Security check: make sure the user who authorized delegated tokens
+		matches the configured self.UserEmail.
+
+		Must be called after acquire_token_by_authorization_code (and optionally after refresh if id_token present).
+		"""
+		if not isinstance(token_result, dict):
+			raise ASABIrisError(
+				ErrorCode.INVALID_SERVICE_CONFIGURATION,
+				tech_message="MSAL token result is not a dict.",
+				error_i18n_key="ms365_delegated_auth_failed",
+				error_dict={},
+			)
+
+		id_token = token_result.get("id_token")
+		if not id_token:
+			raise ASABIrisError(
+				ErrorCode.INVALID_SERVICE_CONFIGURATION,
+				tech_message="Missing id_token in delegated token response.",
+				error_i18n_key="ms365_delegated_auth_failed",
+				error_dict={"missing": "id_token"},
+			)
+
+		claims = self._jwt_claims_unverified(id_token)
+		sender = self._extract_sender_from_claims(claims)
+
+		if not sender:
+			raise ASABIrisError(
+				ErrorCode.INVALID_SERVICE_CONFIGURATION,
+				tech_message="Could not extract sender identity from id_token claims.",
+				error_i18n_key="ms365_delegated_auth_failed",
+				error_dict={"claims_keys": list(claims.keys())[:20]},
+			)
+
+		expected = (self.UserEmail or "").strip().lower()
+		got = sender.strip().lower()
+
+		if expected and got != expected:
+			raise ASABIrisError(
+				ErrorCode.INVALID_SERVICE_CONFIGURATION,
+				tech_message="Delegated auth user '{}' does not match configured sender '{}'.".format(got, expected),
+				error_i18n_key="ms365_delegated_auth_wrong_user",
+				error_dict={
+					"configured_sender": self.UserEmail,
+					"authorized_user": sender,
+					"authorize_url": "/authorize_ms365",
+					"what_to_do": "Sign in as '{}' when opening /authorize_ms365.".format(self.UserEmail),
+				},
+			)
+
+		# Store who authorized, for debugging + reload checks
+		return sender
+
+
 
 	async def send_email(
 			self,
@@ -445,7 +667,11 @@ class M365EmailOutputService(asab.Service, OutputABC):
 				error_dict={"tenant": tenant or "global"},
 			)
 
-		actual_from = email_from or self.UserEmail
+		if self.Mode == "delegated":
+			actual_from = self.UserEmail
+		else:
+			actual_from = email_from or self.UserEmail
+
 		api_url = self.APIUrl.replace(self.UserEmail, actual_from)
 		subject = tenant_subject or subject or self.Subject
 		cc_list = tenant_cc or email_cc or []
@@ -475,18 +701,11 @@ class M365EmailOutputService(asab.Service, OutputABC):
 
 		payload = {"message": message}
 
-		def _post(token):
-			headers = {
-				"Authorization": "Bearer {}".format(token),
-				"Content-Type": "application/json",
-			}
-			return requests.post(api_url, headers=headers, json=payload, timeout=10)
-
 		# Get token (app or delegated depending on self.Mode)
-		token = self._get_access_token()
+		token = await self._get_access_token_async(force_refresh=False)
 
 		try:
-			resp = _post(token)
+			resp = await self._graph_post(api_url, payload, token)
 		except requests.exceptions.Timeout as e:
 			L.error("Timeout sending email: %s", e)
 			raise ASABIrisError(
@@ -508,11 +727,11 @@ class M365EmailOutputService(asab.Service, OutputABC):
 		if resp.status_code == 401:
 			L.info("Token expired or invalid—retrying with force_refresh.")
 			try:
-				token = self._get_access_token(force_refresh=True)
+				token = await self._get_access_token_async(force_refresh=True)
 			except ASABIrisError as e:
 				# Refresh failed → bubble up
 				raise e
-			resp = _post(token)
+			resp = await self._graph_post(api_url, payload, token)
 
 		# Success cases
 		if resp.status_code in (200, 202, 204):
