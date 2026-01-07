@@ -5,7 +5,6 @@ import base64
 import json
 import kazoo.exceptions
 
-
 import asab
 import requests
 import msal
@@ -145,7 +144,6 @@ class M365EmailOutputService(asab.Service, OutputABC):
 			data.get("expires_at"),
 		)
 
-
 	async def build_authorization_uri(self) -> str:
 		"""
 		Build authorization URI for obtaining delegated permissions.
@@ -250,7 +248,6 @@ class M365EmailOutputService(asab.Service, OutputABC):
 		L.info("MS365 delegated tokens stored+persistent (expires_in=%s)", result.get("expires_in"))
 		return True
 
-
 	async def _check_and_refresh_tokens(self, event_name):
 		"""
 		Hook for pubsub if you want proactive refresh.
@@ -349,7 +346,6 @@ class M365EmailOutputService(asab.Service, OutputABC):
 
 		return self._get_app_only_access_token(force_refresh=force_refresh)
 
-
 	def _get_app_only_access_token(self, force_refresh=False):
 		"""
 		Application permissions flow (client credentials).
@@ -408,7 +404,6 @@ class M365EmailOutputService(asab.Service, OutputABC):
 		if "id_token" in result:
 			self._verify_id_token_sender_email(result)
 
-
 		if "access_token" not in result:
 			raise self._delegated_auth_error(
 				"Failed to refresh token: {}".format(result)
@@ -417,7 +412,6 @@ class M365EmailOutputService(asab.Service, OutputABC):
 		self._store_tokens(result)
 		await self._persist_delegated_tokens()
 		return self._delegated_tokens["access_token"]
-
 
 	def _tokens_storage_zk_path(self):
 		safe_client = (self.ClientID or "unknown").replace("/", "_")
@@ -485,7 +479,6 @@ class M365EmailOutputService(asab.Service, OutputABC):
 
 		return await self._proactor_execute(do_post, None)
 
-
 	async def _refresh_delegated_tokens(self, refresh_token):
 		def do_refresh(_client):
 			return self.MsalApp.acquire_token_by_refresh_token(
@@ -494,7 +487,6 @@ class M365EmailOutputService(asab.Service, OutputABC):
 			)
 
 		return await self._proactor_execute(do_refresh, None)
-
 
 	async def _get_access_token_async(self, force_refresh=False):
 		if self.Mode == "delegated":
@@ -598,8 +590,6 @@ class M365EmailOutputService(asab.Service, OutputABC):
 
 		# Store who authorized, for debugging + reload checks
 		return sender
-
-
 
 	async def send_email(
 			self,
