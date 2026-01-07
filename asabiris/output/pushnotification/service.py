@@ -25,13 +25,66 @@ class PushOutputService(asab.Service):
 		# Optional: tenant config service if you later want per-tenant topics/servers
 		self.ConfigService = app.get_service("TenantConfigExtractionService")
 
+	def get_push_config(self, tenant):
+		"""
+		Return tenant-specific push config.
+
+		Must return:
+			(url, topic, timeout, params_defaults)
+
+		Raise KeyError if tenant has no push config.
+		"""
+		cfg = self.get_tenant_config(tenant)  # <-- use whatever you already use internally
+		push_cfg = cfg.get("push")
+		if push_cfg is None:
+			raise KeyError(tenant)
+
+		url = push_cfg.get("url")
+		topic = push_cfg.get("topic")
+		timeout = push_cfg.get("timeout")
+		params_defaults = push_cfg.get("params_defaults") or {}
+
+		return url, topic, timeout, params_defaults
+
+	def _resolve_push_config(self, push_data, tenant=None):
+		# Global defaults
+		url = (self.Url or "").strip()
+		timeout = self.Timeout
+		params_defaults = {}
+
+		tenant_topic = None
+
+		# Tenant overrides
+		if tenant and self.ConfigService is not None:
+			try:
+				t_url, t_topic, t_timeout, t_params_defaults = self.ConfigService.get_push_config(tenant)
+
+				if t_url:
+					url = str(t_url).strip()
+				if t_timeout is not None:
+					timeout = int(t_timeout)
+				if t_params_defaults:
+					params_defaults = dict(t_params_defaults)
+
+				tenant_topic = (str(t_topic).strip() if t_topic else None)
+
+			except KeyError:
+				L.warning("Tenant-specific push configuration not found for '%s'. Using global config.", tenant)
+
+		# Topic precedence (choose one policy)
+		# Policy A (Slack-like): tenant -> request -> global default
+		req_topic = (push_data.get("topic") or "").strip()
+		def_topic = (self.DefaultTopic or "").strip()
+		topic = tenant_topic or req_topic or def_topic
+
+		# Merge params defaults: tenant defaults overridden by request params
+		req_params = push_data.get("body", {}).get("params", {}) or {}
+		params = dict(params_defaults)
+		params.update(req_params)
+
+		return url, topic, timeout, params
+
 	async def send(self, push_data, tenant=None):
-		"""
-		push_data contains:
-			- topic (optional; fallback to default_topic)
-			- body.params may include title/priority/tags/click
-			- rendered_message (required; from orchestrator)
-		"""
 		message = push_data.get("rendered_message")
 		if not message:
 			raise ASABIrisError(
@@ -40,10 +93,16 @@ class PushOutputService(asab.Service):
 				error_i18n_key="Rendered message body is empty."
 			)
 
-		base = (self.Url or "").strip().rstrip("/")
-		topic = (push_data.get("topic") or self.DefaultTopic or "").strip()
+		url, topic, timeout, params = self._resolve_push_config(push_data, tenant=tenant)
 
-		topic = push_data.get("topic", self.DefaultTopic)
+		base = (url or "").strip().rstrip("/")
+		if not base:
+			raise ASABIrisError(
+				ErrorCode.INVALID_SERVICE_CONFIGURATION,
+				tech_message="Push URL is not configured (tenant/api/config).",
+				error_i18n_key="Missing push URL configuration."
+			)
+
 		if not topic:
 			raise ASABIrisError(
 				ErrorCode.INVALID_SERVICE_CONFIGURATION,
@@ -60,10 +119,8 @@ class PushOutputService(asab.Service):
 				error_dict={"topic": topic}
 			)
 
-		url = "{}/{}".format(base, topic)
-		L.warning("ntfy push URL = {}".format(url))
-
-		params = push_data.get("body", {}).get("params", {}) or {}
+		final_url = "{}/{}".format(base, topic)
+		L.warning("ntfy push URL = {}".format(final_url))
 
 		headers = {}
 		title = params.get("title")
@@ -82,11 +139,11 @@ class PushOutputService(asab.Service):
 		if click:
 			headers["Click"] = str(click)
 
-		timeout = aiohttp.ClientTimeout(total=self.Timeout)
+		timeout = aiohttp.ClientTimeout(total=int(timeout))
 
 		try:
 			async with aiohttp.ClientSession(timeout=timeout) as session:
-				async with session.post(url, headers=headers, data=message.encode("utf-8")) as resp:
+				async with session.post(final_url, headers=headers, data=message.encode("utf-8")) as resp:
 					text = await resp.text()
 					if resp.status != 200:
 						raise ASABIrisError(
