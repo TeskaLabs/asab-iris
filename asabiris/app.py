@@ -5,6 +5,7 @@ import asab
 import asab.web.rest
 import asab.zookeeper
 import asab.library
+import asab.proactor
 import asab.metrics
 
 # formatters
