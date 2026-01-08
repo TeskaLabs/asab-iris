@@ -478,7 +478,7 @@ class WebHandler(object):
 		Serves both as the initiator (no ?code) and the callback (with ?code).
 		"""
 		# Get the actual service instance from the app
-		m365_service = getattr(self.App, "M365EmailOutputService", None)
+		m365_service = self.App.get_service("M365EmailOutputService")
 		if m365_service is None:
 			# Service not configured
 			return aiohttp.web.json_response(
