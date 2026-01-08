@@ -6,83 +6,33 @@ from ...errors import ASABIrisError, ErrorCode
 
 L = logging.getLogger(__name__)
 
-asab.Config.add_defaults({
-	"push": {
-		"url": "https://ntfy.sh",
-		"default_topic": "",
-		"timeout": "10"
-	}
-})
-
 
 class PushOutputService(asab.Service):
 	def __init__(self, app, service_name="PushOutputService"):
 		super().__init__(app, service_name)
-		self.Url = asab.Config.get("push", "url", fallback="https://ntfy.sh").strip()
+		self.Url = (asab.Config.get("push", "url", fallback="") or "").strip()
 		self.DefaultTopic = asab.Config.get("push", "default_topic", fallback="").strip()
 		self.Timeout = int(asab.Config.get("push", "timeout", fallback="10"))
 
 		# Optional: tenant config service if you later want per-tenant topics/servers
 		self.ConfigService = app.get_service("TenantConfigExtractionService")
 
-	def get_push_config(self, tenant):
-		"""
-		Return tenant-specific push config.
-
-		Must return:
-			(url, topic, timeout, params_defaults)
-
-		Raise KeyError if tenant has no push config.
-		"""
-		cfg = self.get_tenant_config(tenant)  # <-- use whatever you already use internally
-		push_cfg = cfg.get("push")
-		if push_cfg is None:
-			raise KeyError(tenant)
-
-		url = push_cfg.get("url")
-		topic = push_cfg.get("topic")
-		timeout = push_cfg.get("timeout")
-		params_defaults = push_cfg.get("params_defaults") or {}
-
-		return url, topic, timeout, params_defaults
-
-	def _resolve_push_config(self, push_data, tenant=None):
-		# Global defaults
-		url = (self.Url or "").strip()
-		timeout = self.Timeout
-		params_defaults = {}
-
+	def _resolve_topic(self, push_data, tenant=None):
+		# Slack-like precedence: tenant -> request -> global default
 		tenant_topic = None
 
-		# Tenant overrides
 		if tenant and self.ConfigService is not None:
 			try:
-				t_url, t_topic, t_timeout, t_params_defaults = self.ConfigService.get_push_config(tenant)
-
-				if t_url:
-					url = str(t_url).strip()
-				if t_timeout is not None:
-					timeout = int(t_timeout)
-				if t_params_defaults:
-					params_defaults = dict(t_params_defaults)
-
-				tenant_topic = (str(t_topic).strip() if t_topic else None)
-
+				tenant_topic = self.ConfigService.get_push_topic(tenant)
+				if tenant_topic is not None:
+					tenant_topic = str(tenant_topic).strip()
 			except KeyError:
-				L.warning("Tenant-specific push configuration not found for '%s'. Using global config.", tenant)
+				L.warning("Tenant-specific push topic not found for '%s'. Using request/global topic.", tenant)
 
-		# Topic precedence (choose one policy)
-		# Policy A (Slack-like): tenant -> request -> global default
 		req_topic = (push_data.get("topic") or "").strip()
 		def_topic = (self.DefaultTopic or "").strip()
-		topic = tenant_topic or req_topic or def_topic
 
-		# Merge params defaults: tenant defaults overridden by request params
-		req_params = push_data.get("body", {}).get("params", {}) or {}
-		params = dict(params_defaults)
-		params.update(req_params)
-
-		return url, topic, timeout, params
+		return tenant_topic or req_topic or def_topic
 
 	async def send(self, push_data, tenant=None):
 		message = push_data.get("rendered_message")
@@ -93,9 +43,11 @@ class PushOutputService(asab.Service):
 				error_i18n_key="Rendered message body is empty."
 			)
 
-		url, topic, timeout, params = self._resolve_push_config(push_data, tenant=tenant)
+		topic = self._resolve_topic(push_data, tenant=tenant)
+		base = (self.Url or "").strip().rstrip("/")
+		timeout = self.Timeout
+		params = push_data.get("body", {}).get("params", {}) or {}
 
-		base = (url or "").strip().rstrip("/")
 		if not base:
 			raise ASABIrisError(
 				ErrorCode.INVALID_SERVICE_CONFIGURATION,
