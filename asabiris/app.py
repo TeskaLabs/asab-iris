@@ -147,7 +147,8 @@ class ASABIRISApplication(asab.Application):
 		else:
 			self.SendSMSOrchestrator = None
 
-		if 'push' in asab.Config.sections():
+		push_url = (asab.Config.get("push", "url", fallback="") or "").strip()
+		if push_url:
 			self.PushOutputService = PushOutputService(self)
 			self.SendPushOrchestrator = SendPushOrchestrator(self)
 		else:
@@ -184,3 +185,5 @@ class ASABIRISApplication(asab.Application):
 			yield "sms"
 		if self.RenderReportOrchestrator is not None:
 			yield "render-report"
+		if self.SendPushOrchestrator is not None:
+			yield "push"
