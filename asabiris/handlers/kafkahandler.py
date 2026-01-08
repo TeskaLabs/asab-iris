@@ -104,7 +104,8 @@ class KafkaHandler(asab.Service):
 				await self.Consumer.start()
 				break
 
-			except (aiokafka.errors.KafkaConnectionError, aiokafka.errors.NoBrokersAvailable) as e:
+
+			except (aiokafka.errors.KafkaConnectionError, aiokafka.errors.KafkaError) as e:
 				L.warning(
 					"No connection to Kafka established. Attempt {} of {}. Retrying in {} seconds... {}".format(
 						attempt + 1, max_retries, delay, e
