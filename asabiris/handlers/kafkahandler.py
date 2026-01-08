@@ -43,47 +43,73 @@ class KafkaHandler(asab.Service):
 		self.JinjaService = app.get_service("JinjaService")
 		self.Consumer = None  # Ensure Consumer is always initialized
 
+		# keep kafka config for retries
+		self.KafkaTopic = None
+		self.KafkaGroupId = None
+		self.KafkaBootstrapServers = []
+
 		try:
-			topic = check_config(asab.Config, "kafka", "topic")
-			group_id = check_config(asab.Config, "kafka", "group_id")
+			self.KafkaTopic = check_config(asab.Config, "kafka", "topic")
+			self.KafkaGroupId = check_config(asab.Config, "kafka", "group_id")
 			bootstrap_servers = check_config(asab.Config, "kafka", "bootstrap_servers")
 
-			if not topic or not group_id or not bootstrap_servers:
+			if not self.KafkaTopic or not self.KafkaGroupId or not bootstrap_servers:
 				L.warning("Kafka configuration is missing. Skipping Kafka initialization.")
 				return
 
-			bootstrap_servers = bootstrap_servers.split(",")
+			self.KafkaBootstrapServers = [x.strip() for x in bootstrap_servers.split(",") if x.strip()]
 
-			self.Consumer = AIOKafkaConsumer(
-				topic,
-				group_id=group_id,
-				bootstrap_servers=bootstrap_servers,
-				loop=self.App.Loop,
-				retry_backoff_ms=10000,
-				auto_offset_reset="earliest",
-			)
-
+			# keep initial consumer (optional; initialize will rebuild anyway)
+			self._build_consumer(self.KafkaBootstrapServers)
 		except Exception as e:
 			L.error("KafkaHandler initialization failed: {}".format(e), exc_info=True)
 			self.Consumer = None
 
+	def _build_consumer(self, bootstrap_servers):
+		self.Consumer = AIOKafkaConsumer(
+			self.KafkaTopic,
+			group_id=self.KafkaGroupId,
+			bootstrap_servers=bootstrap_servers,
+			loop=self.App.Loop,
+			retry_backoff_ms=10000,
+			auto_offset_reset="earliest",
+		)
+
 	async def initialize(self, app):
-		if self.Consumer is None:
+		if not self.KafkaBootstrapServers:
 			L.warning("Kafka consumer is not initialized. Skipping Kafka initialization.")
 			return
 
 		max_retries = 5
-		initial_delay = 5  # Initial delay in seconds
-		max_delay = 300  # Maximum delay in seconds (5 minutes)
-		delay = initial_delay
+		delay = 5
+		max_delay = 300
 
 		for attempt in range(max_retries):
+			# NEW: rotate bootstrap servers each attempt
+			servers = list(self.KafkaBootstrapServers)
+			shift = attempt % len(servers)
+			servers = servers[shift:] + servers[:shift]
+
 			try:
+				# NEW: rebuild consumer each attempt (fresh connections)
+				try:
+					if self.Consumer is not None:
+						await self.Consumer.stop()
+				except Exception:
+					pass
+
+				self._build_consumer(servers)
+
+				L.info("Starting Kafka consumer with bootstrap_servers={}".format(",".join(servers)))
 				await self.Consumer.start()
 				break
-			except aiokafka.errors.KafkaConnectionError as e:
-				L.warning("No connection to Kafka established. Attempt {} of {}. Retrying in {} seconds... {}".format(
-					attempt + 1, max_retries, delay, e))
+
+			except (aiokafka.errors.KafkaConnectionError, aiokafka.errors.NoBrokersAvailable) as e:
+				L.warning(
+					"No connection to Kafka established. Attempt {} of {}. Retrying in {} seconds... {}".format(
+						attempt + 1, max_retries, delay, e
+					)
+				)
 				await asyncio.sleep(delay)
 				delay = min(delay * 2, max_delay)
 		else:
