@@ -40,7 +40,6 @@ class KafkaHandler(asab.Service):
 	def __init__(self, app, service_name="KafkaHandler"):
 		super().__init__(app, service_name)
 		self.Task = None
-		self.JinjaService = app.get_service("JinjaService")
 		self.Consumer = None  # Ensure Consumer is always initialized
 
 		try:
