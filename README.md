@@ -414,6 +414,46 @@ Message: {{ message }}
 {{ now()|datetimeformat("%Y-%m-%d %H:%M:%S") }}
 ```
 
+## Push Notification Metadata
+
+Push notifications may include optional metadata under `body.params`.
+These parameters affect **how the notification is displayed**, not the message content.
+
+Supported parameters (backend-specific):
+
+* `title` — notification title
+* `priority` — urgency level
+* `tags` — labels or icons shown by the client
+* `click` — URL opened when the notification is clicked
+
+Example:
+
+```json
+{
+  "topic": "tenantA-alerts",
+  "rendered_message": "CPU usage above 90% on node ant-3",
+  "body": {
+    "params": {
+      "title": "High CPU",
+      "priority": "high",
+      "tags": "prod,alerts",
+      "click": "https://grafana.example.com/d/abc123"
+    }
+  }
+}
+```
+
+**Notes:**
+
+* Metadata is optional.
+* Metadata affects presentation only; message content remains unchanged.
+* Visual appearance may differ between tenants, requests, and clients.
+* Metadata support is push-backend specific (currently `ntfy`).
+* Identical visual rendering is not guaranteed.
+
+---
+
+
 ## 🛠 Supported Technologies
 
 - Inbound: HTTP REST API

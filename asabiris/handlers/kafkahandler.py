@@ -40,7 +40,6 @@ class KafkaHandler(asab.Service):
 	def __init__(self, app, service_name="KafkaHandler"):
 		super().__init__(app, service_name)
 		self.Task = None
-		self.JinjaService = app.get_service("JinjaService")
 		self.Consumer = None  # Ensure Consumer is always initialized
 
 		try:
@@ -144,7 +143,7 @@ class KafkaHandler(asab.Service):
 			await self.handle_push(msg)
 		else:
 			L.warning(
-				"Notification sending failed: Unsupported message type '{}'. Supported types are 'email', 'slack', 'msteams', and 'sms'.".format(msg_type)
+				"Notification sending failed: Unsupported message type '{}'. Supported types are 'email', 'slack', 'msteams', 'push' and 'sms'.".format(msg_type)
 			)
 
 	async def handle_email(self, msg):
