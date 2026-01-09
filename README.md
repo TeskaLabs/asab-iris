@@ -414,10 +414,6 @@ Message: {{ message }}
 {{ now()|datetimeformat("%Y-%m-%d %H:%M:%S") }}
 ```
 
-Here is **only the content that should be added to the README** — no extra explanation.
-
----
-
 ## Push Notification Metadata
 
 Push notifications may include optional metadata under `body.params`.
