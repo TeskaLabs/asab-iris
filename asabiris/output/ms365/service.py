@@ -416,7 +416,7 @@ class M365EmailOutputService(asab.Service, OutputABC):
 	def _tokens_storage_zk_path(self):
 		safe_client = (self.ClientID or "unknown").replace("/", "_")
 		safe_user = (self.UserEmail or "unknown").replace("/", "_")
-		return "/asab-iris/ms365/delegated_tokens/{}_{}.json".format(
+		return "/asab/iris/ms365/delegated_tokens/{}_{}.json".format(
 			safe_client,
 			safe_user,
 		)
