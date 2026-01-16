@@ -592,16 +592,16 @@ class M365EmailOutputService(asab.Service, OutputABC):
 		return sender
 
 	async def send_email(
-			self,
-			email_from,
-			email_to,
-			subject,
-			body,
-			content_type="HTML",
-			email_cc=None,
-			email_bcc=None,
-			attachments=None,
-			tenant=None,  # only "to" respects tenant override
+		self,
+		email_from,
+		email_to,
+		subject,
+		body,
+		content_type="HTML",
+		email_cc=None,
+		email_bcc=None,
+		attachments=None,
+		tenant=None,  # only "to" respects tenant override
 	):
 		if not self.is_configured:
 			raise ASABIrisError(
