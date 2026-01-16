@@ -123,7 +123,6 @@ class M365EmailOutputService(asab.Service, OutputABC):
 		if effective_tenant is not None and self.ConfigService is not None:
 			try:
 				tcfg = self.ConfigService.get_email_config(effective_tenant)
-				print(tcfg)
 				if isinstance(tcfg, dict):
 					tenant_to = tcfg.get("to", [])
 					tenant_cc = tcfg.get("cc", [])
