@@ -517,7 +517,6 @@ class M365EmailOutputService(asab.Service, OutputABC):
 			payload_b64 += pad
 
 			raw = base64.urlsafe_b64decode(payload_b64.encode("ascii"))
-			import json  # local import to keep module deps minimal
 			return json.loads(raw.decode("utf-8"))
 		except Exception:
 			return {}
@@ -733,7 +732,7 @@ class M365EmailOutputService(asab.Service, OutputABC):
 					tech_message="Timeout when calling Graph API (retry)",
 					error_i18n_key="Email service timeout",
 					error_dict={"error_message": str(e)},
-				)
+				) from e
 			except requests.exceptions.RequestException as e:
 				L.error("Network error sending email (retry): %s", e)
 				raise ASABIrisError(
@@ -741,7 +740,7 @@ class M365EmailOutputService(asab.Service, OutputABC):
 					tech_message="Network error during Graph API call (retry)",
 					error_i18n_key="Email service network error",
 					error_dict={"error_message": str(e)},
-				)
+				) from e
 		# Success cases
 		if resp.status_code in (200, 202, 204):
 			return True
