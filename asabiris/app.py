@@ -5,6 +5,7 @@ import asab
 import asab.web.rest
 import asab.zookeeper
 import asab.library
+import asab.proactor
 import asab.metrics
 
 # formatters
@@ -50,6 +51,7 @@ class ASABIRISApplication(asab.Application):
 
 	def __init__(self, args=None):
 		super().__init__(args=args)
+		self.add_module(asab.proactor.Module)
 		self.add_module(asab.web.Module)
 		self.add_module(asab.zookeeper.Module)
 		self.add_module(asab.metrics.Module)
@@ -61,6 +63,8 @@ class ASABIRISApplication(asab.Application):
 			asab.web.rest.JsonExceptionMiddleware
 
 		)
+
+		self.ProactorService = self.get_service("asab.ProactorService")
 
 		# Initialize Sentry.io
 		if asab.Config.has_section("sentry"):
