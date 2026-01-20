@@ -695,7 +695,7 @@ class M365EmailOutputService(asab.Service, OutputABC):
 
 		payload = {
 			"message": message,
-			"saveToSentItems": "true",
+			"saveToSentItems": True,
 		}
 
 		# Get token (app or delegated depending on self.Mode)
