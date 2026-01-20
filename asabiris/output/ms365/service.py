@@ -591,6 +591,14 @@ class M365EmailOutputService(asab.Service, OutputABC):
 		# Store who authorized, for debugging + reload checks
 		return sender
 
+	def _normalize_recipients(self, val):
+		if val is None:
+			return []
+		if isinstance(val, list):
+			return [str(x).strip() for x in val if str(x).strip()]
+		s = str(val).strip()
+		return [s] if s else []
+
 	async def send_email(
 		self,
 		email_from,
@@ -635,14 +643,9 @@ class M365EmailOutputService(asab.Service, OutputABC):
 					extra={"tenant": tenant},
 				)
 
-		# Body may be list or single string; do a light wrap (no comma splitting)
-		if email_to is None:
-			body_to = []
-		elif isinstance(email_to, list):
-			body_to = [str(x).strip() for x in email_to if str(x).strip()]
-		else:
-			s = str(email_to).strip()
-			body_to = [s] if s else []
+		# Normalize recipients
+		body_to = self._normalize_recipients(email_to)
+		tenant_to = self._normalize_recipients(tenant_to)
 
 		if len(tenant_to) > 0:
 			to_list = tenant_to
@@ -658,14 +661,15 @@ class M365EmailOutputService(asab.Service, OutputABC):
 			)
 
 		if self.Mode == "delegated":
-			actual_from = self.UserEmail
+			api_url = "https://graph.microsoft.com/v1.0/me/sendMail"
 		else:
-			actual_from = email_from or self.UserEmail
+			api_url = "https://graph.microsoft.com/v1.0/users/{}/sendMail".format(
+				email_from or self.UserEmail
+			)
 
-		api_url = self.APIUrl.replace(self.UserEmail, actual_from)
 		subject = tenant_subject or subject or self.Subject
-		cc_list = tenant_cc or email_cc or []
-		bcc_list = tenant_bcc or email_bcc or []
+		cc_list = self._normalize_recipients(tenant_cc or email_cc)
+		bcc_list = self._normalize_recipients(tenant_bcc or email_bcc)
 
 		message = {
 			"subject": subject,
@@ -689,7 +693,10 @@ class M365EmailOutputService(asab.Service, OutputABC):
 				})
 			message["attachments"] = file_atts
 
-		payload = {"message": message}
+		payload = {
+			"message": message,
+			"saveToSentItems": "true",
+		}
 
 		# Get token (app or delegated depending on self.Mode)
 		token = await self._get_access_token_async(force_refresh=False)
@@ -713,16 +720,28 @@ class M365EmailOutputService(asab.Service, OutputABC):
 				error_dict={"error_message": str(e)},
 			)
 
-		# Retry on 401 (token expired, consent revoked, etc.)
 		if resp.status_code == 401:
 			L.info("Token expired or invalid—retrying with force_refresh.")
-			try:
-				token = await self._get_access_token_async(force_refresh=True)
-			except ASABIrisError as e:
-				# Refresh failed → bubble up
-				raise e
-			resp = await self._graph_post(api_url, payload, token)
+			token = await self._get_access_token_async(force_refresh=True)
 
+			try:
+				resp = await self._graph_post(api_url, payload, token)
+			except requests.exceptions.Timeout as e:
+				L.error("Timeout sending email (retry): %s", e)
+				raise ASABIrisError(
+					ErrorCode.SERVER_ERROR,
+					tech_message="Timeout when calling Graph API (retry)",
+					error_i18n_key="Email service timeout",
+					error_dict={"error_message": str(e)},
+				)
+			except requests.exceptions.RequestException as e:
+				L.error("Network error sending email (retry): %s", e)
+				raise ASABIrisError(
+					ErrorCode.SERVER_ERROR,
+					tech_message="Network error during Graph API call (retry)",
+					error_i18n_key="Email service network error",
+					error_dict={"error_message": str(e)},
+				)
 		# Success cases
 		if resp.status_code in (200, 202, 204):
 			return True
