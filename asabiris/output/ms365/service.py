@@ -128,7 +128,6 @@ class M365EmailOutputService(asab.Service, OutputABC):
 					tenant_cc = tcfg.get("cc", [])
 					tenant_bcc = tcfg.get("bcc", [])
 					tenant_subject = tcfg.get("subject")
-				tenant_to = tcfg.get("to", []) if isinstance(tcfg, dict) else []
 			except Exception as e:
 				L.warning("Tenant email config fetch failed: {}".format(e), struct_data={"tenant": effective_tenant})
 
