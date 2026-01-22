@@ -120,16 +120,26 @@ class M365EmailOutputService(asab.Service, OutputABC):
 		tenant_cc = []
 		tenant_bcc = []
 		tenant_subject = None
-		if effective_tenant is not None and self.ConfigService is not None:
-			try:
-				tcfg = self.ConfigService.get_email_config(effective_tenant)
-				if isinstance(tcfg, dict):
-					tenant_to = tcfg.get("to", [])
-					tenant_cc = tcfg.get("cc", [])
-					tenant_bcc = tcfg.get("bcc", [])
-					tenant_subject = tcfg.get("subject")
-			except Exception as e:
-				L.warning("Tenant email config fetch failed: {}".format(e), struct_data={"tenant": effective_tenant})
+		if effective_tenant is not None:
+			if self.ConfigService is None:
+				L.info(
+					"Tenant context '%s' present but TenantConfigExtractionService is unavailable; "
+					"using caller/global email configuration.",
+					effective_tenant
+				)
+			else:
+				try:
+					tcfg = self.ConfigService.get_email_config(effective_tenant)
+					if isinstance(tcfg, dict):
+						tenant_to = tcfg.get("to", [])
+						tenant_cc = tcfg.get("cc", [])
+						tenant_bcc = tcfg.get("bcc", [])
+						tenant_subject = tcfg.get("subject")
+				except Exception as e:
+					L.warning(
+						"Tenant email config fetch failed: {}".format(e),
+						struct_data={"tenant": effective_tenant}
+					)
 
 		# Body may be list or single string; do a light wrap (no comma splitting)
 		if email_to is None:
