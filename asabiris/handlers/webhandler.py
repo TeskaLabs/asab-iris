@@ -36,8 +36,10 @@ class WebHandler(object):
 		web_app.router.add_post(r"/send_email_jsonata/{jsonata}", self.send_email_jsonata)  # PUT and POST are intetionally the same
 		web_app.router.add_put(r"/render", self.render)
 		web_app.router.add_put(r"/send_sms", self.send_sms)
+		web_app.router.add_put(r"/send_push", self.send_push)
 		web_app.router.add_put(r"/send_slack", self.send_slack)
 		web_app.router.add_put(r"/send_msteams", self.send_msteams)
+		web_app.router.add_get(r"/authorize_ms365", self.authorize_ms365)
 
 
 	async def get_features(self, request):
@@ -497,6 +499,62 @@ class WebHandler(object):
 
 		return asab.web.rest.json_response(request, {"result": "OK"})
 
+	@asab.web.rest.json_schema_handler({"type": "object"})
+	async def send_push(self, request, *, json_data):
+		"""
+		Send a push notification via ntfy.sh.
+		Example body:
+		```
+		{
+			"topic": "send_ph",
+			"body": {
+				"template": "/Templates/Push/alert.txt",
+				"params": {
+					"title": "IRIS Alert",
+					"message": "Library sync failed at {{time}}",
+					"time": "2025-10-23 10:40 UTC"
+				}
+			},
+			"tenant": "pharma-dev"
+		}
+		```
+		---
+		tags: ['Send Push']
+		"""
+		if self.App.SendPushOrchestrator is None:
+			L.info("Push orchestrator is not initialized.")
+			return aiohttp.web.json_response(
+				{
+					"result": "FAILED",
+					"error": "Push service is not configured."
+				},
+				status=400
+			)
+
+		try:
+			await self.App.SendPushOrchestrator.send_push(json_data)
+		except ASABIrisError as e:
+			status_code = self.map_error_code_to_status(e.ErrorCode)
+			response = {
+				"result": "ERROR",
+				"error": e.Errori18nKey,
+				"error_dict": e.ErrorDict,
+				"tech_err": e.TechMessage
+			}
+			return aiohttp.web.json_response(response, status=status_code)
+		except Exception as e:
+			L.exception(str(e))
+			response = {
+				"result": "FAILED",
+				"error": {
+					"message": str(e),
+					"error_code": "GENERAL_ERROR"
+				}
+			}
+			return aiohttp.web.json_response(response, status=400)
+
+		return asab.web.rest.json_response(request, {"result": "OK"})
+
 	def map_error_code_to_status(self, error_code):
 		"""
 		Maps error codes to HTTP status codes.
@@ -523,6 +581,77 @@ class WebHandler(object):
 		}
 
 		return error_code_mapping.get(error_code, 400)  # Default to 400 Bad Request
+
+
+	async def authorize_ms365(self, request):
+		"""
+		OAuth 2.0 Authorization Code Flow handler.
+		Serves both as the initiator (no ?code) and the callback (with ?code).
+		"""
+		# Get the actual service instance from the app
+		m365_service = self.App.get_service("M365EmailOutputService")
+		if m365_service is None:
+			# Service not configured
+			return aiohttp.web.json_response(
+				{
+					"result": "ERROR",
+					"message": "M365EmailOutputService is not configured.",
+				},
+				status=500,
+			)
+
+		# 1) First call: no ?code -> redirect user to Microsoft login
+		if "code" not in request.query:
+			try:
+				auth_url = await m365_service.build_authorization_uri()
+			except ASABIrisError as e:
+				# Nicely propagate Iris errors
+				return aiohttp.web.json_response(
+					{
+						"result": "ERROR",
+						"error": e.Errori18nKey,
+						"error_dict": e.ErrorDict,
+						"tech_err": e.TechMessage,
+					},
+					status=400,
+				)
+			# Redirect browser to Microsoft login page
+			return aiohttp.web.HTTPFound(auth_url)
+
+		# 2) Callback from Microsoft: we have ?code=...
+		code = request.query["code"]
+		state = request.query.get("state", None)
+
+		try:
+			await m365_service.exchange_code_for_tokens(code, state)
+		except ASABIrisError as e:
+			return aiohttp.web.json_response(
+				{
+					"result": "ERROR",
+					"error": e.Errori18nKey,
+					"error_dict": e.ErrorDict,
+					"tech_err": e.TechMessage,
+				},
+				status=400,
+			)
+		except Exception as e:
+			L.exception("Unexpected error during MS365 token exchange: %s", e)
+			return aiohttp.web.json_response(
+				{
+					"result": "ERROR",
+					"message": "Internal Server Error in authorize_ms365",
+				},
+				status=500,
+			)
+
+		# IMPORTANT: return something to the browser
+		return aiohttp.web.Response(
+			text=(
+				"MS365 delegated authorization successful. "
+				"You can close this window and retry sending the email from Iris."
+			)
+		)
+
 
 
 @aiohttp.payload_streamer.streamer

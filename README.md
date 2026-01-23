@@ -12,32 +12,101 @@ Welcome to ASAB Iris, your go-to multifunctional messenger microservice, designe
 - Trigger through the single `/send_email` endpoint (HTTP or Kafka).
 
 ---
+### MS365 Email (App & Delegated Mode)
 
-**Configuration**
+ASAB Iris supports sending email using Microsoft 365 Graph API in two modes:
 
-IRIS will automatically choose **MS365** if *all* of these settings are present in your `asab.Config`:
+- **`mode = app`** → Application Permissions (default)  
+- **`mode = delegated`** → User-delegated OAuth flow (requires one-time browser login)
+
+Iris automatically falls back to **SMTP** when `[m365_email]` is missing or incomplete.
+
+---
+
+## App Mode (Default)
+
+Use this mode when Iris sends email **as the application**, with no user interaction.
 
 ```ini
 [m365_email]
+mode          = app                  ; optional, "app" is default
 tenant_id     = YOUR_AZURE_TENANT_ID
 client_id     = YOUR_APP_CLIENT_ID
 client_secret = YOUR_APP_CLIENT_SECRET
 user_email    = sender@yourdomain.com
 subject       = Default MS365 Subject
+api_url       = https://graph.microsoft.com/v1.0/users/{}/sendMail
 ````
 
-Otherwise, if `[m365_email]` is missing or incomplete, IRIS falls back to **SMTP** when you set a non-empty `host`:
+**Characteristics**
+
+* No `/authorize_ms365` required
+* Suitable for backend automation
+* Requires **Application permission** `Mail.Send`
+* Runs fully headless
+
+---
+
+## Delegated Mode (User Login Required)
+
+Use this mode when Iris must send email **on behalf of a signed-in Microsoft 365 user**.
 
 ```ini
-[smtp]
-host      = smtp.example.com
-user      = admin
-password  = secret
-from      = info@example.com
-ssl       = no
-starttls  = yes
-subject   = Default SMTP Subject
+[m365_email]
+mode          = delegated
+tenant_id     = YOUR_AZURE_TENANT_ID
+client_id     = YOUR_APP_CLIENT_ID
+client_secret = YOUR_APP_CLIENT_SECRET
+user_email    = sender@yourdomain.com
+redirect_uri  = http://localhost:8082/authorize_ms365
+subject       = Default MS365 Subject
+api_url       = https://graph.microsoft.com/v1.0/users/{}/sendMail
 ```
+
+### How Delegated Mode Works
+
+1. Open this in a browser:
+
+   ```
+   http://localhost:8082/authorize_ms365
+   ```
+2. Iris redirects to Microsoft Login
+3. User signs in
+4. Microsoft calls back with `?code=...`
+5. Iris exchanges the code → saves:
+
+   * access_token
+   * refresh_token
+6. `/send_email` now works silently
+
+---
+
+### When `/authorize_ms365` Is Required
+
+If tokens are missing or expired, `/send_email` returns:
+
+```json
+{
+  "result": "ERROR",
+  "error": "IrisError|ms365_delegated_auth_required",
+  "error_dict": {
+    "authorize_url": "/authorize_ms365",
+    "reason": "Iris is configured for delegated MS365 email, but there is no valid delegated token.",
+    "what_to_do": "Open '/authorize_ms365' in a browser and sign in with the Microsoft 365 account that should send emails."
+  }
+}
+```
+
+---
+
+### Azure Requirements for Delegated Mode
+
+* The App Registration must have **Delegated** permission: `Mail.Send`
+* Redirect URI must **exactly match** your `redirect_uri`
+* The signed-in user must be allowed to send mail from `user_email`
+
+---
+
 
 > **Note**
 >
@@ -300,6 +369,158 @@ To send an SMS, you can configure the SMS service in your application and trigge
 - **Invalid Phone Number**: If the phone number is missing or invalid, an `ASABIrisError` is raised.
 - **Non-ASCII Characters**: If the message contains non-ASCII characters, an `ASABIrisError` is raised.
 - **Service Errors**: Errors returned by the SMSBrana.cz API are mapped to custom error messages and logged for troubleshooting.
+---
+
+# 📱 5. Sending Push Notifications (ntfy.sh)
+
+**Overview**
+
+ASAB Iris supports **real-time push notifications** using the **ntfy.sh** protocol (or a self-hosted ntfy server).
+This lets you send instant alerts to mobile devices, desktops, or browsers — perfect for ticketing, monitoring, or system events.
+
+* Trigger via HTTP REST API or Kafka.
+* Uses Jinja2 templates just like email/Slack/Teams/SMS.
+* Allows a fallback/default topic.
+* Supports configurable request timeout.
+
+---
+
+## Configuration
+
+```ini
+[push]
+url            = https://ntfy.sh       ; Base URL of the ntfy server
+default_topic  = send_ph               ; Default topic when request doesn't specify one
+timeout        = 10                    ; HTTP request timeout (seconds)
+```
+
+**Explanation**
+
+* `url`: Base ntfy endpoint (cloud or self-hosted).
+* `default_topic`: IRIS uses this topic if the message doesn’t specify one.
+* `timeout`: Max seconds to wait for ntfy response before aborting the request.
+
+---
+
+## How Push Notifications Work
+
+1. A **topic** (e.g., `alerts`, `tickets`, `errors`) is created simply by naming it — ntfy topics are auto-created.
+2. Users subscribe through:
+
+   * ntfy mobile app (Android/iOS)
+   * ntfy desktop app
+   * Browser subscription
+   * CLI
+3. IRIS posts the rendered message to that topic.
+4. All subscribers receive the notification instantly.
+
+---
+
+## Example Web Request
+
+```http
+PUT /send_push
+Content-Type: application/json
+
+{
+  "topic": "alerts",
+  "body": {
+    "template": "/Templates/Push/alert.md",
+    "params": {
+      "severity": "High",
+      "service": "Billing",
+      "message": "Payment processor timeout"
+    }
+  }
+}
+```
+
+* If `topic` is missing, IRIS falls back to `[push] default_topic`.
+
+---
+
+## Example Kafka Message
+
+```json
+{
+  "type": "push",
+  "topic": "tickets",
+  "body": {
+    "template": "/Templates/Push/ticket_update.md",
+    "params": {
+      "ticket_id": "INC-3021",
+      "status": "Resolved"
+    }
+  }
+}
+```
+
+**Explanation**
+
+* `type`: Must be `"push"`.
+* `topic`: Optional; overrides `[push] default_topic`.
+* `body.template`: Path to your template.
+* `params`: Values passed into the template.
+
+---
+
+## Templates
+
+Place all templates under:
+
+```
+/Templates/Push/
+```
+
+Example template (`alert.md`):
+
+```md
+🚨 *{{ severity }} Alert*
+
+Service: **{{ service }}**
+Message: {{ message }}
+
+{{ now()|datetimeformat("%Y-%m-%d %H:%M:%S") }}
+```
+
+## Push Notification Metadata
+
+Push notifications may include optional metadata under `body.params`.
+These parameters affect **how the notification is displayed**, not the message content.
+
+Supported parameters (backend-specific):
+
+* `title` — notification title
+* `priority` — urgency level
+* `tags` — labels or icons shown by the client
+* `click` — URL opened when the notification is clicked
+
+Example:
+
+```json
+{
+  "topic": "tenantA-alerts",
+  "rendered_message": "CPU usage above 90% on node ant-3",
+  "body": {
+    "params": {
+      "title": "High CPU",
+      "priority": "high",
+      "tags": "prod,alerts",
+      "click": "https://grafana.example.com/d/abc123"
+    }
+  }
+}
+```
+
+**Notes:**
+
+* Metadata is optional.
+* Metadata affects presentation only; message content remains unchanged.
+* Visual appearance may differ between tenants, requests, and clients.
+* Metadata support is push-backend specific (currently `ntfy`).
+* Identical visual rendering is not guaranteed.
+
+---
 
 
 ## 🛠 Supported Technologies

@@ -15,6 +15,7 @@ from asabiris.schemas.emailschema import email_schema
 from asabiris.schemas.slackschema import slack_schema
 from asabiris.schemas.teamsschema import teams_schema
 from asabiris.schemas.smsschema import sms_schema
+from asabiris.schemas.pushschema import push_schema
 
 from ..errors import ASABIrisError, ErrorCode
 
@@ -35,11 +36,11 @@ class KafkaHandler(asab.Service):
 	ValidationSchemaSlack = fastjsonschema.compile(slack_schema)
 	ValidationSchemaMSTeams = fastjsonschema.compile(teams_schema)
 	ValidationSchemaSMS = fastjsonschema.compile(sms_schema)
+	ValidationSchemaPush = fastjsonschema.compile(push_schema)
 
 	def __init__(self, app, service_name="KafkaHandler"):
 		super().__init__(app, service_name)
 		self.Task = None
-		self.JinjaService = app.get_service("JinjaService")
 		self.Consumer = None  # Ensure Consumer is always initialized
 
 		try:
@@ -260,12 +261,32 @@ class KafkaHandler(asab.Service):
 		)
 		L.info("Email sent successfully")
 
+	async def handle_push(self, msg):
+		try:
+			KafkaHandler.ValidationSchemaPush(msg)
+		except fastjsonschema.exceptions.JsonSchemaException as e:
+			L.warning("Invalid Push notification format: {}".format(e))
+			return
+
+		try:
+			# Orchestrator is responsible for rendering the template & calling PushOutputService
+			await self.App.SendPushOrchestrator.send_push(msg)
+		except ASABIrisError as e:
+			# Network/remote errors are SERVER_ERROR; others bubble to error handler
+			if e.ErrorCode == ErrorCode.SERVER_ERROR:
+				L.warning("Push notification failed: {}".format(e.TechMessage))
+			else:
+				await self.handle_exception(e.TechMessage, 'push', msg)
+		except Exception as e:
+			await self.handle_exception(e, 'push', msg)
+
 	async def handle_exception(self, exception, service_type, msg=None):
 		"""
 		No hardcoded bodies. Use orchestrators + Jinja templates from [error_templates].
-		- service_type: 'email' | 'slack' | 'msteams' | 'sms'
-		- msg: optional dict carrying routing (to/cc/bcc/from/tenant/attachments)
+		- service_type: 'email' | 'slack' | 'msteams' | 'sms' | 'push'
+		- msg: optional dict carrying routing (to/cc/bcc/from/tenant/attachments/topic)
 		"""
+
 		try:
 			L.warning("Encountered an issue while sending '{}'. Details: {}.".format(service_type, exception))
 
@@ -388,6 +409,35 @@ class KafkaHandler(asab.Service):
 					L.exception("Error notification to SMS unsuccessful.")
 				return
 
+			elif service_type == "push":
+				if not hasattr(self.App, "SendPushOrchestrator") or self.App.SendPushOrchestrator is None:
+					L.info("Push orchestrator not available. Skipping push error notification.")
+					return
+
+				tpl_push = self._ErrorTemplates.get("push")
+				if tpl_push is None:
+					L.info("No Push template configured in [error_templates]. Skipping push error notification.")
+					return
+				if not tpl_push.startswith("/Templates/Push/"):
+					L.warning("Push template must start with /Templates/Push/: {}".format(tpl_push))
+					return
+
+				try:
+					L.log(asab.LOG_NOTICE, "Sending error notification via Push Orchestrator.")
+					await self.App.SendPushOrchestrator.send_push({
+						"topic": msg.get("topic"),  # or use default_topic from config
+						"body": {
+							"template": tpl_push,
+							"params": params
+						},
+						"tenant": msg.get("tenant")
+					})
+				except ASABIrisError as e:
+					L.info("Error notification to Push unsuccessful: Explanation: {}".format(e.TechMessage))
+				except Exception:
+					L.exception("Error notification to Push unsuccessful.")
+				return
+
 			else:
 				L.warning("Unknown service_type '{}'; no error notification sent.".format(service_type))
 
@@ -425,7 +475,7 @@ def _build_exception_params(exception, service_type):
 def _load_error_templates_from_config():
 	"""
 	Read [error_templates] once. Returns dict or {} if missing.
-	Expected keys (any subset is fine): email, slack, msteams, sms
+	Expected keys (any subset is fine): email, slack, msteams, sms, push
 	"""
 	cfg = asab.Config
 	sec = "error_templates"
@@ -433,7 +483,6 @@ def _load_error_templates_from_config():
 		L.warning("Missing [{}] section.".format(sec))
 		return {}
 	tpls = {}
-	for key in ("email", "slack", "msteams", "sms"):
+	for key in ("email", "slack", "msteams", "sms", "push"):
 		if cfg.has_option(sec, key):
 			tpls[key] = cfg.get(sec, key).strip()
-	return tpls

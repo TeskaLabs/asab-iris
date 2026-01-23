@@ -5,6 +5,7 @@ import asab
 import asab.web.rest
 import asab.zookeeper
 import asab.library
+import asab.proactor
 import asab.metrics
 
 # formatters
@@ -19,12 +20,13 @@ from .output.slack import SlackOutputService
 from .output.sms import SMSOutputService
 from .output.msteams import MSTeamsOutputService
 from .output.ms365 import M365EmailOutputService
-
+from .output.pushnotification import PushOutputService
 # orchestrators.
 from .orchestration.sendemail import SendEmailOrchestrator
 from .orchestration.render import RenderReportOrchestrator
 from .orchestration.sendsms import SendSMSOrchestrator
 from .orchestration.sendmsteams import SendMSTeamsOrchestrator
+from .orchestration.sendpushnotification import SendPushOrchestrator
 
 from .handlers.kafkahandler import KafkaHandler
 from .handlers.webhandler import WebHandler
@@ -49,6 +51,7 @@ class ASABIRISApplication(asab.Application):
 
 	def __init__(self, args=None):
 		super().__init__(args=args)
+		self.add_module(asab.proactor.Module)
 		self.add_module(asab.web.Module)
 		self.add_module(asab.zookeeper.Module)
 		self.add_module(asab.metrics.Module)
@@ -60,6 +63,8 @@ class ASABIRISApplication(asab.Application):
 			asab.web.rest.JsonExceptionMiddleware
 
 		)
+
+		self.ProactorService = self.get_service("asab.ProactorService")
 
 		# Initialize Sentry.io
 		if asab.Config.has_section("sentry"):
@@ -146,6 +151,14 @@ class ASABIRISApplication(asab.Application):
 		else:
 			self.SendSMSOrchestrator = None
 
+		push_url = (asab.Config.get("push", "url", fallback="") or "").strip()
+		if push_url:
+			self.PushOutputService = PushOutputService(self)
+			self.SendPushOrchestrator = SendPushOrchestrator(self)
+		else:
+			self.PushOutputService = None
+			self.SendPushOrchestrator = None
+
 		# MS 365 output service
 		m365 = M365EmailOutputService(self)
 		self.M365EmailOutputService = m365 if getattr(m365, "is_configured", False) else None
@@ -178,3 +191,5 @@ class ASABIRISApplication(asab.Application):
 			yield "sms"
 		if self.RenderReportOrchestrator is not None:
 			yield "render-report"
+		if self.SendPushOrchestrator is not None:
+			yield "push"

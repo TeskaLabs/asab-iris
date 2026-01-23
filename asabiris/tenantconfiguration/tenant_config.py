@@ -159,3 +159,15 @@ class TenantConfigExtractionService(asab.Service):
 		except Exception as e:
 			L.warning("Failed to load tenant email config for '{}': {}".format(tenant, e))
 			return {"to": [], "cc": [], "bcc": [], "from": None, "subject": None}
+
+	def get_push_topic(self, tenant):
+		cfg = self.load_tenant_config(tenant)
+		push_cfg = cfg.get("push") if isinstance(cfg, dict) else None
+		if not isinstance(push_cfg, dict):
+			raise KeyError("Push configuration missing for tenant '{}'.".format(tenant))
+
+		topic = push_cfg.get("topic")
+		if topic is None or len(str(topic).strip()) == 0:
+			raise KeyError("Push topic missing for tenant '{}'.".format(tenant))
+
+		return str(topic).strip()
