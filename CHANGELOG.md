@@ -8,6 +8,7 @@
 - New output push notifications. (#117 v25.50-alpha)
 - Push notification supports tenant configuration. (#121 v26.02-alpha)
 - Delegated Email MS365 support. (#119 v26.04-alpha)
+- Introduce tenant service. (#120 v26.04-alpha2)
 
 ## v25.47
 
