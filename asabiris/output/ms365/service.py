@@ -608,8 +608,12 @@ class M365EmailOutputService(asab.Service, OutputABC):
 		email_cc=None,
 		email_bcc=None,
 		attachments=None,
-		tenant=None,  # only "to" respects tenant override
 	):
+		try:
+			effective_tenant = asab.contextvars.Tenant.get()
+		except LookupError:
+			effective_tenant = None
+
 		if not self.is_configured:
 			raise ASABIrisError(
 				ErrorCode.INVALID_SERVICE_CONFIGURATION,
@@ -628,19 +632,26 @@ class M365EmailOutputService(asab.Service, OutputABC):
 		tenant_cc = []
 		tenant_bcc = []
 		tenant_subject = None
-		if tenant is not None and self.ConfigService is not None:
-			try:
-				tcfg = self.ConfigService.get_email_config(tenant)
-				if isinstance(tcfg, dict):
-					tenant_to = tcfg.get("to", [])
-					tenant_cc = tcfg.get("cc", [])
-					tenant_bcc = tcfg.get("bcc", [])
-					tenant_subject = tcfg.get("subject")
-			except Exception as e:
-				L.warning(
-					"Tenant email config fetch failed: {}".format(e),
-					extra={"tenant": tenant},
+		if effective_tenant is not None:
+			if self.ConfigService is None:
+				L.info(
+					"Tenant context '%s' present but TenantConfigExtractionService is unavailable; "
+					"using caller/global email configuration.",
+					effective_tenant
 				)
+			else:
+				try:
+					tcfg = self.ConfigService.get_email_config(effective_tenant)
+					if isinstance(tcfg, dict):
+						tenant_to = tcfg.get("to", [])
+						tenant_cc = tcfg.get("cc", [])
+						tenant_bcc = tcfg.get("bcc", [])
+						tenant_subject = tcfg.get("subject")
+				except Exception as e:
+					L.warning(
+						"Tenant email config fetch failed: {}".format(e),
+						struct_data={"tenant": effective_tenant}
+					)
 
 		# Normalize recipients
 		body_to = self._normalize_recipients(email_to)
@@ -656,7 +667,7 @@ class M365EmailOutputService(asab.Service, OutputABC):
 				ErrorCode.INVALID_SERVICE_CONFIGURATION,
 				tech_message="No recipient emails available (tenant/body/global).",
 				error_i18n_key="No recipients configured for '{{tenant}}'.",
-				error_dict={"tenant": tenant or "global"},
+				error_dict={"tenant": effective_tenant or "global"}
 			)
 
 		if self.Mode == "delegated":

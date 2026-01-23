@@ -4,6 +4,7 @@ import logging
 import re
 
 import asab
+import asab.contextvars
 import asyncio
 import aiosmtplib
 
@@ -73,7 +74,6 @@ class EmailOutputService(asab.Service, OutputABC):
 		email_subject=None,
 		email_from=None,
 		attachments=None,
-		tenant=None,  # make sure this arg exists
 	):
 		"""
 		Send an outgoing email with the given parameters.
@@ -89,6 +89,11 @@ class EmailOutputService(asab.Service, OutputABC):
 		:param cc: A list of Cc email addresses.
 		:param bcc: A list of Bcc email addresses.
 		"""
+		try:
+			effective_tenant = asab.contextvars.Tenant.get()
+		except LookupError:
+			effective_tenant = None
+
 		if email_cc is None:
 			email_cc = []
 		if email_bcc is None:
@@ -105,8 +110,8 @@ class EmailOutputService(asab.Service, OutputABC):
 
 		# Resolve tenant recipients (no global/default fallback)
 		to_list = []
-		if tenant:
-			tenant_email_cfg = self.TenantConfigService.get_email_config(tenant)
+		if effective_tenant:
+			tenant_email_cfg = self.TenantConfigService.get_email_config(effective_tenant)
 			if isinstance(tenant_email_cfg, dict):
 				tenant_to = tenant_email_cfg.get("to") or []
 				if isinstance(tenant_to, list):
@@ -122,7 +127,7 @@ class EmailOutputService(asab.Service, OutputABC):
 				ErrorCode.INVALID_SERVICE_CONFIGURATION,
 				tech_message="No recipient emails available (tenant/body).",
 				error_i18n_key="No recipients configured for '{{tenant}}'.",
-				error_dict={"tenant": tenant or "unspecified"}
+				error_dict={"tenant": effective_tenant or "unspecified"}
 			)
 
 		# Prepare Message

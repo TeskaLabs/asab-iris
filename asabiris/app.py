@@ -174,6 +174,8 @@ class ASABIRISApplication(asab.Application):
 
 		self.WebHandler = WebHandler(self)
 
+		self.TenantService = asab.web.tenant.TenantService(self, strict=False)
+
 		# Apache Kafka API is conditional
 		if "kafka" in asab.Config.sections():
 			self.KafkaHandler = KafkaHandler(self)

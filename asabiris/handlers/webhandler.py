@@ -3,6 +3,7 @@ import logging
 import jsonata
 
 import asab.web.rest
+import asab.contextvars
 
 import aiohttp.web
 import aiohttp.payload_streamer
@@ -50,7 +51,7 @@ class WebHandler(object):
 		}
 		return asab.web.rest.json_response(request, response)
 
-
+	@asab.web.tenant.allow_no_tenant
 	@asab.web.rest.json_schema_handler(email_schema)
 	async def send_email(self, request, *, json_data):
 		"""
@@ -113,7 +114,7 @@ class WebHandler(object):
 		"""
 		return await self._send_email(request, json_data)
 
-
+	@asab.web.tenant.allow_no_tenant
 	async def send_email_jsonata(self, request):
 		"""
 		This endpoint is for sending emails - JSONata template is applied first to the request body.
@@ -134,7 +135,6 @@ class WebHandler(object):
 		# TODO: Apply email_schema to the result
 		return await self._send_email(request, json_data=result)
 
-
 	async def _send_email(self, request, json_data):
 		# If neither SMTP nor MS365 was set up, fail early
 		if self.App.SendEmailOrchestrator is None:
@@ -147,6 +147,14 @@ class WebHandler(object):
 				status=400
 			)
 
+		tenant = json_data.get("tenant", None)
+		current_tenant = asab.contextvars.Tenant.get(None)
+		token = None
+
+		# Only set tenant from body if there is no tenant already set from the request context
+		if tenant is not None and current_tenant is None:
+			token = asab.contextvars.Tenant.set(tenant)
+
 		try:
 			await self.App.SendEmailOrchestrator.send_email(
 				email_to=json_data.get("to", None),
@@ -158,7 +166,6 @@ class WebHandler(object):
 				email_from=json_data.get("from"),
 				body_params=json_data["body"].get("params", {}),  # Optional
 				attachments=json_data.get("attachments", []),
-				tenant=json_data.get("tenant", None)  # Optional
 			)
 		except ASABIrisError as e:
 			# Map ErrorCode to HTTP status codes
@@ -182,10 +189,13 @@ class WebHandler(object):
 				}
 			}
 			return asab.web.rest.json_response(request, bad_response, status=400)
+		finally:
+			if token is not None:
+				asab.contextvars.Tenant.reset(token)
 
 		return asab.web.rest.json_response(request, {"result": "OK"})
 
-
+	@asab.web.tenant.allow_no_tenant
 	@asab.web.rest.json_schema_handler(slack_schema)
 	async def send_slack(self, request, *, json_data):
 		"""
@@ -216,6 +226,13 @@ class WebHandler(object):
 				status=400
 			)
 
+		tenant = json_data.get("tenant", None)
+		current_tenant = asab.contextvars.Tenant.get(None)
+		token = None
+
+		if tenant is not None and current_tenant is None:
+			token = asab.contextvars.Tenant.set(tenant)
+
 		try:
 			await self.App.SendSlackOrchestrator.send_to_slack(json_data)
 		except ASABIrisError as e:
@@ -243,10 +260,13 @@ class WebHandler(object):
 				}
 			}
 			return aiohttp.web.json_response(response, status=400)
+		finally:
+			if token is not None:
+				asab.contextvars.Tenant.reset(token)
 
 		return asab.web.rest.json_response(request, {"result": "OK"})
 
-
+	@asab.web.tenant.allow_no_tenant
 	@asab.web.rest.json_schema_handler(teams_schema)
 	async def send_msteams(self, request, *, json_data):
 		"""
@@ -280,6 +300,12 @@ class WebHandler(object):
 				status=400
 			)
 
+		tenant = json_data.get("tenant", None)
+		current_tenant = asab.contextvars.Tenant.get(None)
+		token = None
+		if tenant is not None and current_tenant is None:
+			token = asab.contextvars.Tenant.set(tenant)
+
 		try:
 			await self.App.SendMSTeamsOrchestrator.send_to_msteams(json_data)
 		except ASABIrisError as e:
@@ -304,12 +330,15 @@ class WebHandler(object):
 				}
 			}
 			return aiohttp.web.json_response(response, status=400)
+		finally:
+			if token is not None:
+				asab.contextvars.Tenant.reset(token)
 
 		return asab.web.rest.json_response(request, {"result": "OK"})
 
 	L = logging.getLogger(__name__)
 
-
+	@asab.web.tenant.allow_no_tenant
 	@asab.web.rest.json_schema_handler({"type": "object"})
 	async def render(self, request, *, json_data):
 		"""
@@ -339,6 +368,14 @@ class WebHandler(object):
 		template = request.query.get("template", None)
 		template_data = await request.json()
 
+		tenant = json_data.get("tenant", None)
+		current_tenant = asab.contextvars.Tenant.get(None)
+		token = None
+
+		if tenant is not None and current_tenant is None:
+			token = asab.contextvars.Tenant.set(tenant)
+
+
 		# Render a body
 		try:
 			html = await self.App.RenderReportOrchestrator.render(template, template_data)
@@ -363,6 +400,9 @@ class WebHandler(object):
 				}
 			}
 			return aiohttp.web.json_response(response, status=400)
+		finally:
+			if token is not None:
+				asab.contextvars.Tenant.reset(token)
 
 		# get pdf from html if present.
 		if fmt == 'pdf':
@@ -378,6 +418,7 @@ class WebHandler(object):
 			body=html if content_type == "text/html" else file_sender(pdf)
 		)
 
+	@asab.web.tenant.allow_no_tenant
 	@asab.web.rest.json_schema_handler(sms_schema)
 	async def send_sms(self, request, *, json_data):
 		"""Send an SMS message to the phone number specified in the request body.
@@ -419,6 +460,14 @@ class WebHandler(object):
 				},
 				status=400
 			)
+
+		tenant = json_data.get("tenant", None)
+		current_tenant = asab.contextvars.Tenant.get(None)
+		token = None
+
+		if tenant is not None and current_tenant is None:
+			token = asab.contextvars.Tenant.set(tenant)
+
 		# Render a body
 		try:
 			await self.App.SendSMSOrchestrator.send_sms(json_data)
@@ -444,6 +493,9 @@ class WebHandler(object):
 				}
 			}
 			return aiohttp.web.json_response(response, status=400)
+		finally:
+			if token is not None:
+				asab.contextvars.Tenant.reset(token)
 
 		return asab.web.rest.json_response(request, {"result": "OK"})
 
@@ -524,12 +576,13 @@ class WebHandler(object):
 			ErrorCode.INVALID_SERVICE_CONFIGURATION: 400,
 			ErrorCode.LIBRARY_NOT_READY: 503,
 			ErrorCode.SLACK_CHANNEL_NOT_FOUND: 404,
-			ErrorCode.INVALID_REQUEST: 400
+			ErrorCode.INVALID_REQUEST: 400,
+			ErrorCode.AUTHENTICATION_FAILED: 401,
 		}
 
 		return error_code_mapping.get(error_code, 400)  # Default to 400 Bad Request
 
-
+	@asab.web.tenant.allow_no_tenant
 	async def authorize_ms365(self, request):
 		"""
 		OAuth 2.0 Authorization Code Flow handler.
