@@ -121,7 +121,7 @@ class KafkaHandler(asab.Service):
 		try:
 			if isinstance(msg, dict):
 				tenant = msg.get("tenant", None)
-			current_tenant = asab.contextvars.Tenant.get()
+			current_tenant = asab.contextvars.Tenant.get(None)
 			if tenant is not None and current_tenant is None:
 				token = asab.contextvars.Tenant.set(tenant)
 		except Exception as e:
