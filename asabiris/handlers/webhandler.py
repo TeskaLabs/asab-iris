@@ -582,7 +582,7 @@ class WebHandler(object):
 
 		return error_code_mapping.get(error_code, 400)  # Default to 400 Bad Request
 
-
+	@asab.web.tenant.allow_no_tenant
 	async def authorize_ms365(self, request):
 		"""
 		OAuth 2.0 Authorization Code Flow handler.
