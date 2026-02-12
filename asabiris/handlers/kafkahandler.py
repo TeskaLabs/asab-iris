@@ -131,7 +131,7 @@ class KafkaHandler(asab.Service):
 		try:
 			try:
 				msg_type = msg.pop("type", "<missing>")
-			except (AttributeError, Exception) as e:
+			except AttributeError as e:
 				L.warning("Error extracting message type: {}".format(str(e)))
 				return
 
