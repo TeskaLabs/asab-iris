@@ -1,7 +1,10 @@
 from .smtp.service import EmailOutputService
 from .sms.service import SMSOutputService
 from .msteams.service import MSTeamsOutputService
-from .ms365.service import M365EmailOutputService
+try:
+	from .ms365.service import M365EmailOutputService
+except ModuleNotFoundError:
+	M365EmailOutputService = None
 
 try:
 	from .slack.service import SlackOutputService
@@ -11,9 +14,10 @@ except ModuleNotFoundError:
 __all__ = [
 	"EmailOutputService",
 	"MSTeamsOutputService",
-	"SMSOutputService",
-	"M365EmailOutputService"
+	"SMSOutputService"
 ]
 
 if SlackOutputService is not None:
 	__all__.append("SlackOutputService")
+if M365EmailOutputService is not None:
+	__all__.append("M365EmailOutputService")

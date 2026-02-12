@@ -18,7 +18,6 @@ from .formatter.attachments import AttachmentRenderingService
 from .output.smtp import EmailOutputService
 from .output.sms import SMSOutputService
 from .output.msteams import MSTeamsOutputService
-from .output.ms365 import M365EmailOutputService
 from .output.pushnotification import PushOutputService
 # orchestrators.
 from .orchestration.sendemail import SendEmailOrchestrator
@@ -166,8 +165,17 @@ class ASABIRISApplication(asab.Application):
 			self.SendPushOrchestrator = None
 
 		# MS 365 output service
-		m365 = M365EmailOutputService(self)
-		self.M365EmailOutputService = m365 if getattr(m365, "is_configured", False) else None
+		if "m365_email" in asab.Config.sections():
+			try:
+				from .output.ms365 import M365EmailOutputService
+			except ModuleNotFoundError as e:
+				L.warning("MS365 section present but MS365 dependencies are missing: %s", e)
+				self.M365EmailOutputService = None
+			else:
+				m365 = M365EmailOutputService(self)
+				self.M365EmailOutputService = m365 if getattr(m365, "is_configured", False) else None
+		else:
+			self.M365EmailOutputService = None
 
 		# Single email orchestrator (SMTP or MS 365)
 		if self.M365EmailOutputService or self.EmailOutputService:
