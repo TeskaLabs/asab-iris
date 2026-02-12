@@ -16,7 +16,6 @@ from .formatter.attachments import AttachmentRenderingService
 
 # output
 from .output.smtp import EmailOutputService
-from .output.slack import SlackOutputService
 from .output.sms import SMSOutputService
 from .output.msteams import MSTeamsOutputService
 from .output.ms365 import M365EmailOutputService
@@ -116,16 +115,23 @@ class ASABIRISApplication(asab.Application):
 			self.EmailOutputService = None
 
 		if 'slack' in asab.Config.sections():
-			# Initialize the SlackOutputService
-			self.SlackOutputService = SlackOutputService(self)
-
-			# Only initialize SendSlackOrchestrator if the SlackOutputService client is valid
-			if self.SlackOutputService.Client is None:
-				# If client is None, disable Slack orchestrator as well
+			try:
+				from .output.slack import SlackOutputService
+			except ModuleNotFoundError as e:
+				L.warning("Slack section present but Slack dependencies are missing: %s", e)
+				self.SlackOutputService = None
 				self.SendSlackOrchestrator = None
 			else:
-				# If the client is valid, initialize the orchestrator
-				self.SendSlackOrchestrator = SendSlackOrchestrator(self)
+				# Initialize the SlackOutputService
+				self.SlackOutputService = SlackOutputService(self)
+
+				# Only initialize SendSlackOrchestrator if the SlackOutputService client is valid
+				if self.SlackOutputService.Client is None:
+					# If client is None, disable Slack orchestrator as well
+					self.SendSlackOrchestrator = None
+				else:
+					# If the client is valid, initialize the orchestrator
+					self.SendSlackOrchestrator = SendSlackOrchestrator(self)
 
 		else:
 			# If the slack section is not present in the config, set both services to None
