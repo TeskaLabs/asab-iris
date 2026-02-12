@@ -95,8 +95,10 @@ class KafkaHandler(asab.Service):
 	async def finalize(self, app):
 		if self.Consumer is not None:
 			await self.Consumer.stop()
-		if self.Task and self.Task.exception():
-			L.warning("Exception occurred during alert notifications: {}".format(self.Task.exception()))
+		if self.Task and self.Task.done():
+			exception = self.Task.exception()
+			if exception is not None:
+				L.warning("Exception occurred during alert notifications: {}".format(exception))
 
 	async def consume(self):
 		if self.Consumer is None:

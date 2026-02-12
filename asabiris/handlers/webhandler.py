@@ -129,8 +129,8 @@ class WebHandler(object):
 		Build the JSONata template at https://try.jsonata.org
 		"""
 		jsonata_template = request.match_info["jsonata"]
-		assert '..' not in jsonata_template, "JSONata template cannot contain '..'"
-		assert '/' not in jsonata_template, "JSONata template cannot contain '/'"
+		if '..' in jsonata_template or '/' in jsonata_template:
+			raise aiohttp.web.HTTPBadRequest(text="Invalid JSONata template name.")
 
 		async with self.App.LibraryService.open('/Templates/JSONata/' + jsonata_template + '.txt') as b:
 			expr = jsonata.Jsonata(b.read().decode("utf-8"))
