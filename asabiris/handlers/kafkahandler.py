@@ -133,32 +133,32 @@ class KafkaHandler(asab.Service):
 				L.warning("Error extracting message type: {}".format(str(e)))
 				return
 
-				if msg_type == "email":
-					await self.handle_email(msg)
-				elif msg_type == "slack":
-					if self.App.SendSlackOrchestrator is None:
-						L.warning("Slack service is not configured. Discarding notification.")
-						return
-					await self.handle_slack(msg)
-				elif msg_type == "msteams":
-					if self.App.SendMSTeamsOrchestrator is None:
-						L.warning("MS Teams service is not configured. Discarding notification.")
-						return
-					await self.handle_msteams(msg)
-				elif msg_type == "sms":
-					if self.App.SendSMSOrchestrator is None:
-						L.warning("SMS service is not configured. Discarding notification.")
-						return
-					await self.handle_sms(msg)
-				elif msg_type == "push":
-					if not hasattr(self.App, "SendPushOrchestrator") or self.App.SendPushOrchestrator is None:
-						L.warning("Push service is not configured. Discarding notification.")
-						return
-					await self.handle_push(msg)
-				else:
-					L.warning(
-						"Notification sending failed: Unsupported message type '{}'. Supported types are 'email', 'slack', 'msteams', 'sms', and 'push'.".format(msg_type)
-					)
+			if msg_type == "email":
+				await self.handle_email(msg)
+			elif msg_type == "slack":
+				if self.App.SendSlackOrchestrator is None:
+					L.warning("Slack service is not configured. Discarding notification.")
+					return
+				await self.handle_slack(msg)
+			elif msg_type == "msteams":
+				if self.App.SendMSTeamsOrchestrator is None:
+					L.warning("MS Teams service is not configured. Discarding notification.")
+					return
+				await self.handle_msteams(msg)
+			elif msg_type == "sms":
+				if self.App.SendSMSOrchestrator is None:
+					L.warning("SMS service is not configured. Discarding notification.")
+					return
+				await self.handle_sms(msg)
+			elif msg_type == "push":
+				if not hasattr(self.App, "SendPushOrchestrator") or self.App.SendPushOrchestrator is None:
+					L.warning("Push service is not configured. Discarding notification.")
+					return
+				await self.handle_push(msg)
+			else:
+				L.warning(
+					"Notification sending failed: Unsupported message type '{}'. Supported types are 'email', 'slack', 'msteams', 'sms', and 'push'.".format(msg_type)
+				)
 		finally:
 			if token is not None:
 				try:
