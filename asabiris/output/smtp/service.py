@@ -130,17 +130,25 @@ class EmailOutputService(asab.Service, OutputABC):
 				error_dict={"tenant": effective_tenant or "unspecified"}
 			)
 
+		# Parse/normalize resolved recipients once and use for both header and envelope.
+		to_recipients = []
+		for email_address in to_list:
+			_, sender_email = self.format_sender_info(str(email_address))
+			if sender_email:
+				to_recipients.append(sender_email)
+
+		if not to_recipients:
+			raise ASABIrisError(
+				ErrorCode.INVALID_SERVICE_CONFIGURATION,
+				tech_message="No valid recipient emails after normalization.",
+				error_i18n_key="No recipients configured for '{{tenant}}'.",
+				error_dict={"tenant": effective_tenant or "unspecified"}
+			)
+
 		# Prepare Message
 		msg = email.message.EmailMessage()
 		msg.set_content(body, subtype='html')
-
-		if email_to is not None:
-			assert isinstance(email_to, list)
-			formatted_email_to = []
-			for email_address in email_to:
-				formatted_sender, sender_email = self.format_sender_info(email_address)
-				formatted_email_to.append(sender_email)
-			msg['To'] = ', '.join(formatted_email_to)
+		msg['To'] = ', '.join(to_recipients)
 
 		if email_cc is not None:
 			assert isinstance(email_cc, list)
@@ -182,7 +190,7 @@ class EmailOutputService(asab.Service, OutputABC):
 				result = await aiosmtplib.send(
 					msg,
 					sender=sender,
-					recipients=to_list + (email_cc or []) + (email_bcc or []),
+					recipients=to_recipients + (email_cc or []) + (email_bcc or []),
 					hostname=self.Host,
 					port=int(self.Port) if self.Port != "" else None,
 					username=self.User,
