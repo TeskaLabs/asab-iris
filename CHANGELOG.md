@@ -11,6 +11,7 @@
 
 ### Fixes
 - Fix error while sending Slack notification via kafkahandler. (#118 v25.47-alpha)
+- Fix Attribute error due to missing error code. (#118 v25.47-alpha)
 ---
 
 ## v25.37
