@@ -1,9 +1,11 @@
 import logging
+import re
 
 import asab
 from ..errors import ASABIrisError, ErrorCode
 
 L = logging.getLogger(__name__)
+TITLE_RE = re.compile(r"^\s*\{?\s*TITLE\s*:\s*(.+?)\s*\}?\s*$", re.IGNORECASE)
 
 
 class SendPushOrchestrator(object):
@@ -74,14 +76,20 @@ class SendPushOrchestrator(object):
 				)
 
 			# 2) Optional: support TITLE: header in the template (like email SUBJECT:)
-			title = params.get("title")
-			if title is None and rendered.upper().startswith("TITLE:"):
-				parts = rendered.split("\n", 1)
-				extracted = parts[0].split(":", 1)[1].strip() if len(parts) > 0 else ""
-				if extracted:
-					body.setdefault("params", {})
-					body["params"]["title"] = extracted
+			# Precedence: params.title > template TITLE > no title.
+			parts = rendered.split("\n", 1)
+			first_line = parts[0] if len(parts) > 0 else ""
+			match = TITLE_RE.match(first_line)
+			template_title = None
+			if match is not None:
+				template_title = match.group(1).strip()
+				# Always remove template TITLE from message body.
 				rendered = parts[1].strip() if len(parts) > 1 else ""
+
+			title = params.get("title")
+			if not title and template_title:
+				body.setdefault("params", {})
+				body["params"]["title"] = template_title
 
 			# 3) Attach rendered content and pass through
 			push_dict["rendered_message"] = rendered
