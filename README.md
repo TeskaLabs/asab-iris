@@ -183,6 +183,13 @@ cert_bundle     =                     ; Path to CA/chain PEM when validate_certs
                                       ; When validate_certs=no, both chain and hostname checks are disabled and
                                       ; cert_bundle is ignored.
 
+# Optional HTTP CONNECT proxy for SMTP transport
+proxy_host      =                     ; e.g. proxy.company.local
+proxy_port      =                     ; e.g. 3128
+proxy_user      =                     ; Optional basic-auth username
+proxy_password  =                     ; Optional basic-auth password
+proxy_connect_timeout = 10            ; Proxy TCP/CONNECT timeout (seconds)
+
 ```
 
 **Important**
@@ -190,6 +197,7 @@ cert_bundle     =                     ; Path to CA/chain PEM when validate_certs
 * Use real booleans: `yes|no` (not quoted strings).
 * `cert_bundle` must be a **CA/chain PEM**, **not** the server cert.
 * If you supply a custom TLS context in code, some clients ignore `validate_certs`/`cert_bundle`.
+* Proxy support uses **HTTP CONNECT** (not SOCKS) and is enabled only when both `proxy_host` and `proxy_port` are set.
 
 **Common Setups**
 
