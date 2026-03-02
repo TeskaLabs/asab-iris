@@ -221,27 +221,26 @@ class EmailOutputService(asab.Service, OutputABC):
 		for attempt in range(retry_attempts):
 			proxy_socket = None
 			try:
-				send_kwargs = {
-					"sender": sender,
-					"recipients": to_recipients + cc_recipients + bcc_recipients,
-					"username": self.User,
-					"password": self.Password,
-					"use_tls": self.SSL,
-					"start_tls": self.StartTLS,
-					"cert_bundle": self.Cert or None,
-					"validate_certs": self.ValidateCerts,
-				}
-
 				if self.ProxyHost:
-					proxy_socket = await self._connect_via_http_proxy()
-					send_kwargs["sock"] = proxy_socket
-					send_kwargs["hostname"] = None
-					send_kwargs["port"] = None
+					result = await self._send_via_proxy_smtp_client(
+						msg=msg,
+						sender=sender,
+						recipients=to_recipients + cc_recipients + bcc_recipients
+					)
 				else:
-					send_kwargs["hostname"] = self.Host
-					send_kwargs["port"] = int(self.Port) if self.Port != "" else None
-
-				result = await aiosmtplib.send(msg, **send_kwargs)
+					result = await aiosmtplib.send(
+						msg,
+						sender=sender,
+						recipients=to_recipients + cc_recipients + bcc_recipients,
+						hostname=self.Host,
+						port=int(self.Port) if self.Port != "" else None,
+						username=self.User,
+						password=self.Password,
+						use_tls=self.SSL,
+						start_tls=self.StartTLS,
+						cert_bundle=self.Cert or None,
+						validate_certs=self.ValidateCerts
+					)
 				L.log(asab.LOG_NOTICE, "Email sent", struct_data={'result': result[1], "host": self.Host})
 				break  # Email sent successfully, exit the retry loop
 
@@ -262,6 +261,8 @@ class EmailOutputService(asab.Service, OutputABC):
 						"host": self.Host,
 					}
 				)
+			except ASABIrisError:
+				raise
 			except aiosmtplib.errors.SMTPConnectError as e:
 				L.warning("Connection failed: {}".format(e), struct_data={"host": self.Host, "port": self.Port})
 				if attempt < retry_attempts - 1:
@@ -350,6 +351,48 @@ class EmailOutputService(asab.Service, OutputABC):
 						proxy_socket.close()
 					except OSError:
 						pass
+
+	async def _send_via_proxy_smtp_client(self, *, msg, sender, recipients):
+		if self.SSL and self.ValidateCerts:
+			raise ASABIrisError(
+				ErrorCode.INVALID_SERVICE_CONFIGURATION,
+				tech_message=(
+					"Proxy with implicit TLS and certificate validation is not supported with current SMTP client "
+					"version. Use STARTTLS or disable certificate validation."
+				),
+				error_i18n_key="Unsupported SMTP proxy TLS configuration."
+			)
+
+		proxy_socket = await self._connect_via_http_proxy()
+		client = None
+		try:
+			client = aiosmtplib.SMTP(
+				sock=proxy_socket,
+				use_tls=self.SSL,
+				start_tls=False,
+				validate_certs=self.ValidateCerts,
+				cert_bundle=self.Cert or None,
+				timeout=self.ProxyConnectTimeout
+			)
+			await client.connect()
+
+			if self.StartTLS:
+				await client.starttls(server_hostname=self.Host)
+
+			if self.User is not None:
+				await client.login(self.User, self.Password or "")
+
+			return await client.send_message(msg, sender=sender, recipients=recipients)
+		finally:
+			if client is not None:
+				try:
+					await client.quit()
+				except Exception:
+					pass
+			try:
+				proxy_socket.close()
+			except Exception:
+				pass
 
 	def _effective_smtp_port(self):
 		if self.Port != "":
