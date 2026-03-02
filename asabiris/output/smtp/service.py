@@ -420,7 +420,9 @@ class EmailOutputService(asab.Service, OutputABC):
 		buffer = b""
 		max_headers_size = 65536
 		while b"\r\n\r\n" not in buffer:
-			chunk = await loop.sock_recv(sock_obj, 4096)
+			# Read byte-by-byte to avoid consuming bytes from the next protocol (SMTP)
+			# that may already be available in the socket buffer after CONNECT headers.
+			chunk = await loop.sock_recv(sock_obj, 1)
 			if not chunk:
 				raise ProxyConnectError("Proxy closed connection before CONNECT response")
 			buffer += chunk
