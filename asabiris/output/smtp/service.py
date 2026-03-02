@@ -70,11 +70,21 @@ class EmailOutputService(asab.Service, OutputABC):
 		self.ProxyUser = asab.Config.get(config_section_name, "proxy_user", fallback="").strip()
 		self.ProxyPassword = asab.Config.get(config_section_name, "proxy_password", fallback="")
 		self.ProxyConnectTimeout = asab.Config.getint(config_section_name, "proxy_connect_timeout", fallback=10)
+		self.ProxyPortInt = None
 
 		if self.ProxyHost and not self.ProxyPort:
 			raise ValueError("SMTP proxy is configured but `proxy_port` is empty")
 		if self.ProxyPort and not self.ProxyHost:
 			raise ValueError("SMTP proxy is configured but `proxy_host` is empty")
+		if self.ProxyPort:
+			try:
+				self.ProxyPortInt = int(self.ProxyPort)
+			except ValueError as e:
+				raise ValueError("SMTP proxy `proxy_port` must be an integer: {}".format(str(e)))
+			if self.ProxyPortInt < 1 or self.ProxyPortInt > 65535:
+				raise ValueError("SMTP proxy `proxy_port` must be in range 1..65535")
+		if self.ProxyConnectTimeout <= 0:
+			raise ValueError("SMTP proxy `proxy_connect_timeout` must be greater than 0")
 
 		if len(self.User) == 0:
 			self.User = None
@@ -369,6 +379,8 @@ class EmailOutputService(asab.Service, OutputABC):
 		try:
 			client = aiosmtplib.SMTP(
 				sock=proxy_socket,
+				hostname=None,
+				port=None,
 				use_tls=self.SSL,
 				start_tls=False,
 				validate_certs=self.ValidateCerts,
@@ -433,11 +445,7 @@ class EmailOutputService(asab.Service, OutputABC):
 	async def _connect_via_http_proxy(self):
 		target_host = self.Host
 		target_port = self._effective_smtp_port()
-
-		try:
-			proxy_port = int(self.ProxyPort)
-		except ValueError as e:
-			raise ProxyConnectError("Invalid proxy_port '{}': {}".format(self.ProxyPort, str(e)))
+		proxy_port = self.ProxyPortInt if self.ProxyPortInt is not None else 0
 
 		sock_obj = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 		sock_obj.setblocking(False)
