@@ -1,7 +1,9 @@
 import email
 import email.message
+import base64
 import logging
 import re
+import socket
 
 import asab
 import asab.contextvars
@@ -14,6 +16,11 @@ from ...errors import ASABIrisError, ErrorCode
 #
 
 L = logging.getLogger(__name__)
+
+
+class ProxyConnectError(Exception):
+	pass
+
 
 #
 asab.Config.add_defaults(
@@ -30,6 +37,11 @@ asab.Config.add_defaults(
 			"message_body": "",
 			"validate_certs": "true",  # NEW
 			"cert_bundle": "",  # NEW
+			"proxy_host": "",
+			"proxy_port": "",
+			"proxy_user": "",
+			"proxy_password": "",
+			"proxy_connect_timeout": "10",
 		}
 	})
 
@@ -53,6 +65,16 @@ class EmailOutputService(asab.Service, OutputABC):
 		self.Subject = asab.Config.get(config_section_name, "subject")
 		self.ValidateCerts = asab.Config.getboolean(config_section_name, "validate_certs", fallback=True)
 		self.Cert = asab.Config.get(config_section_name, "cert_bundle", fallback="").strip()
+		self.ProxyHost = asab.Config.get(config_section_name, "proxy_host", fallback="").strip()
+		self.ProxyPort = asab.Config.get(config_section_name, "proxy_port", fallback="").strip()
+		self.ProxyUser = asab.Config.get(config_section_name, "proxy_user", fallback="").strip()
+		self.ProxyPassword = asab.Config.get(config_section_name, "proxy_password", fallback="")
+		self.ProxyConnectTimeout = asab.Config.getint(config_section_name, "proxy_connect_timeout", fallback=10)
+
+		if self.ProxyHost and not self.ProxyPort:
+			raise ValueError("SMTP proxy is configured but `proxy_port` is empty")
+		if self.ProxyPort and not self.ProxyHost:
+			raise ValueError("SMTP proxy is configured but `proxy_host` is empty")
 
 		if len(self.User) == 0:
 			self.User = None
@@ -69,8 +91,8 @@ class EmailOutputService(asab.Service, OutputABC):
 		self, *,
 		email_to,
 		body,
-		email_cc=[],
-		email_bcc=[],
+		email_cc=None,
+		email_bcc=None,
 		email_subject=None,
 		email_from=None,
 		attachments=None,
@@ -130,25 +152,44 @@ class EmailOutputService(asab.Service, OutputABC):
 				error_dict={"tenant": effective_tenant or "unspecified"}
 			)
 
+		# Parse/normalize resolved recipients once and use for both header and envelope.
+		to_recipients = []
+		for email_address in to_list:
+			_, sender_email = self.format_sender_info(str(email_address))
+			if sender_email:
+				to_recipients.append(sender_email)
+
+		if not to_recipients:
+			raise ASABIrisError(
+				ErrorCode.INVALID_SERVICE_CONFIGURATION,
+				tech_message="No valid recipient emails after normalization.",
+				error_i18n_key="No recipients configured for '{{tenant}}'.",
+				error_dict={"tenant": effective_tenant or "unspecified"}
+			)
+
 		# Prepare Message
 		msg = email.message.EmailMessage()
 		msg.set_content(body, subtype='html')
-
-		if email_to is not None:
-			assert isinstance(email_to, list)
-			formatted_email_to = []
-			for email_address in email_to:
-				formatted_sender, sender_email = self.format_sender_info(email_address)
-				formatted_email_to.append(sender_email)
-			msg['To'] = ', '.join(formatted_email_to)
+		msg['To'] = ', '.join(to_recipients)
+		cc_recipients = []
+		bcc_recipients = []
 
 		if email_cc is not None:
 			assert isinstance(email_cc, list)
 			formatted_email_cc = []
 			for email_address in email_cc:
-				formatted_sender, sender_email = self.format_sender_info(email_address)
-				formatted_email_cc.append(sender_email)
+				_, sender_email = self.format_sender_info(str(email_address))
+				if sender_email:
+					formatted_email_cc.append(sender_email)
+					cc_recipients.append(sender_email)
 			msg['Cc'] = ', '.join(formatted_email_cc)
+
+		if email_bcc is not None:
+			assert isinstance(email_bcc, list)
+			for email_address in email_bcc:
+				_, sender_email = self.format_sender_info(str(email_address))
+				if sender_email:
+					bcc_recipients.append(sender_email)
 
 		if email_subject is not None and len(email_subject) > 0:
 			msg['Subject'] = email_subject
@@ -178,23 +219,49 @@ class EmailOutputService(asab.Service, OutputABC):
 		delay = 5  # seconds
 
 		for attempt in range(retry_attempts):
+			proxy_socket = None
 			try:
-				result = await aiosmtplib.send(
-					msg,
-					sender=sender,
-					recipients=to_list + (email_cc or []) + (email_bcc or []),
-					hostname=self.Host,
-					port=int(self.Port) if self.Port != "" else None,
-					username=self.User,
-					password=self.Password,
-					use_tls=self.SSL,
-					start_tls=self.StartTLS,
-					cert_bundle=self.Cert or None,
-					validate_certs=self.ValidateCerts
-				)
+				send_kwargs = {
+					"sender": sender,
+					"recipients": to_recipients + cc_recipients + bcc_recipients,
+					"username": self.User,
+					"password": self.Password,
+					"use_tls": self.SSL,
+					"start_tls": self.StartTLS,
+					"cert_bundle": self.Cert or None,
+					"validate_certs": self.ValidateCerts,
+				}
+
+				if self.ProxyHost:
+					proxy_socket = await self._connect_via_http_proxy()
+					send_kwargs["sock"] = proxy_socket
+					send_kwargs["hostname"] = None
+					send_kwargs["port"] = None
+				else:
+					send_kwargs["hostname"] = self.Host
+					send_kwargs["port"] = int(self.Port) if self.Port != "" else None
+
+				result = await aiosmtplib.send(msg, **send_kwargs)
 				L.log(asab.LOG_NOTICE, "Email sent", struct_data={'result': result[1], "host": self.Host})
 				break  # Email sent successfully, exit the retry loop
 
+			except ProxyConnectError as e:
+				L.warning(
+					"Proxy connection failed: {}".format(e),
+					struct_data={"proxy_host": self.ProxyHost, "proxy_port": self.ProxyPort, "host": self.Host}
+				)
+				if attempt < retry_attempts - 1:
+					L.info("Retrying email send after proxy connection failure, attempt {}".format(attempt + 1))
+					await asyncio.sleep(delay)
+					continue
+				raise ASABIrisError(
+					ErrorCode.SMTP_CONNECTION_ERROR,
+					tech_message="SMTP proxy connection failed: {}.".format(str(e)),
+					error_i18n_key="Could not connect to SMTP for host '{{host}}'.",
+					error_dict={
+						"host": self.Host,
+					}
+				)
 			except aiosmtplib.errors.SMTPConnectError as e:
 				L.warning("Connection failed: {}".format(e), struct_data={"host": self.Host, "port": self.Port})
 				if attempt < retry_attempts - 1:
@@ -277,6 +344,92 @@ class EmailOutputService(asab.Service, OutputABC):
 						"host": self.Host
 					}
 				)
+			finally:
+				if proxy_socket is not None:
+					try:
+						proxy_socket.close()
+					except OSError:
+						pass
+
+	def _effective_smtp_port(self):
+		if self.Port != "":
+			return int(self.Port)
+		if self.SSL:
+			return 465
+		if self.StartTLS:
+			return 587
+		return 25
+
+	def _proxy_connect_headers(self, target_host, target_port):
+		headers = [
+			"CONNECT {}:{} HTTP/1.1".format(target_host, target_port),
+			"Host: {}:{}".format(target_host, target_port),
+		]
+		if self.ProxyUser:
+			auth_string = "{}:{}".format(self.ProxyUser, self.ProxyPassword)
+			encoded = base64.b64encode(auth_string.encode("utf-8")).decode("ascii")
+			headers.append("Proxy-Authorization: Basic {}".format(encoded))
+		return "\r\n".join(headers) + "\r\n\r\n"
+
+	async def _read_http_headers(self, sock_obj):
+		loop = asyncio.get_running_loop()
+		buffer = b""
+		max_headers_size = 65536
+		while b"\r\n\r\n" not in buffer:
+			chunk = await loop.sock_recv(sock_obj, 4096)
+			if not chunk:
+				raise ProxyConnectError("Proxy closed connection before CONNECT response")
+			buffer += chunk
+			if len(buffer) > max_headers_size:
+				raise ProxyConnectError("Proxy CONNECT response headers are too large")
+		return buffer.split(b"\r\n\r\n", 1)[0]
+
+	async def _connect_via_http_proxy(self):
+		target_host = self.Host
+		target_port = self._effective_smtp_port()
+
+		try:
+			proxy_port = int(self.ProxyPort)
+		except ValueError as e:
+			raise ProxyConnectError("Invalid proxy_port '{}': {}".format(self.ProxyPort, str(e)))
+
+		sock_obj = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+		sock_obj.setblocking(False)
+		loop = asyncio.get_running_loop()
+
+		try:
+			await asyncio.wait_for(
+				loop.sock_connect(sock_obj, (self.ProxyHost, proxy_port)),
+				timeout=self.ProxyConnectTimeout
+			)
+			request = self._proxy_connect_headers(target_host, target_port).encode("ascii")
+			await asyncio.wait_for(
+				loop.sock_sendall(sock_obj, request),
+				timeout=self.ProxyConnectTimeout
+			)
+			header_bytes = await asyncio.wait_for(
+				self._read_http_headers(sock_obj),
+				timeout=self.ProxyConnectTimeout
+			)
+		except asyncio.TimeoutError:
+			sock_obj.close()
+			raise ProxyConnectError("Timeout while connecting to proxy {}:{}".format(self.ProxyHost, proxy_port))
+		except Exception as e:
+			sock_obj.close()
+			raise ProxyConnectError(str(e))
+
+		try:
+			status_line = header_bytes.split(b"\r\n", 1)[0].decode("iso-8859-1")
+			status_code = int(status_line.split(" ", 2)[1])
+		except Exception as e:
+			sock_obj.close()
+			raise ProxyConnectError("Malformed proxy CONNECT response: {}".format(str(e)))
+
+		if status_code != 200:
+			sock_obj.close()
+			raise ProxyConnectError("Proxy CONNECT failed with status {}".format(status_code))
+
+		return sock_obj
 
 	def format_sender_info(self, email_info):
 		"""
