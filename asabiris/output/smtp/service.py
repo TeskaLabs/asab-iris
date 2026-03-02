@@ -174,7 +174,7 @@ class EmailOutputService(asab.Service, OutputABC):
 		cc_recipients = []
 		bcc_recipients = []
 
-		if email_cc is not None:
+		if email_cc:
 			assert isinstance(email_cc, list)
 			formatted_email_cc = []
 			for email_address in email_cc:
@@ -182,7 +182,8 @@ class EmailOutputService(asab.Service, OutputABC):
 				if sender_email:
 					formatted_email_cc.append(sender_email)
 					cc_recipients.append(sender_email)
-			msg['Cc'] = ', '.join(formatted_email_cc)
+			if formatted_email_cc:
+				msg['Cc'] = ', '.join(formatted_email_cc)
 
 		if email_bcc is not None:
 			assert isinstance(email_bcc, list)
