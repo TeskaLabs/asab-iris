@@ -17,6 +17,7 @@ from .formatter.attachments import AttachmentRenderingService
 # output
 from .output.smtp import EmailOutputService
 from .output.slack import SlackOutputService
+from .output.mattermost import MattermostOutputService
 from .output.sms import SMSOutputService
 from .output.msteams import MSTeamsOutputService
 from .output.ms365 import M365EmailOutputService
@@ -27,6 +28,7 @@ from .orchestration.render import RenderReportOrchestrator
 from .orchestration.sendsms import SendSMSOrchestrator
 from .orchestration.sendmsteams import SendMSTeamsOrchestrator
 from .orchestration.sendpushnotification import SendPushOrchestrator
+from .orchestration.sendmattermost import SendMattermostOrchestrator
 
 from .handlers.kafkahandler import KafkaHandler
 from .handlers.webhandler import WebHandler
@@ -132,6 +134,16 @@ class ASABIRISApplication(asab.Application):
 			self.SlackOutputService = None
 			self.SendSlackOrchestrator = None
 
+		if 'mattermost' in asab.Config.sections():
+			self.MattermostOutputService = MattermostOutputService(self)
+			if not self.MattermostOutputService.IsConfigured:
+				self.SendMattermostOrchestrator = None
+			else:
+				self.SendMattermostOrchestrator = SendMattermostOrchestrator(self)
+		else:
+			self.MattermostOutputService = None
+			self.SendMattermostOrchestrator = None
+
 		if 'msteams' in asab.Config.sections():
 			# Initialize the MSTeamsOutputService
 			self.MSTeamsOutputService = MSTeamsOutputService(self)
@@ -185,6 +197,8 @@ class ASABIRISApplication(asab.Application):
 			yield "email"
 		if self.SendSlackOrchestrator is not None:
 			yield "slack"
+		if self.SendMattermostOrchestrator is not None:
+			yield "mattermost"
 		if self.SendMSTeamsOrchestrator is not None:
 			yield "msteams"
 		if self.SendSMSOrchestrator is not None:
