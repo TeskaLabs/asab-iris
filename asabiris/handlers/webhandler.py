@@ -9,6 +9,7 @@ import aiohttp.web
 import aiohttp.payload_streamer
 
 from ..schemas.emailschema import email_schema
+from ..schemas.mattermostschema import mattermost_schema
 from ..schemas.slackschema import slack_schema
 from ..schemas.smsschema import sms_schema
 from ..schemas.teamsschema import teams_schema
@@ -38,6 +39,7 @@ class WebHandler(object):
 		web_app.router.add_put(r"/send_sms", self.send_sms)
 		web_app.router.add_put(r"/send_push", self.send_push)
 		web_app.router.add_put(r"/send_slack", self.send_slack)
+		web_app.router.add_put(r"/send_mattermost", self.send_mattermost)
 		web_app.router.add_put(r"/send_msteams", self.send_msteams)
 		web_app.router.add_get(r"/authorize_ms365", self.authorize_ms365)
 
@@ -320,6 +322,57 @@ class WebHandler(object):
 			}
 			return aiohttp.web.json_response(response, status=status_code)
 
+		except Exception as e:
+			L.exception(str(e))
+			response = {
+				"result": "FAILED",
+				"error": {
+					"message": str(e),
+					"error_code": "GENERAL_ERROR",
+				}
+			}
+			return aiohttp.web.json_response(response, status=400)
+		finally:
+			if token is not None:
+				asab.contextvars.Tenant.reset(token)
+
+		return asab.web.rest.json_response(request, {"result": "OK"})
+
+	@asab.web.tenant.allow_no_tenant
+	@asab.web.rest.json_schema_handler(mattermost_schema)
+	async def send_mattermost(self, request, *, json_data):
+		"""
+		Send a Mattermost notification either to a channel or as a direct message.
+		"""
+		if self.App.SendMattermostOrchestrator is None:
+			L.info("Mattermost orchestrator is not initialized. This feature is optional and not configured.")
+			return aiohttp.web.json_response(
+				{
+					"result": "FAILED",
+					"error": "Mattermost service is not configured."
+				},
+				status=400
+			)
+
+		tenant = json_data.get("tenant", None)
+		current_tenant = asab.contextvars.Tenant.get(None)
+		token = None
+
+		if tenant is not None and current_tenant is None:
+			token = asab.contextvars.Tenant.set(tenant)
+
+		try:
+			await self.App.SendMattermostOrchestrator.send_to_mattermost(json_data)
+		except ASABIrisError as e:
+			status_code = self.map_error_code_to_status(e.ErrorCode)
+
+			response = {
+				"result": "ERROR",
+				"error": e.Errori18nKey,
+				"error_dict": e.ErrorDict,
+				"tech_err": e.TechMessage
+			}
+			return aiohttp.web.json_response(response, status=status_code)
 		except Exception as e:
 			L.exception(str(e))
 			response = {
