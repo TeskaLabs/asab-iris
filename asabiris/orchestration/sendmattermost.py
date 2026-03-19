@@ -10,6 +10,14 @@ L = logging.getLogger(__name__)
 
 
 class SendMattermostOrchestrator(object):
+	"""
+	Render Mattermost templates and route the resulting payload to the output service.
+
+	This orchestrator validates the inbound IRIS message shape, enforces the
+	`/Templates/Mattermost/` template location, renders the main message body with
+	Jinja, optionally renders structured `props`, and then delegates delivery to
+	`MattermostOutputService`.
+	"""
 
 	ValidationSchemaMattermost = fastjsonschema.compile(mattermost_schema)
 
@@ -18,6 +26,27 @@ class SendMattermostOrchestrator(object):
 		self.MattermostOutputService = app.get_service("MattermostOutputService")
 
 	async def send_to_mattermost(self, msg):
+		"""
+		Send a Mattermost notification described by an IRIS message.
+
+		Expected structure:
+		{
+			"channel_id": "optional-channel-id",
+			"username": "optional-target-username-for-dm",
+			"body": {
+				"template": "/Templates/Mattermost/message.md",
+				"params": {...},
+				"props": {...}
+			}
+		}
+
+		Args:
+			msg: IRIS notification payload.
+
+		Raises:
+			ASABIrisError: When the template path is invalid or when downstream
+				Mattermost delivery fails.
+		"""
 		try:
 			SendMattermostOrchestrator.ValidationSchemaMattermost(msg)
 		except fastjsonschema.exceptions.JsonSchemaException as e:
@@ -52,6 +81,20 @@ class SendMattermostOrchestrator(object):
 		)
 
 	def _render_props(self, value, context):
+		"""
+		Recursively render string values inside Mattermost `props`.
+
+		This allows callers to provide structured attachments/metadata with Jinja
+		expressions while preserving lists, dictionaries, and non-string scalar
+		values.
+
+		Args:
+			value: A nested props structure or scalar value.
+			context: Render context prepared from global variables and message params.
+
+		Returns:
+			The same structure with all string leaves rendered through Jinja.
+		"""
 		if isinstance(value, dict):
 			return {
 				key: self._render_props(item, context)

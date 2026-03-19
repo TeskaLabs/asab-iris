@@ -20,8 +20,27 @@ def check_config(config, section, parameter):
 
 
 class MattermostOutputService(asab.Service, OutputABC):
+	"""
+	Mattermost delivery service for IRIS notifications.
+
+	The service resolves effective configuration, supports both channel posting
+	and direct-message delivery, and wraps Mattermost REST API failures into
+	`ASABIrisError` instances understood by the rest of the application.
+	"""
 
 	def __init__(self, app, service_name="MattermostOutputService"):
+		"""
+		Initialize the service from global Mattermost configuration.
+
+		Required settings:
+		- `mattermost.url`
+		- `mattermost.token`
+
+		Optional settings:
+		- `mattermost.bot_username`
+		- `mattermost.security_channel_id`
+		- `mattermost.timeout`
+		"""
 		super().__init__(app, service_name)
 
 		self.Url = check_config(asab.Config, "mattermost", "url")
@@ -36,6 +55,20 @@ class MattermostOutputService(asab.Service, OutputABC):
 			L.warning("Mattermost output service is not properly configured. Disabling Mattermost service.")
 
 	def _resolve_config(self, tenant=None):
+		"""
+		Resolve the effective Mattermost configuration.
+
+		Configuration precedence:
+		1. Tenant-specific Mattermost configuration from ZooKeeper
+		2. Global `[mattermost]` configuration
+
+		Args:
+			tenant: Optional tenant identifier from the current request context.
+
+		Returns:
+			A dictionary with `url`, `token`, `bot_username`, and
+			`security_channel_id`.
+		"""
 		config = {
 			"url": self.Url,
 			"token": self.Token,
@@ -56,6 +89,28 @@ class MattermostOutputService(asab.Service, OutputABC):
 		return config
 
 	async def send(self, payload, channel_id=None, username=None):
+		"""
+		Send a message to Mattermost.
+
+		If `username` is provided, the service resolves the bot user and target
+		user, creates or retrieves the direct-message channel, and posts there.
+		If `channel_id` is provided, the message is posted directly to that
+		channel. If neither is provided, the configured `security_channel_id` is
+		used as a default destination.
+
+		Args:
+			payload: Mattermost post payload without the `channel_id`.
+			channel_id: Explicit target channel id.
+			username: Username of the direct-message recipient.
+
+		Returns:
+			The decoded JSON response from `POST /api/v4/posts`.
+
+		Raises:
+			ASABIrisError: When configuration is missing, the destination is
+				invalid, authentication fails, or the Mattermost API rejects the
+				request.
+		"""
 		if channel_id and username:
 			raise ASABIrisError(
 				ErrorCode.INVALID_REQUEST,
@@ -111,6 +166,17 @@ class MattermostOutputService(asab.Service, OutputABC):
 		return await self._post_json(config, "/api/v4/posts", post_payload)
 
 	async def get_user_ids(self, config, bot_username, target_username):
+		"""
+		Resolve Mattermost usernames into user ids.
+
+		Args:
+			config: Effective Mattermost configuration.
+			bot_username: Username of the configured bot account.
+			target_username: Username of the direct-message recipient.
+
+		Returns:
+			A tuple of `(bot_user_id, target_user_id)`.
+		"""
 		users = await self._post_json(
 			config,
 			"/api/v4/users/usernames",
@@ -144,6 +210,17 @@ class MattermostOutputService(asab.Service, OutputABC):
 		return bot_user_id, target_user_id
 
 	async def get_direct_channel(self, config, bot_user_id, target_user_id):
+		"""
+		Create or retrieve the direct-message channel for two Mattermost users.
+
+		Args:
+			config: Effective Mattermost configuration.
+			bot_user_id: Mattermost user id of the bot account.
+			target_user_id: Mattermost user id of the DM recipient.
+
+		Returns:
+			The direct-message channel id.
+		"""
 		channel = await self._post_json(
 			config,
 			"/api/v4/channels/direct",
@@ -160,6 +237,21 @@ class MattermostOutputService(asab.Service, OutputABC):
 		return channel_id
 
 	async def _post_json(self, config, path, payload):
+		"""
+		POST a JSON payload to the Mattermost REST API.
+
+		Args:
+			config: Effective Mattermost configuration.
+			path: API path under the Mattermost base URL.
+			payload: JSON-serializable payload body.
+
+		Returns:
+			Decoded JSON response, or an empty dict for empty-body success responses.
+
+		Raises:
+			ASABIrisError: When the HTTP request fails, returns an auth error,
+				validation error, server error, or invalid JSON.
+		"""
 		url = "{}/{}".format(config["url"].rstrip("/"), path.lstrip("/"))
 		headers = {
 			"Authorization": "Bearer {}".format(config["token"]),
