@@ -1414,6 +1414,206 @@ EXPECTED RESPONSE:
 
 
 
+## TSM031C: Try to send Mattermost to a channel using markdown template
+
+ `PUT /send_mattermost`
+
+ ```
+ {
+    "channel_id":"security_channel_id",
+    "body":{
+       "template":"/Templates/Mattermost/message.md",
+       "params":{
+          "user.name":"alice",
+          "device.name":"alice-laptop",
+          "source.ip":"10.0.0.10",
+          "client.ip":"2001:db8::1",
+          "event.code":"HIP_Sentinel_Fail"
+       }
+    }
+ }
+ ```
+
+EXPECTED RESPONSE:
+
+{
+    "result": "OK"
+}
+
+```
+
+
+## TSM031D: Try to send Mattermost direct message using markdown template
+
+ `PUT /send_mattermost`
+
+ ```
+ {
+    "username":"alice",
+    "body":{
+       "template":"/Templates/Mattermost/message.md",
+       "params":{
+          "user.name":"alice",
+          "device.name":"alice-laptop",
+          "source.ip":"10.0.0.10",
+          "client.ip":"2001:db8::1",
+          "event.code":"HIP_Sentinel_Fail"
+       }
+    }
+ }
+ ```
+
+EXPECTED RESPONSE:
+
+{
+    "result": "OK"
+}
+
+```
+
+
+## TSM031E: Try to send Mattermost with props attachments
+
+ `PUT /send_mattermost`
+
+ ```
+ {
+    "channel_id":"security_channel_id",
+    "body":{
+       "template":"/Templates/Mattermost/message.md",
+       "params":{
+          "user.name":"alice",
+          "device.name":"alice-laptop",
+          "source.ip":"10.0.0.10",
+          "client.ip":"2001:db8::1",
+          "event.code":"HIP_Sentinel_Fail"
+       },
+       "props":{
+          "attachments":[
+             {
+                "title":"VPN Security Alert",
+                "fields":[
+                   {
+                      "title":"User",
+                      "value":"{{ user.name }}",
+                      "short":false
+                   },
+                   {
+                      "title":"Computer",
+                      "value":"{{ device.name }}",
+                      "short":false
+                   },
+                   {
+                      "title":"IPv4",
+                      "value":"{{ source.ip }}",
+                      "short":false
+                   }
+                ]
+             }
+          ]
+       }
+    }
+ }
+ ```
+
+EXPECTED RESPONSE:
+
+{
+    "result": "OK"
+}
+
+```
+
+
+## TSM031F: Try to send Mattermost with bad template path
+
+ `PUT /send_mattermost`
+
+ ```
+ {
+    "channel_id":"security_channel_id",
+    "body":{
+       "template":"/Templates/MISSING.md",
+       "params":{
+          "user.name":"alice"
+       }
+    }
+ }
+ ```
+
+EXPECTED RESPONSE:
+
+{
+    "result": "ERROR",
+    "error": "IrisError|Incorrect template path '{{incorrect_path}}'. Please move your templates to '/Templates/Mattermost/'.",
+    "error_dict": {
+        "incorrect_path": "/Templates/MISSING.md"
+    },
+    "tech_err": "Incorrect template path '/Templates/MISSING.md'. Move templates to '/Templates/Mattermost/'."
+}
+
+```
+
+
+## TSM031G: Try to send Mattermost using non existent template
+
+ `PUT /send_mattermost`
+
+ ```
+ {
+    "channel_id":"security_channel_id",
+    "body":{
+       "template":"/Templates/Mattermost/MISSING.md",
+       "params":{
+          "user.name":"alice"
+       }
+    }
+ }
+ ```
+
+EXPECTED RESPONSE:
+
+{
+    "result": "ERROR",
+    "error": "IrisError|Template '{{incorrect_path}}' does not exist.",
+    "error_dict": {
+        "incorrect_path": "/Templates/Mattermost/MISSING.md"
+    },
+    "tech_err": "Failed to render. Reason: Template /Templates/Mattermost/MISSING.md does not exist."
+}
+
+```
+
+
+## TSM031H: Try to send Mattermost with invalid destination
+
+ `PUT /send_mattermost`
+
+ ```
+ {
+    "channel_id":"security_channel_id",
+    "username":"alice",
+    "body":{
+       "template":"/Templates/Mattermost/message.md",
+       "params":{
+          "user.name":"alice"
+       }
+    }
+ }
+ ```
+
+EXPECTED RESPONSE:
+
+{
+    "result": "ERROR",
+    "error": "IrisError|Invalid Mattermost destination.",
+    "error_dict": null,
+    "tech_err": "Provide either 'channel_id' or 'username', not both."
+}
+
+```
+
+
 ## TSM032: Try to send MS Teams using markdown template
 
  `PUT /send_msteams`
@@ -1525,6 +1725,23 @@ EXPECTED RESPONSE:
 
 'Access non existant template'
 {"type":"slack", "body":{"template":"/Templates/Slack/message.md2", "params":{"name": "I am testing a template", "error": "None" }}}
+ ```
+
+ `MATTERMOST`
+
+ ```
+{"type":"mattermost", "channel_id":"security_channel_id", "body":{"template":"/Templates/Mattermost/message.md", "params":{"user.name":"alice", "device.name":"alice-laptop", "source.ip":"10.0.0.10", "client.ip":"2001:db8::1", "event.code":"HIP_Sentinel_Fail" }}}
+
+{"type":"mattermost", "username":"alice", "body":{"template":"/Templates/Mattermost/message.md", "params":{"user.name":"alice", "device.name":"alice-laptop", "source.ip":"10.0.0.10", "client.ip":"2001:db8::1", "event.code":"HIP_Sentinel_Fail" }}}
+
+'Bad template path'
+{"type":"mattermost", "channel_id":"security_channel_id", "body":{"template":"/Templates/Mattermosts/message.md", "params":{"user.name":"alice" }}}
+
+'Access non existant template'
+{"type":"mattermost", "channel_id":"security_channel_id", "body":{"template":"/Templates/Mattermost/message.md2", "params":{"user.name":"alice" }}}
+
+'Invalid destination'
+{"type":"mattermost", "channel_id":"security_channel_id", "username":"alice", "body":{"template":"/Templates/Mattermost/message.md", "params":{"user.name":"alice" }}}
  ```
 
  `MSTEAMS`
