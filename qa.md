@@ -1675,6 +1675,154 @@ EXPECTED RESPONSE:
  }
  ```
 
+## TSM033C: Try to send push notification using markdown template
+
+ `PUT /send_push`
+
+ ```
+ {
+    "topic":"iris-alerts",
+    "body":{
+       "template":"/Templates/Push/Ticket Created.md",
+       "params":{
+          "ticket_id":"INC-3021",
+          "severity":"high",
+          "tenant":"default",
+          "public_url":"https://logman.example.com"
+       }
+    }
+ }
+ ```
+
+EXPECTED RESPONSE:
+
+{
+    "result": "OK"
+}
+
+```
+
+## TSM033D: Try to send push notification with metadata
+
+ `PUT /send_push`
+
+ ```
+ {
+    "topic":"tenant-a-alerts",
+    "body":{
+       "template":"/Templates/Push/Ticket Created.md",
+       "params":{
+          "title":"IRIS Alert",
+          "priority":"high",
+          "tags":"warning,logman",
+          "click":"https://logman.example.com/#/ticket/INC-3021",
+          "ticket_id":"INC-3021",
+          "severity":"high",
+          "tenant":"default",
+          "public_url":"https://logman.example.com"
+       }
+    }
+ }
+ ```
+
+EXPECTED RESPONSE:
+
+{
+    "result": "OK"
+}
+
+```
+
+## TSM033E: Try to send push notification with bad template path
+
+ `PUT /send_push`
+
+ ```
+ {
+    "topic":"iris-alerts",
+    "body":{
+       "template":"/Templates/Pushh/Ticket Created.md",
+       "params":{
+          "ticket_id":"INC-3021"
+       }
+    }
+ }
+ ```
+
+EXPECTED RESPONSE:
+
+{
+    "result": "ERROR",
+    "error": "IrisError|Incorrect template path '{{incorrect_path}}'. Please move your templates to '/Templates/Push/'.",
+    "error_dict": {
+        "incorrect_path": "/Templates/Pushh/Ticket Created.md"
+    },
+    "tech_err": "Incorrect template path '/Templates/Pushh/Ticket Created.md'. Move templates to '/Templates/Push/'."
+}
+
+```
+
+## TSM033F: Try to send push notification using non existent template
+
+ `PUT /send_push`
+
+ ```
+ {
+    "topic":"iris-alerts",
+    "body":{
+       "template":"/Templates/Push/MISSING.md",
+       "params":{
+          "ticket_id":"INC-3021"
+       }
+    }
+ }
+ ```
+
+EXPECTED RESPONSE:
+
+{
+    "result": "ERROR",
+    "error": "IrisError|Template '{{incorrect_path}}' does not exist.",
+    "error_dict": {
+        "incorrect_path": "/Templates/Push/MISSING.md"
+    },
+    "tech_err": "Failed to render. Reason: Template /Templates/Push/MISSING.md does not exist."
+}
+
+```
+
+## TSM033G: Try to send push notification with invalid topic
+
+ `PUT /send_push`
+
+ ```
+ {
+    "topic":"https://ntfy.sh/iris-alerts",
+    "body":{
+       "template":"/Templates/Push/Ticket Created.md",
+       "params":{
+          "ticket_id":"INC-3021",
+          "severity":"high",
+          "tenant":"default",
+          "public_url":"https://logman.example.com"
+       }
+    }
+ }
+ ```
+
+EXPECTED RESPONSE:
+
+{
+    "result": "ERROR",
+    "error": "IrisError|Invalid topic",
+    "error_dict": {
+        "topic": "https://ntfy.sh/iris-alerts"
+    },
+    "tech_err": "Invalid topic 'https://ntfy.sh/iris-alerts'; provide only the topic name (no slashes/scheme)."
+}
+
+```
+
 ## TSM033: Kakka handler
 
  `EMAIL`
@@ -1764,6 +1912,23 @@ EXPECTED RESPONSE:
 'SMS unsupportes'
 {"type":"SMS", "body":{"template":"/Templates/SMSS/hello.md", "params":{"name": "I am testing a template", "error": "None" }}}
 {"type":"sms", "body":{"template":"/Templates/SMS/hello.mTR", "params":{"name": "I am testing a template", "error": "None" }}}
+ ```
+
+ `PUSH`
+
+ ```
+{"type":"push", "topic":"iris-alerts", "body":{"template":"/Templates/Push/Ticket Created.md", "params":{"ticket_id":"INC-3021", "severity":"high", "tenant":"default", "public_url":"https://logman.example.com" }}}
+
+{"type":"push", "topic":"tenant-a-alerts", "body":{"template":"/Templates/Push/Ticket Created.md", "params":{"title":"IRIS Alert", "priority":"high", "tags":"warning,logman", "click":"https://logman.example.com/#/ticket/INC-3021", "ticket_id":"INC-3021", "severity":"high", "tenant":"default", "public_url":"https://logman.example.com" }}}
+
+'Bad template path'
+{"type":"push", "topic":"iris-alerts", "body":{"template":"/Templates/Pushh/Ticket Created.md", "params":{"ticket_id":"INC-3021" }}}
+
+'Access non existant template'
+{"type":"push", "topic":"iris-alerts", "body":{"template":"/Templates/Push/MISSING.md", "params":{"ticket_id":"INC-3021" }}}
+
+'Invalid topic'
+{"type":"push", "topic":"https://ntfy.sh/iris-alerts", "body":{"template":"/Templates/Push/Ticket Created.md", "params":{"ticket_id":"INC-3021", "severity":"high", "tenant":"default", "public_url":"https://logman.example.com" }}}
  ```
 
 
