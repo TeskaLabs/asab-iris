@@ -30,7 +30,6 @@ from .orchestration.sendmsteams import SendMSTeamsOrchestrator
 from .orchestration.sendpushnotification import SendPushOrchestrator
 from .orchestration.sendmattermost import SendMattermostOrchestrator
 
-from .handlers.kafkahandler import KafkaHandler
 from .handlers.webhandler import WebHandler
 from .orchestration.sendslack import SendSlackOrchestrator
 
@@ -42,10 +41,6 @@ asab.Config.add_defaults({
 		"listen": 8896,  # Well-known port of asab iris
 		"body_max_size": 31457280  # maximum size of the request body that the web server can handle.
 	},
-	"kafka": {
-		"topic": "notifications",
-		"group_id": "asab-iris",
-	}
 })
 
 
@@ -186,11 +181,10 @@ class ASABIRISApplication(asab.Application):
 
 		self.WebHandler = WebHandler(self)
 
-		self.TenantService = asab.web.tenant.TenantService(self, strict=False)
-
-		# Apache Kafka API is conditional
-		if "kafka" in asab.Config.sections():
-			self.KafkaHandler = KafkaHandler(self)
+		try:
+			self.TenantService = asab.web.tenant.TenantService(self, strict=False)
+		except TypeError:
+			self.TenantService = asab.web.tenant.TenantService(self)
 
 	def enabled_orchestrators(self):
 		if self.SendEmailOrchestrator is not None:
