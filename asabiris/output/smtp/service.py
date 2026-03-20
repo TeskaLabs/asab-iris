@@ -230,7 +230,6 @@ class EmailOutputService(asab.Service, OutputABC):
 		delay = 5  # seconds
 
 		for attempt in range(retry_attempts):
-			proxy_socket = None
 			try:
 				if self.ProxyHost:
 					result = await self._send_via_proxy_smtp_client(
@@ -261,7 +260,11 @@ class EmailOutputService(asab.Service, OutputABC):
 					struct_data={"proxy_host": self.ProxyHost, "proxy_port": self.ProxyPort, "host": self.Host}
 				)
 				if attempt < retry_attempts - 1:
-					L.info("Retrying email send after proxy connection failure, attempt {}".format(attempt + 1))
+					L.log(
+						asab.LOG_NOTICE,
+						"Retrying email send after proxy connection failure",
+						struct_data={"attempt": attempt + 1, "proxy_host": self.ProxyHost, "proxy_port": self.ProxyPort, "host": self.Host}
+					)
 					await asyncio.sleep(delay)
 					continue
 				raise ASABIrisError(
@@ -356,12 +359,6 @@ class EmailOutputService(asab.Service, OutputABC):
 						"host": self.Host
 					}
 				)
-			finally:
-				if proxy_socket is not None:
-					try:
-						proxy_socket.close()
-					except OSError:
-						pass
 
 	async def _send_via_proxy_smtp_client(self, *, msg, sender, recipients):
 		if self.SSL and self.ValidateCerts:
@@ -374,6 +371,8 @@ class EmailOutputService(asab.Service, OutputABC):
 				error_i18n_key="Unsupported SMTP proxy TLS configuration."
 			)
 
+		# Proxy mode cannot reuse the normal hostname/port connect path. We first create a
+		# dedicated socket to the proxy, establish the CONNECT tunnel, and then run SMTP on it.
 		proxy_socket = await self._connect_via_http_proxy()
 		client = None
 		try:
