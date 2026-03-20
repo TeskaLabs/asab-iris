@@ -1,10 +1,13 @@
 import logging
+import re
 import asab
 import aiohttp
 
 from ...errors import ASABIrisError, ErrorCode
 
 L = logging.getLogger(__name__)
+SLACK_LINK_RE = re.compile(r"<(https?://[^>|]+)(?:\|[^>]+)?>")
+URL_RE = re.compile(r"(https?://[^\s<>()|>]+)")
 
 
 class PushOutputService(asab.Service):
@@ -33,6 +36,24 @@ class PushOutputService(asab.Service):
 		def_topic = (self.DefaultTopic or "").strip()
 
 		return tenant_topic or req_topic or def_topic
+
+	@staticmethod
+	def _extract_first_url(text):
+		if not text:
+			return None
+		text = str(text)
+
+		# Slack formatted links: <url|label> or <url>
+		match = SLACK_LINK_RE.search(text)
+		if match is not None:
+			return match.group(1).rstrip(".,;:!?)]}\"'")
+
+		# Plain URL in text
+		match = URL_RE.search(text)
+		if match is None:
+			return None
+		# Common trailing punctuation in templates should not be part of the URL.
+		return match.group(1).rstrip(".,;:!?)]}\"'")
 
 	async def send(self, push_data, tenant=None):
 		message = push_data.get("rendered_message")
@@ -87,7 +108,7 @@ class PushOutputService(asab.Service):
 		if tags:
 			headers["Tags"] = str(tags)
 
-		click = params.get("click")
+		click = params.get("click") or self._extract_first_url(message)
 		if click:
 			headers["Click"] = str(click)
 
