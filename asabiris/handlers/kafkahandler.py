@@ -12,6 +12,7 @@ import asab
 import asab.contextvars
 
 from asabiris.schemas.emailschema import email_schema
+from asabiris.schemas.mattermostschema import mattermost_schema
 from asabiris.schemas.slackschema import slack_schema
 from asabiris.schemas.teamsschema import teams_schema
 from asabiris.schemas.smsschema import sms_schema
@@ -33,6 +34,7 @@ def check_config(config, section, parameter):
 
 class KafkaHandler(asab.Service):
 	ValidationSchemaMail = fastjsonschema.compile(email_schema)
+	ValidationSchemaMattermost = fastjsonschema.compile(mattermost_schema)
 	ValidationSchemaSlack = fastjsonschema.compile(slack_schema)
 	ValidationSchemaMSTeams = fastjsonschema.compile(teams_schema)
 	ValidationSchemaSMS = fastjsonschema.compile(sms_schema)
@@ -135,6 +137,11 @@ class KafkaHandler(asab.Service):
 
 			if msg_type == "email":
 				await self.handle_email(msg)
+			elif msg_type == "mattermost":
+				if self.App.SendMattermostOrchestrator is None:
+					L.warning("Mattermost service is not configured. Discarding notification.")
+					return
+				await self.handle_mattermost(msg)
 			elif msg_type == "slack":
 				if self.App.SendSlackOrchestrator is None:
 					L.warning("Slack service is not configured. Discarding notification.")
@@ -152,7 +159,7 @@ class KafkaHandler(asab.Service):
 				await self.handle_sms(msg)
 			else:
 				L.warning(
-					"Notification sending failed: Unsupported message type '{}'. Supported types are 'email', 'slack', 'msteams', and 'sms'.".format(msg_type)
+					"Notification sending failed: Unsupported message type '{}'. Supported types are 'email', 'mattermost', 'slack', 'msteams', and 'sms'.".format(msg_type)
 				)
 		finally:
 			if token is not None:
@@ -210,6 +217,28 @@ class KafkaHandler(asab.Service):
 			await self.handle_exception(e.TechMessage, 'slack', msg)
 		except Exception as e:
 			await self.handle_exception(e, 'slack', msg)
+
+	async def handle_mattermost(self, msg):
+		try:
+			KafkaHandler.ValidationSchemaMattermost(msg)
+		except fastjsonschema.exceptions.JsonSchemaException as e:
+			L.warning("Invalid Mattermost notification format: {}".format(e))
+			return
+
+		try:
+			await self.App.SendMattermostOrchestrator.send_to_mattermost(msg)
+		except ASABIrisError as e:
+			if e.ErrorCode in (
+				ErrorCode.INVALID_REQUEST,
+				ErrorCode.AUTHENTICATION_FAILED,
+				ErrorCode.SERVER_ERROR,
+			):
+				L.warning("Mattermost notification failed: {}".format(e.TechMessage))
+				return
+
+			await self.handle_exception(e.TechMessage, 'mattermost', msg)
+		except Exception as e:
+			await self.handle_exception(e, 'mattermost', msg)
 
 	async def handle_msteams(self, msg):
 		try:
@@ -283,7 +312,7 @@ class KafkaHandler(asab.Service):
 	async def handle_exception(self, exception, service_type, msg=None):
 		"""
 		No hardcoded bodies. Use orchestrators + Jinja templates from [error_templates].
-		- service_type: 'email' | 'slack' | 'msteams' | 'sms' | 'push'
+		- service_type: 'email' | 'mattermost' | 'slack' | 'msteams' | 'sms' | 'push'
 		- msg: optional dict carrying routing (to/cc/bcc/from/tenant/attachments/topic)
 		"""
 
@@ -298,6 +327,7 @@ class KafkaHandler(asab.Service):
 				self._ErrorTemplates = _load_error_templates_from_config()
 
 			tpl_email = self._ErrorTemplates.get("email")
+			tpl_mattermost = self._ErrorTemplates.get("mattermost")
 			tpl_slack = self._ErrorTemplates.get("slack")
 			tpl_teams = self._ErrorTemplates.get("msteams")
 			tpl_sms = self._ErrorTemplates.get("sms")
@@ -332,6 +362,31 @@ class KafkaHandler(asab.Service):
 					)
 				except Exception:
 					L.exception("Error notification to Email unsuccessful.")
+				return
+
+			elif service_type == "mattermost":
+				if tpl_mattermost is None:
+					L.info("No Mattermost template configured in [error_templates]. Skipping Mattermost error notification.")
+					return
+				if not tpl_mattermost.startswith("/Templates/Mattermost/"):
+					L.warning("Mattermost template must start with /Templates/Mattermost/: {}".format(tpl_mattermost))
+					return
+
+				try:
+					L.log(asab.LOG_NOTICE, "Sending error notification via Mattermost Orchestrator.")
+					await self.App.SendMattermostOrchestrator.send_to_mattermost({
+						"body": {
+							"template": tpl_mattermost,
+							"params": params
+						},
+						"channel_id": msg.get("channel_id"),
+						"username": msg.get("username"),
+						"tenant": msg.get("tenant")
+					})
+				except ASABIrisError as e:
+					L.info("Error notification to Mattermost unsuccessful: Explanation: {}".format(e.TechMessage))
+				except Exception:
+					L.exception("Error notification to Mattermost unsuccessful.")
 				return
 
 			elif service_type == "slack":
@@ -475,7 +530,7 @@ def _build_exception_params(exception, service_type):
 def _load_error_templates_from_config():
 	"""
 	Read [error_templates] once. Returns dict or {} if missing.
-	Expected keys (any subset is fine): email, slack, msteams, sms, push
+	Expected keys (any subset is fine): email, mattermost, slack, msteams, sms, push
 	"""
 	cfg = asab.Config
 	sec = "error_templates"
@@ -483,6 +538,6 @@ def _load_error_templates_from_config():
 		L.warning("Missing [{}] section.".format(sec))
 		return {}
 	tpls = {}
-	for key in ("email", "slack", "msteams", "sms", "push"):
+	for key in ("email", "mattermost", "slack", "msteams", "sms", "push"):
 		if cfg.has_option(sec, key):
 			tpls[key] = cfg.get(sec, key).strip()

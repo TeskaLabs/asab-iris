@@ -17,6 +17,7 @@ from .formatter.attachments import AttachmentRenderingService
 # output
 from .output.smtp import EmailOutputService
 from .output.slack import SlackOutputService
+from .output.mattermost import MattermostOutputService
 from .output.sms import SMSOutputService
 from .output.msteams import MSTeamsOutputService
 from .output.ms365 import M365EmailOutputService
@@ -27,8 +28,8 @@ from .orchestration.render import RenderReportOrchestrator
 from .orchestration.sendsms import SendSMSOrchestrator
 from .orchestration.sendmsteams import SendMSTeamsOrchestrator
 from .orchestration.sendpushnotification import SendPushOrchestrator
+from .orchestration.sendmattermost import SendMattermostOrchestrator
 
-from .handlers.kafkahandler import KafkaHandler
 from .handlers.webhandler import WebHandler
 from .orchestration.sendslack import SendSlackOrchestrator
 
@@ -40,10 +41,6 @@ asab.Config.add_defaults({
 		"listen": 8896,  # Well-known port of asab iris
 		"body_max_size": 31457280  # maximum size of the request body that the web server can handle.
 	},
-	"kafka": {
-		"topic": "notifications",
-		"group_id": "asab-iris",
-	}
 })
 
 
@@ -132,6 +129,16 @@ class ASABIRISApplication(asab.Application):
 			self.SlackOutputService = None
 			self.SendSlackOrchestrator = None
 
+		if 'mattermost' in asab.Config.sections():
+			self.MattermostOutputService = MattermostOutputService(self)
+			if not self.MattermostOutputService.IsConfigured:
+				self.SendMattermostOrchestrator = None
+			else:
+				self.SendMattermostOrchestrator = SendMattermostOrchestrator(self)
+		else:
+			self.MattermostOutputService = None
+			self.SendMattermostOrchestrator = None
+
 		if 'msteams' in asab.Config.sections():
 			# Initialize the MSTeamsOutputService
 			self.MSTeamsOutputService = MSTeamsOutputService(self)
@@ -174,17 +181,18 @@ class ASABIRISApplication(asab.Application):
 
 		self.WebHandler = WebHandler(self)
 
-		self.TenantService = asab.web.tenant.TenantService(self, strict=False)
-
-		# Apache Kafka API is conditional
-		if "kafka" in asab.Config.sections():
-			self.KafkaHandler = KafkaHandler(self)
+		try:
+			self.TenantService = asab.web.tenant.TenantService(self, strict=False)
+		except TypeError:
+			self.TenantService = asab.web.tenant.TenantService(self)
 
 	def enabled_orchestrators(self):
 		if self.SendEmailOrchestrator is not None:
 			yield "email"
 		if self.SendSlackOrchestrator is not None:
 			yield "slack"
+		if self.SendMattermostOrchestrator is not None:
+			yield "mattermost"
 		if self.SendMSTeamsOrchestrator is not None:
 			yield "msteams"
 		if self.SendSMSOrchestrator is not None:

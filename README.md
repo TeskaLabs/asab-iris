@@ -291,8 +291,53 @@ Add following scopes for:
 4. Confirm the addition.
 5. Verify the app's presence.
 
+### 💬 3. Sending Mattermost messages
 
-### 📬 3. Sending Microsoft Teams messages
+**Overview**
+
+- Send messages to a Mattermost channel or directly to a Mattermost user.
+- Apply Jinja2 templates.
+- Trigger them through a web handler or an Apache Kafka message.
+
+**Configuration**
+
+```ini
+[mattermost]
+url=https://teams.example.com
+token=your_mattermost_bot_token
+bot_username=vpn-robot
+security_channel_id=channel_id_for_default_alerts
+```
+
+**Explanation**
+
+- `url`: Base URL of your Mattermost server.
+- `token`: Bot token used for Mattermost API calls.
+- `bot_username`: Username of the Mattermost bot account. Required for direct messages.
+- `security_channel_id`: Default channel used when the request does not provide `channel_id`.
+
+**Example Web Request**
+
+```json
+{
+  "body": {
+    "template": "/Templates/Mattermost/message.md",
+    "params": {
+      "user.name": "alice",
+      "device.name": "alice-laptop",
+      "source.ip": "10.0.0.10",
+      "client.ip": "2001:db8::1",
+      "event.code": "HIP_Sentinel_Fail"
+    }
+  },
+  "channel_id": "security_channel_id"
+}
+```
+
+To send a direct message instead, replace `channel_id` with `username`.
+
+
+### 📬 4. Sending Microsoft Teams messages
 
 **Overview**
 
@@ -326,7 +371,7 @@ asab-iris implements specific error handling strategies for the Kafka and Web ha
 - **Error Responses:** Internal error codes are mapped to HTTP status codes, providing meaningful responses to clients.
 - **Exception Handling:** General exceptions are logged, and standardized error responses are sent to clients.
 
-### 📱 4. Sending SMS messages
+### 📱 5. Sending SMS messages
 
 **Overview**
 
@@ -533,6 +578,7 @@ Example:
 - PDF for the output
 - Output: Email SMTP
 - Output: Slack
+- Output: Mattermost
 - Output: Microsoft Teams
 - Powered by [ASAB](https://github.com/TeskaLabs/asab) (because we’re standing on the shoulders of giants)
 
@@ -586,12 +632,12 @@ Here are some common format strings you can use with the `datetimeformat` filter
 
 **Overview**
 
-ASAB Iris supports sending notifications to various communication channels such as email, Slack, and Microsoft Teams via Kafka. Each notification is structured using templates and parameters to ensure customizable content.
+ASAB Iris supports sending notifications to various communication channels such as email, Slack, Mattermost, and Microsoft Teams via Kafka. Each notification is structured using templates and parameters to ensure customizable content.
 
 #### Kafka Message Structure
 
 - Notifications are sent to Kafka in JSON format.
-- Each notification contains a `type` field specifying the channel (e.g., `email`, `slack`, `msteams`), and a `body` that includes the template and its parameters.
+- Each notification contains a `type` field specifying the channel (e.g., `email`, `slack`, `mattermost`, `msteams`), and a `body` that includes the template and its parameters.
 
 #### 1. Sending Email Notifications
 
@@ -643,7 +689,34 @@ ASAB Iris supports sending notifications to various communication channels such 
 - `body.template`: Path to the Slack message template.
 - `params`: Parameters for populating the Slack template.
 
-#### 3. Sending Microsoft Teams Notifications
+#### 3. Sending Mattermost Notifications
+
+**Example Kafka Message:**
+
+```json
+{
+    "type": "mattermost",
+    "body": {
+        "template": "/Templates/Mattermost/message.md",
+        "params": {
+            "user.name": "alice",
+            "device.name": "alice-laptop",
+            "source.ip": "10.0.0.10",
+            "client.ip": "2001:db8::1",
+            "event.code": "HIP_Sentinel_Fail"
+        }
+    },
+    "username": "alice"
+}
+```
+
+**Explanation:**
+
+- `type`: Defines the notification type as `mattermost`.
+- `body.template`: Path to the Mattermost template.
+- `username`: Optional direct-message target. Use `channel_id` to override the default configured channel.
+
+#### 4. Sending Microsoft Teams Notifications
 
 **Example Kafka Message:**
 
