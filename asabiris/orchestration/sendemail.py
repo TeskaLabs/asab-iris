@@ -35,10 +35,10 @@ class SendEmailOrchestrator:
 
 		# Optional markdown wrapper
 		cfg = asab.Config
-		if cfg.has_section("email") and cfg.get("email", "markdown_wrapper"):
-			self.MarkdownWrapper = cfg.get("email", "markdown_wrapper")
-		else:
-			self.MarkdownWrapper = None
+		wrapper = ""
+		if cfg.has_section("email"):
+			wrapper = (cfg.get("email", "markdown_wrapper", fallback="") or "").strip()
+		self.MarkdownWrapper = wrapper or None
 
 	def _recipient_list_for_log(self, recipients):
 		if recipients is None:

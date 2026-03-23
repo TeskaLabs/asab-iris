@@ -490,6 +490,17 @@ def _load_error_templates_from_config():
 		L.warning("Missing [{}] section.".format(sec))
 		return {}
 	tpls = {}
-	for key in ("email", "slack", "msteams", "sms", "push"):
+	for key in ("email", "slack", "sms", "push"):
 		if cfg.has_option(sec, key):
-			tpls[key] = cfg.get(sec, key).strip()
+			value = cfg.get(sec, key).strip()
+			if value:
+				tpls[key] = value
+
+	for key in ("msteams", "teams"):
+		if cfg.has_option(sec, key):
+			value = cfg.get(sec, key).strip()
+			if value:
+				tpls["msteams"] = value
+				break
+
+	return tpls
