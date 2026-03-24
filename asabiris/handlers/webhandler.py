@@ -503,6 +503,7 @@ class WebHandler(object):
 
 		return asab.web.rest.json_response(request, {"result": "OK"})
 
+	@asab.web.tenant.allow_no_tenant
 	@asab.web.rest.json_schema_handler({"type": "object"})
 	async def send_push(self, request, *, json_data):
 		"""
