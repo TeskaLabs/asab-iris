@@ -181,10 +181,12 @@ class ASABIRISApplication(asab.Application):
 
 		self.WebHandler = WebHandler(self)
 
-		try:
-			self.TenantService = asab.web.tenant.TenantService(self, strict=False)
-		except TypeError:
-			self.TenantService = asab.web.tenant.TenantService(self)
+		self.TenantService = asab.web.tenant.TenantService(self, strict=False)
+
+		# Apache Kafka API is conditional
+		if "kafka" in asab.Config.sections():
+			from .handlers.kafkahandler import KafkaHandler
+			self.KafkaHandler = KafkaHandler(self)
 
 	def enabled_orchestrators(self):
 		if self.SendEmailOrchestrator is not None:
