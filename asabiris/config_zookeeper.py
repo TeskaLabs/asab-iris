@@ -1,3 +1,18 @@
+"""
+Helpers for applying ZooKeeper-backed configuration on top of the static ASAB config.
+
+The intended flow is:
+
+1. Load the regular static configuration from files and defaults.
+2. Resolve a ZooKeeper node path from ``[config_zookeeper]``.
+3. Read a single JSON document from that node.
+4. Overlay any values found there into ``asab.Config``.
+
+This keeps the rest of the application unchanged because services can continue to
+read from ``asab.Config`` without knowing whether a value originally came from a
+file or from ZooKeeper.
+"""
+
 import configparser
 import json
 import logging
@@ -10,6 +25,18 @@ L = logging.getLogger(__name__)
 
 
 def _stringify_config_value(value):
+	"""
+	Convert a JSON-derived value into the string representation expected by ``asab.Config``.
+
+	ASAB configuration values are stored as strings, even when callers later read them
+	back via helpers such as ``getboolean()`` or ``getint()``. This helper normalizes the
+	values we read from ZooKeeper so they can be safely written into the in-memory config.
+
+	Boolean values are converted to lowercase ``true`` / ``false`` strings because that
+	format is accepted by ``ConfigParser.getboolean()``. Nested objects and lists are
+	serialized back to JSON so they remain readable and deterministic. Everything else is
+	converted with ``str()``.
+	"""
 	if isinstance(value, bool):
 		return "true" if value else "false"
 	if isinstance(value, (dict, list)):
@@ -18,6 +45,21 @@ def _stringify_config_value(value):
 
 
 def resolve_config_zookeeper_path(config, section_name="config_zookeeper"):
+	"""
+	Resolve the ZooKeeper node that stores config overrides.
+
+	The preferred configuration is an explicit ``path`` in the selected section:
+
+	``[config_zookeeper]``
+	``path=/lmio/iris/config``
+
+	For convenience, a ``zk://`` style ``url`` is also accepted and only its path
+	component is used. This lets callers stay consistent with other ZooKeeper-related
+	settings already present in the codebase.
+
+	Returns the resolved ZooKeeper path as a string, or ``None`` when neither ``path``
+	nor ``url`` is configured.
+	"""
 	path = config.get(section_name, "path", fallback="").strip()
 	if path:
 		return path
@@ -31,6 +73,22 @@ def resolve_config_zookeeper_path(config, section_name="config_zookeeper"):
 
 
 def load_config_overrides(zk_client, path):
+	"""
+	Load the JSON config override document from ZooKeeper.
+
+	The expected payload is a single JSON object shaped like ASAB config sections, for
+	example::
+
+		{
+		  "smtp": {"host": "smtp.example.com", "port": "587"},
+		  "slack": {"channel": "alerts"}
+		}
+
+	If the client is missing, the path is empty, the node does not exist, or the node is
+	empty, the function returns an empty mapping so the caller can transparently keep using
+	the static configuration. Invalid JSON or a non-object payload is treated as an error
+	and raised to the caller so bootstrap code can log the problem clearly.
+	"""
 	if zk_client is None or not path:
 		return {}
 
@@ -56,6 +114,20 @@ def load_config_overrides(zk_client, path):
 
 
 def apply_config_overrides(config, overrides):
+	"""
+	Merge ZooKeeper-provided values into an existing ``ConfigParser`` instance.
+
+	The merge is intentionally shallow and section-oriented:
+
+	- existing sections are updated in place
+	- missing sections are created
+	- missing static keys are preserved
+	- keys explicitly provided by ZooKeeper win over static values
+	- ``null`` / ``None`` values are ignored rather than deleting config entries
+
+	This behavior keeps the overlay lean and predictable. The static configuration remains
+	the baseline, while ZooKeeper only overrides the keys it actually provides.
+	"""
 	if not isinstance(overrides, dict):
 		raise ValueError("ZooKeeper configuration overrides must be a mapping.")
 
@@ -82,6 +154,22 @@ def apply_config_overrides(config, overrides):
 
 
 def apply_zookeeper_config_overrides(app, section_name="config_zookeeper"):
+	"""
+	Apply ZooKeeper config overrides during application bootstrap.
+
+	This is the high-level entry point used by the app startup sequence. It checks whether
+	ZooKeeper is available, whether the selected config section is present, resolves the
+	override node path, reads the JSON payload, and merges it into ``asab.Config``.
+
+	The function is deliberately fail-soft for operational issues:
+
+	- if ZooKeeper is not configured, it does nothing
+	- if the override section is absent, it does nothing
+	- if the path is missing, the node is absent, or the node is empty, static config stays in effect
+	- if parsing or validation fails, the problem is logged and static config stays in effect
+
+	Returns ``True`` only when at least one override document was successfully applied.
+	"""
 	if app.ZooKeeperContainer is None:
 		return False
 
