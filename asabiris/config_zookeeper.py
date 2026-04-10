@@ -21,7 +21,6 @@ import urllib.parse
 import asab
 import kazoo.exceptions
 
-
 L = logging.getLogger(__name__)
 
 
