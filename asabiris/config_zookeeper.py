@@ -19,6 +19,7 @@ import logging
 import urllib.parse
 
 import asab
+import kazoo.exceptions
 
 
 L = logging.getLogger(__name__)
@@ -84,20 +85,30 @@ def load_config_overrides(zk_client, path):
 		  "slack": {"channel": "alerts"}
 		}
 
-	If the client is missing, the path is empty, the node does not exist, or the node is
-	empty, the function returns an empty mapping so the caller can transparently keep using
-	the static configuration. Invalid JSON or a non-object payload is treated as an error
-	and raised to the caller so bootstrap code can log the problem clearly.
+	If the client is missing, the path is empty, the node does not exist, the node is
+	empty, or ZooKeeper raises an operational read error, the function returns an empty
+	mapping so the caller can transparently keep using the static configuration. Invalid
+	JSON or a non-object payload is still treated as an error and raised to the caller so
+	bootstrap code can log the problem clearly.
 	"""
 	if zk_client is None or not path:
 		return {}
 
-	if not zk_client.exists(path):
+	try:
+		data, _ = zk_client.get(path)
+	except kazoo.exceptions.NoNodeError:
 		L.info("ZooKeeper configuration path '%s' not found. Using static configuration.", path)
 		return {}
+	except kazoo.exceptions.KazooException as e:
+		L.warning(
+			"Failed to read ZooKeeper configuration path '%s': %s: %s. Using static configuration.",
+			path,
+			e.__class__.__name__,
+			e,
+		)
+		return {}
 
-	data, _ = zk_client.get(path)
-	if data is None:
+	if data is None or data == b"":
 		L.info("ZooKeeper configuration path '%s' is empty. Using static configuration.", path)
 		return {}
 
@@ -105,6 +116,10 @@ def load_config_overrides(zk_client, path):
 		payload_raw = data.decode("utf-8")
 	else:
 		payload_raw = str(data)
+
+	if payload_raw.strip() == "":
+		L.info("ZooKeeper configuration path '%s' is empty. Using static configuration.", path)
+		return {}
 
 	payload = json.loads(payload_raw)
 	if not isinstance(payload, dict):
@@ -165,7 +180,7 @@ def apply_zookeeper_config_overrides(app, section_name="config_zookeeper"):
 
 	- if ZooKeeper is not configured, it does nothing
 	- if the override section is absent, it does nothing
-	- if the path is missing, the node is absent, or the node is empty, static config stays in effect
+	- if the path is missing, the node is absent, the node is empty, or ZooKeeper read fails, static config stays in effect
 	- if parsing or validation fails, the problem is logged and static config stays in effect
 
 	Returns ``True`` only when at least one override document was successfully applied.
