@@ -55,60 +55,14 @@ class WebHandler(object):
 	@asab.web.rest.json_schema_handler(email_schema)
 	async def send_email(self, request, *, json_data):
 		"""
-		This endpoint is for sending emails.
-		```
-		1) It collects the basic email info (to, cc, bcc, subject, from)
-		2) It renders the email body based on the template
-		3) Optionally it adds attachments:
+		Send one email defined by the request JSON payload.
 
-			3.1) The attachment is renders by this service.
+		The request contract covers message content only: recipients, subject, sender,
+		body template, and optional attachments. Transport behavior such as direct SMTP,
+		SMTP via HTTP CONNECT proxy, or MS365 is selected by server-side configuration.
 
-			3.2) The attachment is provided by the caller.
-
-		```
-		Example body:
-
-		```
-		{
-			"to": ['Tony.Montana@Goodfellas.com'],
-			"cc": ['Jimmy2.times@Goodfellas.com'],
-			"bcc": ['Henry.Hill@Goodfellas.com'],
-			"subject": "Lufthansa Hiest",
-			"from": "Jimmy.Conway@Goodfellas.com",
-			"body": {
-				"template": "/Templates/Emails/test.md",
-				"params": {
-					"Name": "Toddy Siciro"
-			}
-		},
-		"attachments": [
-			{
-			"template": "/Templates/Emails/hello.html",
-			"params": {
-				"Name": "Michael Corleone"
-				},
-			"format": "pdf",
-			"filename": "Alert.pdf"
-			}]
-		}
-
-		```
-		Attached will be retrieved from request. Content when rendering the email is not required.
-
-		Example of the email body template:
-		```
-		SUBJECT: Automated email for {{name}}
-
-		Hi {{name}},
-
-		this is a nice template for an email.
-		It is {{time}} to leave.
-
-		Br,
-		Your automated ASAB report
-		```
-
-		It is a markdown template.
+		Body templates must live under `/Templates/Email/`.
+		Attachment templates must live under `/Templates/Attachment/`.
 		---
 		tags: ['Send mail']
 		"""
@@ -117,12 +71,11 @@ class WebHandler(object):
 	@asab.web.tenant.allow_no_tenant
 	async def send_email_jsonata(self, request):
 		"""
-		This endpoint is for sending emails - JSONata template is applied first to the request body.
+		Apply a JSONata template to the request body, then forward the result to
+		`/send_email`.
 
-		It applies JSONata template (stored in `/Templates/JSONata`) to the request body and then the output is used as a body to /send_email endpoint.
-		It allows to transform arbitrary JSON data into a valid email body.
-
-		Build the JSONata template at https://try.jsonata.org
+		JSONata templates are stored under `/Templates/JSONata/` and must produce an
+		object compatible with the `/send_email` request contract.
 		"""
 		jsonata_template = request.match_info["jsonata"]
 		assert '..' not in jsonata_template, "JSONata template cannot contain '..'"

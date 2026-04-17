@@ -9,6 +9,15 @@ import asab
 import asab.contextvars
 import asyncio
 import aiosmtplib
+from aiosmtplib.compat import create_connection, create_unix_connection
+from aiosmtplib.errors import (
+	SMTPConnectError,
+	SMTPConnectTimeoutError,
+	SMTPServerDisconnected,
+	SMTPTimeoutError,
+)
+from aiosmtplib.protocol import SMTPProtocol
+from aiosmtplib.status import SMTPStatus
 
 from ...output_abc import OutputABC
 from ...errors import ASABIrisError, ErrorCode
@@ -20,6 +29,123 @@ L = logging.getLogger(__name__)
 
 class ProxyConnectError(Exception):
 	pass
+
+
+class ProxySMTP(aiosmtplib.SMTP):
+	"""
+	Proxy CONNECT gives us an already-connected socket, but we still need the original
+	SMTP hostname for implicit TLS SNI and certificate validation.
+	"""
+
+	def _validate_config(self):
+		if self._start_tls_on_connect and self.use_tls:
+			raise ValueError("The start_tls and use_tls options are not compatible.")
+
+		if self.tls_context is not None and self.client_cert is not None:
+			raise ValueError(
+				"Either a TLS context or a certificate/key must be provided"
+			)
+
+		if self.sock is not None and self.socket_path is not None:
+			raise ValueError(
+				"The socket option is not compatible with socket_path"
+			)
+
+		if self.socket_path is not None and any([self.hostname, self.port]):
+			raise ValueError(
+				"The socket_path option is not compatible with hostname/port"
+			)
+
+		if self.source_address is not None and (
+			"\r" in self.source_address or "\n" in self.source_address
+		):
+			raise ValueError(
+				"The source_address param contains prohibited newline characters"
+			)
+
+		if self.hostname is not None and (
+			"\r" in self.hostname or "\n" in self.hostname
+		):
+			raise ValueError(
+				"The hostname param contains prohibited newline characters"
+			)
+
+	async def _create_connection(self):
+		if self.loop is None:
+			raise RuntimeError("No event loop set")
+
+		protocol = SMTPProtocol(
+			loop=self.loop, connection_lost_callback=self._connection_lost
+		)
+
+		tls_context = None
+		ssl_handshake_timeout = None
+		if self.use_tls:
+			tls_context = self._get_tls_context()
+			ssl_handshake_timeout = self.timeout
+
+		if self.sock:
+			connect_coro = create_connection(
+				self.loop,
+				lambda: protocol,
+				sock=self.sock,
+				ssl=tls_context,
+				server_hostname=self.hostname if self.use_tls else None,
+				ssl_handshake_timeout=ssl_handshake_timeout,
+			)
+		elif self.socket_path:
+			connect_coro = create_unix_connection(
+				self.loop,
+				lambda: protocol,
+				path=self.socket_path,
+				ssl=tls_context,
+				ssl_handshake_timeout=ssl_handshake_timeout,
+			)
+		else:
+			connect_coro = create_connection(
+				self.loop,
+				lambda: protocol,
+				host=self.hostname,
+				port=self.port,
+				ssl=tls_context,
+				ssl_handshake_timeout=ssl_handshake_timeout,
+			)
+
+		try:
+			transport, _ = await asyncio.wait_for(connect_coro, timeout=self.timeout)
+		except OSError as exc:
+			raise SMTPConnectError(
+				"Error connecting to {host} on port {port}: {err}".format(
+					host=self.hostname, port=self.port, err=exc
+				)
+			) from exc
+		except asyncio.TimeoutError as exc:
+			raise SMTPConnectTimeoutError(
+				"Timed out connecting to {host} on port {port}".format(
+					host=self.hostname, port=self.port
+				)
+			) from exc
+
+		self.protocol = protocol
+		self.transport = transport
+
+		try:
+			response = await protocol.read_response(timeout=self.timeout)
+		except SMTPServerDisconnected as exc:
+			raise SMTPConnectError(
+				"Error connecting to {host} on port {port}: {err}".format(
+					host=self.hostname, port=self.port, err=exc
+				)
+			) from exc
+		except SMTPTimeoutError as exc:
+			raise SMTPConnectTimeoutError(
+				"Timed out waiting for server ready message"
+			) from exc
+
+		if response.code != SMTPStatus.ready:
+			raise SMTPConnectError(str(response))
+
+		return response
 
 
 #
@@ -109,6 +235,10 @@ class EmailOutputService(asab.Service, OutputABC):
 	):
 		"""
 		Send an outgoing email with the given parameters.
+
+		Transport selection is transparent to callers. The request contract stays the
+		same regardless of whether the server is configured for direct SMTP, SMTP via
+		an HTTP CONNECT proxy, or a different provider.
 
 		:param to: To whom the email is being sent
 		:type to: list of strings (email addresses)
@@ -361,30 +491,29 @@ class EmailOutputService(asab.Service, OutputABC):
 				)
 
 	async def _send_via_proxy_smtp_client(self, *, msg, sender, recipients):
-		if self.SSL and self.ValidateCerts:
-			raise ASABIrisError(
-				ErrorCode.INVALID_SERVICE_CONFIGURATION,
-				tech_message=(
-					"Proxy with implicit TLS and certificate validation is not supported with current SMTP client "
-					"version. Use STARTTLS or disable certificate validation."
-				),
-				error_i18n_key="Unsupported SMTP proxy TLS configuration."
-			)
+		"""
+		Send one SMTP message through an HTTP CONNECT tunnel.
 
+		The tunnel setup uses proxy-specific configuration, but once established the
+		SMTP session should behave like the direct path, including normal SMTP
+		timeouts and TLS validation.
+		"""
 		# Proxy mode cannot reuse the normal hostname/port connect path. We first create a
 		# dedicated socket to the proxy, establish the CONNECT tunnel, and then run SMTP on it.
+		target_port = self._effective_smtp_port()
 		proxy_socket = await self._connect_via_http_proxy()
 		client = None
 		try:
-			client = aiosmtplib.SMTP(
+			# Keep the regular SMTP client timeout semantics. proxy_connect_timeout only
+			# applies to the TCP/CONNECT tunnel setup done in _connect_via_http_proxy().
+			client = ProxySMTP(
 				sock=proxy_socket,
-				hostname=None,
-				port=None,
+				hostname=self.Host,
+				port=target_port,
 				use_tls=self.SSL,
 				start_tls=False,
 				validate_certs=self.ValidateCerts,
 				cert_bundle=self.Cert or None,
-				timeout=self.ProxyConnectTimeout
 			)
 			await client.connect()
 
@@ -416,6 +545,9 @@ class EmailOutputService(asab.Service, OutputABC):
 		return 25
 
 	def _proxy_connect_headers(self, target_host, target_port):
+		"""
+		Build the HTTP CONNECT request sent to the proxy.
+		"""
 		headers = [
 			"CONNECT {}:{} HTTP/1.1".format(target_host, target_port),
 			"Host: {}:{}".format(target_host, target_port),
@@ -427,6 +559,9 @@ class EmailOutputService(asab.Service, OutputABC):
 		return "\r\n".join(headers) + "\r\n\r\n"
 
 	async def _read_http_headers(self, sock_obj):
+		"""
+		Read proxy response headers without consuming bytes from the SMTP stream.
+		"""
 		loop = asyncio.get_running_loop()
 		buffer = b""
 		max_headers_size = 65536
@@ -442,6 +577,9 @@ class EmailOutputService(asab.Service, OutputABC):
 		return buffer.split(b"\r\n\r\n", 1)[0]
 
 	async def _connect_via_http_proxy(self):
+		"""
+		Open a TCP connection to the proxy and establish an HTTP CONNECT tunnel.
+		"""
 		target_host = self.Host
 		target_port = self._effective_smtp_port()
 		proxy_port = self.ProxyPortInt if self.ProxyPortInt is not None else 0
