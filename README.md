@@ -235,6 +235,14 @@ cert_bundle     =                     ; Path to CA/chain PEM when validate_certs
                                       ; When validate_certs=no, both chain and hostname checks are disabled and
                                       ; cert_bundle is ignored.
 
+# Optional HTTP CONNECT proxy for SMTP transport
+proxy_host      =                     ; e.g. proxy.company.local
+proxy_port      =                     ; e.g. 3128
+proxy_user      =                     ; Optional basic-auth username
+proxy_password  =                     ; Optional basic-auth password
+proxy_connect_timeout = 10            ; Proxy TCP/CONNECT timeout only (seconds)
+                                      ; Does not change SMTP EHLO/TLS/AUTH/DATA timeouts.
+
 ```
 
 **Important**
@@ -242,6 +250,10 @@ cert_bundle     =                     ; Path to CA/chain PEM when validate_certs
 * Use real booleans: `yes|no` (not quoted strings).
 * `cert_bundle` must be a **CA/chain PEM**, **not** the server cert.
 * If you supply a custom TLS context in code, some clients ignore `validate_certs`/`cert_bundle`.
+* Proxy support uses **HTTP CONNECT** (not SOCKS) and is enabled only when both `proxy_host` and `proxy_port` are set.
+* If `proxy_user` is set, ASAB Iris sends `Proxy-Authorization: Basic ...` during CONNECT.
+* Proxy mode supports plain SMTP, STARTTLS, and implicit TLS (SMTPS) with normal certificate validation.
+* `proxy_connect_timeout` applies only to connecting to the proxy and completing the HTTP CONNECT handshake.
 
 **Common Setups**
 
@@ -288,6 +300,26 @@ password        =
 from            = dev@localhost
 validate_certs  = no
 cert_bundle     =
+```
+
+**D) SMTPS (465) through an HTTP CONNECT proxy**
+
+```ini
+[smtp]
+host            = mail.internal.lan
+user            = admin
+port            = 465
+ssl             = yes
+starttls        = no
+password        = ****
+from            = noreply@internal.lan
+validate_certs  = yes
+cert_bundle     = /etc/ssl/internal_ca.pem
+proxy_host      = proxy.company.local
+proxy_port      = 3128
+proxy_user      = proxy-user         ; optional
+proxy_password  = ****               ; optional
+proxy_connect_timeout = 10
 ```
 
 ### 🚨 2. Sending Slack messages
