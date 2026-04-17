@@ -29,6 +29,43 @@ This means delegated MS365 matters only when SMTP is not configured.
 
 ---
 
+## ZooKeeper Configuration Overrides
+
+IRIS can keep the existing static configuration file as the baseline and overlay selected values from ZooKeeper during startup.
+
+- Static config remains the fallback source.
+- If a key exists in ZooKeeper, it overrides the static value.
+- If the ZooKeeper node is missing or unavailable, IRIS continues with the static config.
+
+Example:
+
+```ini
+[zookeeper]
+servers=zk.example.com:2181
+
+[config_zookeeper]
+path=/lmio/iris/config
+```
+
+The ZooKeeper node should contain a JSON object shaped like config sections:
+
+```json
+{
+  "smtp": {
+    "host": "smtp.example.com",
+    "port": "587",
+    "starttls": true
+  },
+  "slack": {
+    "channel": "alerts"
+  }
+}
+```
+
+This overlay happens early in app startup so the existing service code can continue reading `asab.Config`.
+
+---
+
 ## App Mode (Default)
 
 Use this mode when Iris sends email **as the application**, with no user interaction.
