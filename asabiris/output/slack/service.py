@@ -1,8 +1,15 @@
 import logging
 import configparser
-import slack_sdk.errors
+try:
+	import slack_sdk.errors as slack_errors
+	from slack_sdk import WebClient
+	SlackApiError = slack_errors.SlackApiError
+except ModuleNotFoundError:
+	slack_errors = None
+	WebClient = None
 
-from slack_sdk import WebClient
+	class SlackApiError(Exception):
+		pass
 from ...errors import ASABIrisError, ErrorCode
 
 import asab
@@ -35,6 +42,11 @@ class SlackOutputService(asab.Service, OutputABC):
 		# If required Slack configuration is missing, disable Slack service
 		if not self.SlackWebhookUrl or not self.Channel:
 			L.warning("Slack output service is not properly configured. Disabling Slack service.")
+			self.Client = None
+			return
+
+		if WebClient is None:
+			L.warning("slack_sdk is not installed. Slack service is disabled.")
 			self.Client = None
 			return
 
@@ -89,7 +101,7 @@ class SlackOutputService(asab.Service, OutputABC):
 				text=fallback_message,
 				blocks=blocks
 			)
-		except slack_sdk.errors.SlackApiError as e:
+		except SlackApiError as e:
 			L.warning("Failed to send message to Slack: %s", e)
 			raise ASABIrisError(
 				ErrorCode.SLACK_API_ERROR,
@@ -119,7 +131,7 @@ class SlackOutputService(asab.Service, OutputABC):
 			effective_tenant = None
 
 		token, channel = (self.SlackWebhookUrl, self.Channel)
-		if effective_tenant:
+		if effective_tenant and self.ConfigService is not None:
 			try:
 				token, channel = self.ConfigService.get_slack_config(effective_tenant)
 			except KeyError:
@@ -157,7 +169,7 @@ class SlackOutputService(asab.Service, OutputABC):
 					filename=attachment.FileName,
 					initial_comment=body.format() if attachment.Position == 0 else None
 				)
-		except slack_sdk.errors.SlackApiError as e:
+		except SlackApiError as e:
 			L.warning("Failed to upload files to Slack: {}".format(e))
 			raise ASABIrisError(
 				ErrorCode.SLACK_API_ERROR,

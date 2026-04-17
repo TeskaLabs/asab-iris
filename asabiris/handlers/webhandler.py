@@ -15,7 +15,11 @@ from ..schemas.teamsschema import teams_schema
 
 from ..errors import ASABIrisError, ErrorCode
 
-import slack_sdk.errors
+try:
+	from slack_sdk.errors import SlackApiError
+except ModuleNotFoundError:
+	class SlackApiError(Exception):
+		pass
 #
 
 L = logging.getLogger(__name__)
@@ -78,8 +82,8 @@ class WebHandler(object):
 		object compatible with the `/send_email` request contract.
 		"""
 		jsonata_template = request.match_info["jsonata"]
-		assert '..' not in jsonata_template, "JSONata template cannot contain '..'"
-		assert '/' not in jsonata_template, "JSONata template cannot contain '/'"
+		if '..' in jsonata_template or '/' in jsonata_template:
+			raise aiohttp.web.HTTPBadRequest(text="Invalid JSONata template name.")
 
 		async with self.App.LibraryService.open('/Templates/JSONata/' + jsonata_template + '.txt') as b:
 			expr = jsonata.Jsonata(b.read().decode("utf-8"))
@@ -200,7 +204,7 @@ class WebHandler(object):
 			}
 			return aiohttp.web.json_response(response, status=status_code)
 
-		except slack_sdk.errors.SlackApiError as e:
+		except SlackApiError as e:
 			raise aiohttp.web.HTTPServiceUnavailable(text="{}".format(e))
 		# More specific exception handling goes here so that the service provides nice output
 		except Exception as e:

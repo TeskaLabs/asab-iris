@@ -16,10 +16,8 @@ from .formatter.attachments import AttachmentRenderingService
 
 # output
 from .output.smtp import EmailOutputService
-from .output.slack import SlackOutputService
 from .output.sms import SMSOutputService
 from .output.msteams import MSTeamsOutputService
-from .output.ms365 import M365EmailOutputService
 from .output.pushnotification import PushOutputService
 # orchestrators.
 from .orchestration.sendemail import SendEmailOrchestrator
@@ -116,16 +114,23 @@ class ASABIRISApplication(asab.Application):
 			self.EmailOutputService = None
 
 		if 'slack' in asab.Config.sections():
-			# Initialize the SlackOutputService
-			self.SlackOutputService = SlackOutputService(self)
-
-			# Only initialize SendSlackOrchestrator if the SlackOutputService client is valid
-			if self.SlackOutputService.Client is None:
-				# If client is None, disable Slack orchestrator as well
+			try:
+				from .output.slack import SlackOutputService
+			except ModuleNotFoundError as e:
+				L.warning("Slack section present but Slack dependencies are missing: %s", e)
+				self.SlackOutputService = None
 				self.SendSlackOrchestrator = None
 			else:
-				# If the client is valid, initialize the orchestrator
-				self.SendSlackOrchestrator = SendSlackOrchestrator(self)
+				# Initialize the SlackOutputService
+				self.SlackOutputService = SlackOutputService(self)
+
+				# Only initialize SendSlackOrchestrator if the SlackOutputService client is valid
+				if self.SlackOutputService.Client is None:
+					# If client is None, disable Slack orchestrator as well
+					self.SendSlackOrchestrator = None
+				else:
+					# If the client is valid, initialize the orchestrator
+					self.SendSlackOrchestrator = SendSlackOrchestrator(self)
 
 		else:
 			# If the slack section is not present in the config, set both services to None
@@ -160,8 +165,17 @@ class ASABIRISApplication(asab.Application):
 			self.SendPushOrchestrator = None
 
 		# MS 365 output service
-		m365 = M365EmailOutputService(self)
-		self.M365EmailOutputService = m365 if getattr(m365, "is_configured", False) else None
+		if "m365_email" in asab.Config.sections():
+			try:
+				from .output.ms365 import M365EmailOutputService
+			except ModuleNotFoundError as e:
+				L.warning("MS365 section present but MS365 dependencies are missing: %s", e)
+				self.M365EmailOutputService = None
+			else:
+				m365 = M365EmailOutputService(self)
+				self.M365EmailOutputService = m365 if getattr(m365, "is_configured", False) else None
+		else:
+			self.M365EmailOutputService = None
 
 		# Single email orchestrator (SMTP or MS 365)
 		if self.M365EmailOutputService or self.EmailOutputService:

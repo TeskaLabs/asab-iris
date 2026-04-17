@@ -35,10 +35,17 @@ class SendEmailOrchestrator:
 
 		# Optional markdown wrapper
 		cfg = asab.Config
-		if cfg.has_section("email") and cfg.get("email", "markdown_wrapper"):
-			self.MarkdownWrapper = cfg.get("email", "markdown_wrapper")
-		else:
-			self.MarkdownWrapper = None
+		wrapper = ""
+		if cfg.has_section("email"):
+			wrapper = (cfg.get("email", "markdown_wrapper", fallback="") or "").strip()
+		self.MarkdownWrapper = wrapper or None
+
+	def _recipient_list_for_log(self, recipients):
+		if recipients is None:
+			return []
+		if isinstance(recipients, (list, tuple)):
+			return [str(x) for x in recipients]
+		return [str(recipients)]
 
 	async def send_email(
 		self,
@@ -90,7 +97,7 @@ class SendEmailOrchestrator:
 				body=body_html,
 				attachments=atts_gen
 			)
-			L.info("Email sent via SMTP to: {}".format(', '.join(email_to)))
+			L.info("Email sent via SMTP to: {}".format(', '.join(self._recipient_list_for_log(email_to))))
 
 		elif self.M365Service is not None:
 			# MS365 path: use same async Attachment generator
@@ -105,7 +112,7 @@ class SendEmailOrchestrator:
 				email_cc=email_cc,
 				email_bcc=email_bcc
 			)
-			L.info("Email sent via MS365 to: {}".format(', '.join(email_to if isinstance(email_to, (list, tuple)) else [str(email_to)])))
+			L.info("Email sent via MS365 to: {}".format(', '.join(self._recipient_list_for_log(email_to))))
 
 
 	async def _render_template(
@@ -195,7 +202,7 @@ class SendEmailOrchestrator:
 				body=body,
 				attachments=attachments  # pass through untouched
 			)
-			L.info("Raw email sent via SMTP to: {}".format(', '.join(email_to)))
+			L.info("Raw email sent via SMTP to: {}".format(', '.join(self._recipient_list_for_log(email_to))))
 			return
 
 		# Fallback: MS365
@@ -208,7 +215,7 @@ class SendEmailOrchestrator:
 				content_type,
 				attachments  # still just pass through
 			)
-			L.info("Raw email sent via MS365 to: {}".format(', '.join(email_to)))
+			L.info("Raw email sent via MS365 to: {}".format(', '.join(self._recipient_list_for_log(email_to))))
 			return
 
 		raise ASABIrisError(

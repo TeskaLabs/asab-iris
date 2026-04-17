@@ -95,8 +95,10 @@ class KafkaHandler(asab.Service):
 	async def finalize(self, app):
 		if self.Consumer is not None:
 			await self.Consumer.stop()
-		if self.Task and self.Task.exception():
-			L.warning("Exception occurred during alert notifications: {}".format(self.Task.exception()))
+		if self.Task and self.Task.done():
+			exception = self.Task.exception()
+			if exception is not None:
+				L.warning("Exception occurred during alert notifications: {}".format(exception))
 
 	async def consume(self):
 		if self.Consumer is None:
@@ -129,7 +131,7 @@ class KafkaHandler(asab.Service):
 		try:
 			try:
 				msg_type = msg.pop("type", "<missing>")
-			except (AttributeError, Exception) as e:
+			except AttributeError as e:
 				L.warning("Error extracting message type: {}".format(str(e)))
 				return
 
@@ -150,9 +152,14 @@ class KafkaHandler(asab.Service):
 					L.warning("SMS service is not configured. Discarding notification.")
 					return
 				await self.handle_sms(msg)
+			elif msg_type == "push":
+				if not hasattr(self.App, "SendPushOrchestrator") or self.App.SendPushOrchestrator is None:
+					L.warning("Push service is not configured. Discarding notification.")
+					return
+				await self.handle_push(msg)
 			else:
 				L.warning(
-					"Notification sending failed: Unsupported message type '{}'. Supported types are 'email', 'slack', 'msteams', and 'sms'.".format(msg_type)
+					"Notification sending failed: Unsupported message type '{}'. Supported types are 'email', 'slack', 'msteams', 'sms', and 'push'.".format(msg_type)
 				)
 		finally:
 			if token is not None:
@@ -483,6 +490,17 @@ def _load_error_templates_from_config():
 		L.warning("Missing [{}] section.".format(sec))
 		return {}
 	tpls = {}
-	for key in ("email", "slack", "msteams", "sms", "push"):
+	for key in ("email", "slack", "sms", "push"):
 		if cfg.has_option(sec, key):
-			tpls[key] = cfg.get(sec, key).strip()
+			value = cfg.get(sec, key).strip()
+			if value:
+				tpls[key] = value
+
+	for key in ("msteams", "teams"):
+		if cfg.has_option(sec, key):
+			value = cfg.get(sec, key).strip()
+			if value:
+				tpls["msteams"] = value
+				break
+
+	return tpls
