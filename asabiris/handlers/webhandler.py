@@ -73,27 +73,27 @@ class WebHandler(object):
 
 			```json
 			{
-			  "to": ["tony.montana@goodfellas.com"],
-			  "cc": ["jimmy.conway@goodfellas.com"],
-			  "bcc": ["henry.hill@goodfellas.com"],
-			  "subject": "Lufthansa Heist",
-			  "from": "jimmy.conway@goodfellas.com",
-			  "body": {
-			    "template": "/Templates/Email/test.md",
-			    "params": {
-			      "name": "Toddy Siciro"
-			    }
-			  },
-			  "attachments": [
-			    {
-			      "template": "/Templates/Attachment/hello.html",
-			      "params": {
-			        "name": "Michael Corleone"
-			      },
-			      "format": "pdf",
-			      "filename": "Alert.pdf"
-			    }
-			  ]
+				"to": ["tony.montana@goodfellas.com"],
+				"cc": ["jimmy.conway@goodfellas.com"],
+				"bcc": ["henry.hill@goodfellas.com"],
+				"subject": "Lufthansa Heist",
+				"from": "jimmy.conway@goodfellas.com",
+				"body": {
+					"template": "/Templates/Email/test.md",
+					"params": {
+						"name": "Toddy Siciro"
+					}
+				},
+				"attachments": [
+					{
+						"template": "/Templates/Attachment/hello.html",
+						"params": {
+							"name": "Michael Corleone"
+						},
+						"format": "pdf",
+						"filename": "Alert.pdf"
+					}
+				]
 			}
 			```
 
