@@ -9,6 +9,7 @@ import asab.proactor
 import asab.metrics
 
 # formatters
+from .config_zookeeper import apply_zookeeper_config_overrides
 from .formatter.jinja import JinjaFormatterService
 from .formatter.markdown import MarkdownFormatterService
 from .formatter.pdf import PdfFormatterService
@@ -69,17 +70,19 @@ class ASABIRISApplication(asab.Application):
 			import asab.sentry as asab_sentry
 			self.SentryService = asab_sentry.SentryService(self)
 
-		# Initialize library service
-		self.LibraryService = asab.library.LibraryService(
-			self,
-			"LibraryService",
-		)
-
 		if 'zookeeper' in asab.Config.sections():
 			self.ZooKeeperService = self.get_service("asab.ZooKeeperService")
 			self.ZooKeeperContainer = asab.zookeeper.ZooKeeperContainer(self.ZooKeeperService, 'zookeeper')
 		else:
 			self.ZooKeeperContainer = None
+
+		apply_zookeeper_config_overrides(self)
+
+		# Initialize library service
+		self.LibraryService = asab.library.LibraryService(
+			self,
+			"LibraryService",
+		)
 
 		# Initialize API service
 		self.ASABApiService = asab.api.ApiService(self)
