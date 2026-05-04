@@ -57,65 +57,65 @@ class WebHandler(object):
 		}
 		return asab.web.rest.json_response(request, response)
 
-		@asab.web.tenant.allow_no_tenant
-		@asab.web.rest.json_schema_handler(email_schema)
-		async def send_email(self, request, *, json_data):
-			"""
-			Send one email defined by the request JSON payload.
+	@asab.web.tenant.allow_no_tenant
+	@asab.web.rest.json_schema_handler(email_schema)
+	async def send_email(self, request, *, json_data):
+		"""
+		Send one email defined by the request JSON payload.
 
-			The request contract covers message content only:
-			1. collect recipients and optional headers (`to`, `cc`, `bcc`, `subject`, `from`)
-			2. render the email body from a template under `/Templates/Email/`
-			3. optionally render or attach files from `/Templates/Attachment/` or caller-supplied Base64 content
+		The request contract covers message content only:
+		1. collect recipients and optional headers (`to`, `cc`, `bcc`, `subject`, `from`)
+		2. render the email body from a template under `/Templates/Email/`
+		3. optionally render or attach files from `/Templates/Attachment/` or caller-supplied Base64 content
 
-			Transport behavior such as direct SMTP, SMTP via HTTP CONNECT proxy, or MS365
-			is selected by server-side configuration and is not part of the request body.
+		Transport behavior such as direct SMTP, SMTP via HTTP CONNECT proxy, or MS365
+		is selected by server-side configuration and is not part of the request body.
 
-			Example body:
+		Example body:
 
-			```json
-			{
-				"to": ["tony.montana@goodfellas.com"],
-				"cc": ["jimmy.conway@goodfellas.com"],
-				"bcc": ["henry.hill@goodfellas.com"],
-				"subject": "Lufthansa Heist",
-				"from": "jimmy.conway@goodfellas.com",
-				"body": {
-					"template": "/Templates/Email/test.md",
+		```json
+		{
+			"to": ["tony.montana@goodfellas.com"],
+			"cc": ["jimmy.conway@goodfellas.com"],
+			"bcc": ["henry.hill@goodfellas.com"],
+			"subject": "Lufthansa Heist",
+			"from": "jimmy.conway@goodfellas.com",
+			"body": {
+				"template": "/Templates/Email/test.md",
+				"params": {
+					"name": "Toddy Siciro"
+				}
+			},
+			"attachments": [
+				{
+					"template": "/Templates/Attachment/hello.html",
 					"params": {
-						"name": "Toddy Siciro"
-					}
-				},
-				"attachments": [
-					{
-						"template": "/Templates/Attachment/hello.html",
-						"params": {
-							"name": "Michael Corleone"
-						},
-						"format": "pdf",
-						"filename": "Alert.pdf"
-					}
-				]
-			}
-			```
+						"name": "Michael Corleone"
+					},
+					"format": "pdf",
+					"filename": "Alert.pdf"
+				}
+			]
+		}
+		```
 
-			Example of an email body template:
+		Example of an email body template:
 
-			```text
-			SUBJECT: Automated email for {{name}}
+		```text
+		SUBJECT: Automated email for {{name}}
 
-			Hi {{name}},
+		Hi {{name}},
 
-			This is a nice template for an email.
-			It is {{time}} to leave.
+		This is a nice template for an email.
+		It is {{time}} to leave.
 
-			Br,
-			Your automated ASAB report
-			```
-			---
-			tags: ['Send mail']
-			"""
-			return await self._send_email(request, json_data)
+		Br,
+		Your automated ASAB report
+		```
+		---
+		tags: ['Send mail']
+		"""
+		return await self._send_email(request, json_data)
 
 	@asab.web.tenant.allow_no_tenant
 	async def send_email_jsonata(self, request):
