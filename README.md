@@ -19,7 +19,50 @@ ASAB Iris supports sending email using Microsoft 365 Graph API in two modes:
 - **`mode = app`** → Application Permissions (default)  
 - **`mode = delegated`** → User-delegated OAuth flow (requires one-time browser login)
 
-Iris automatically falls back to **SMTP** when `[m365_email]` is missing or incomplete.
+Provider selection for `/send_email` currently works like this:
+
+- If `[smtp]` is configured, Iris uses **SMTP**.
+- If SMTP is not configured and `[m365_email]` is complete, Iris uses **MS365**.
+- If neither provider is configured, `/send_email` is unavailable.
+
+This means delegated MS365 matters only when SMTP is not configured.
+
+---
+
+## ZooKeeper Configuration Overrides
+
+IRIS can keep the existing static configuration file as the baseline and overlay selected values from ZooKeeper during startup.
+
+- Static config remains the fallback source.
+- If a key exists in ZooKeeper, it overrides the static value.
+- If the ZooKeeper node is missing or unavailable, IRIS continues with the static config.
+
+Example:
+
+```ini
+[zookeeper]
+servers=zk.example.com:2181
+
+[config_zookeeper]
+path=/lmio/iris/config
+```
+
+The ZooKeeper node should contain a JSON object shaped like config sections:
+
+```json
+{
+  "smtp": {
+    "host": "smtp.example.com",
+    "port": "587",
+    "starttls": true
+  },
+  "slack": {
+    "channel": "alerts"
+  }
+}
+```
+
+This overlay happens early in app startup so the existing service code can continue reading `asab.Config`.
 
 ---
 
@@ -58,7 +101,7 @@ tenant_id     = YOUR_AZURE_TENANT_ID
 client_id     = YOUR_APP_CLIENT_ID
 client_secret = YOUR_APP_CLIENT_SECRET
 user_email    = sender@yourdomain.com
-redirect_uri  = http://localhost:8082/authorize_ms365
+redirect_uri  = https://iris.example.com/api/asab-iris/authorize_ms365
 subject       = Default MS365 Subject
 api_url       = https://graph.microsoft.com/v1.0/users/{}/sendMail
 ```
@@ -68,7 +111,7 @@ api_url       = https://graph.microsoft.com/v1.0/users/{}/sendMail
 1. Open this in a browser:
 
    ```
-   http://localhost:8082/authorize_ms365
+   https://iris.example.com/api/asab-iris/authorize_ms365
    ```
 2. Iris redirects to Microsoft Login
 3. User signs in
@@ -77,11 +120,15 @@ api_url       = https://graph.microsoft.com/v1.0/users/{}/sendMail
 
    * access_token
    * refresh_token
-6. `/send_email` now works silently
+6. MS365 email sending now works silently until the delegated token must be refreshed or re-authorized
+
+In deployments with ZooKeeper configured, delegated tokens are persisted and reused after restart.
 
 ---
 
 ### When `/authorize_ms365` Is Required
+
+This applies when **MS365 is the active email provider** for `/send_email` (that is, SMTP is not configured).
 
 If tokens are missing or expired, `/send_email` returns:
 
@@ -99,10 +146,52 @@ If tokens are missing or expired, `/send_email` returns:
 
 ---
 
+### Building `redirect_uri`
+
+`redirect_uri` is environment-dependent. Build it from the **public browser-reachable URL** of Iris, not from an internal container/service address.
+
+Rule:
+
+```text
+redirect_uri = <public base URL of Iris> + /authorize_ms365
+```
+
+If Iris is published behind a reverse proxy or ingress under a path prefix, that prefix must be included in the public base URL.
+
+Examples:
+
+```text
+Without path prefix:
+https://iris.example.com/authorize_ms365
+
+Behind reverse proxy or ingress with path prefix:
+https://iris.example.com/api/asab-iris/authorize_ms365
+```
+
+For delegated MS365 to work, the value must be identical in both places:
+
+1. Azure App Registration
+   Add the exact callback URL as a Redirect URI.
+2. Iris configuration
+   Set the same exact value in `[m365_email] redirect_uri`.
+
+Example:
+
+```ini
+[m365_email]
+mode=delegated
+redirect_uri=https://iris.example.com/api/asab-iris/authorize_ms365
+```
+
+If these values differ even slightly (scheme, host, path, or proxy prefix), Microsoft login will redirect back incorrectly or token exchange will fail.
+
+---
+
 ### Azure Requirements for Delegated Mode
 
 * The App Registration must have **Delegated** permission: `Mail.Send`
 * Redirect URI must **exactly match** your `redirect_uri`
+* `redirect_uri` must be the public browser-reachable callback URL for that environment.
 * The signed-in user must be allowed to send mail from `user_email`
 
 ---
@@ -111,7 +200,7 @@ If tokens are missing or expired, `/send_email` returns:
 > **Note**
 >
 > * SMTP **supports** attachments and will include them in the outbound message.
-> * MS365 **ignores** attachments (you’ll see a warning in the logs if you pass any).
+> * MS365 also supports attachments and sends them as Graph API file attachments.
 > * All email templates must live under `/Templates/Email/`.
 
 ---
@@ -144,7 +233,7 @@ Content-Type: application/json
 }
 ```
 
-> Depending on your configuration, this request will be sent via **SMTP** (with the PDF attachment) or via **MS365** (attachment dropped).
+> If `[smtp]` is configured, this request will be sent via **SMTP**. Otherwise, if `[m365_email]` is configured, it will be sent via **MS365**.
 
 
 ## Email Markdown Wrapper Configuration
@@ -183,6 +272,14 @@ cert_bundle     =                     ; Path to CA/chain PEM when validate_certs
                                       ; When validate_certs=no, both chain and hostname checks are disabled and
                                       ; cert_bundle is ignored.
 
+# Optional HTTP CONNECT proxy for SMTP transport
+proxy_host      =                     ; e.g. proxy.company.local
+proxy_port      =                     ; e.g. 3128
+proxy_user      =                     ; Optional basic-auth username
+proxy_password  =                     ; Optional basic-auth password
+proxy_connect_timeout = 10            ; Proxy TCP/CONNECT timeout only (seconds)
+                                      ; Does not change SMTP EHLO/TLS/AUTH/DATA timeouts.
+
 ```
 
 **Important**
@@ -190,6 +287,10 @@ cert_bundle     =                     ; Path to CA/chain PEM when validate_certs
 * Use real booleans: `yes|no` (not quoted strings).
 * `cert_bundle` must be a **CA/chain PEM**, **not** the server cert.
 * If you supply a custom TLS context in code, some clients ignore `validate_certs`/`cert_bundle`.
+* Proxy support uses **HTTP CONNECT** (not SOCKS) and is enabled only when both `proxy_host` and `proxy_port` are set.
+* If `proxy_user` is set, ASAB Iris sends `Proxy-Authorization: Basic ...` during CONNECT.
+* Proxy mode supports plain SMTP, STARTTLS, and implicit TLS (SMTPS) with normal certificate validation.
+* `proxy_connect_timeout` applies only to connecting to the proxy and completing the HTTP CONNECT handshake.
 
 **Common Setups**
 
@@ -236,6 +337,26 @@ password        =
 from            = dev@localhost
 validate_certs  = no
 cert_bundle     =
+```
+
+**D) SMTPS (465) through an HTTP CONNECT proxy**
+
+```ini
+[smtp]
+host            = mail.internal.lan
+user            = admin
+port            = 465
+ssl             = yes
+starttls        = no
+password        = ****
+from            = noreply@internal.lan
+validate_certs  = yes
+cert_bundle     = /etc/ssl/internal_ca.pem
+proxy_host      = proxy.company.local
+proxy_port      = 3128
+proxy_user      = proxy-user         ; optional
+proxy_password  = ****               ; optional
+proxy_connect_timeout = 10
 ```
 
 ### 🚨 2. Sending Slack messages
@@ -348,7 +469,7 @@ To send a direct message instead, replace `channel_id` with `username`.
 **Configuration**
 
 ```ini
-[outlook]
+[msteams]
 webhook_url=https://outlook.office.com/webhook/...
 ```
 

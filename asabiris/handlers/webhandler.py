@@ -16,7 +16,11 @@ from ..schemas.teamsschema import teams_schema
 
 from ..errors import ASABIrisError, ErrorCode
 
-import slack_sdk.errors
+try:
+	from slack_sdk.errors import SlackApiError
+except ModuleNotFoundError:
+	class SlackApiError(Exception):
+		pass
 #
 
 L = logging.getLogger(__name__)
@@ -53,82 +57,78 @@ class WebHandler(object):
 		}
 		return asab.web.rest.json_response(request, response)
 
-	@asab.web.tenant.allow_no_tenant
-	@asab.web.rest.json_schema_handler(email_schema)
-	async def send_email(self, request, *, json_data):
-		"""
-		This endpoint is for sending emails.
-		```
-		1) It collects the basic email info (to, cc, bcc, subject, from)
-		2) It renders the email body based on the template
-		3) Optionally it adds attachments:
+		@asab.web.tenant.allow_no_tenant
+		@asab.web.rest.json_schema_handler(email_schema)
+		async def send_email(self, request, *, json_data):
+			"""
+			Send one email defined by the request JSON payload.
 
-			3.1) The attachment is renders by this service.
+			The request contract covers message content only:
+			1. collect recipients and optional headers (`to`, `cc`, `bcc`, `subject`, `from`)
+			2. render the email body from a template under `/Templates/Email/`
+			3. optionally render or attach files from `/Templates/Attachment/` or caller-supplied Base64 content
 
-			3.2) The attachment is provided by the caller.
+			Transport behavior such as direct SMTP, SMTP via HTTP CONNECT proxy, or MS365
+			is selected by server-side configuration and is not part of the request body.
 
-		```
-		Example body:
+			Example body:
 
-		```
-		{
-			"to": ['Tony.Montana@Goodfellas.com'],
-			"cc": ['Jimmy2.times@Goodfellas.com'],
-			"bcc": ['Henry.Hill@Goodfellas.com'],
-			"subject": "Lufthansa Hiest",
-			"from": "Jimmy.Conway@Goodfellas.com",
-			"body": {
-				"template": "/Templates/Emails/test.md",
-				"params": {
-					"Name": "Toddy Siciro"
-			}
-		},
-		"attachments": [
+			```json
 			{
-			"template": "/Templates/Emails/hello.html",
-			"params": {
-				"Name": "Michael Corleone"
+				"to": ["tony.montana@goodfellas.com"],
+				"cc": ["jimmy.conway@goodfellas.com"],
+				"bcc": ["henry.hill@goodfellas.com"],
+				"subject": "Lufthansa Heist",
+				"from": "jimmy.conway@goodfellas.com",
+				"body": {
+					"template": "/Templates/Email/test.md",
+					"params": {
+						"name": "Toddy Siciro"
+					}
 				},
-			"format": "pdf",
-			"filename": "Alert.pdf"
-			}]
-		}
+				"attachments": [
+					{
+						"template": "/Templates/Attachment/hello.html",
+						"params": {
+							"name": "Michael Corleone"
+						},
+						"format": "pdf",
+						"filename": "Alert.pdf"
+					}
+				]
+			}
+			```
 
-		```
-		Attached will be retrieved from request. Content when rendering the email is not required.
+			Example of an email body template:
 
-		Example of the email body template:
-		```
-		SUBJECT: Automated email for {{name}}
+			```text
+			SUBJECT: Automated email for {{name}}
 
-		Hi {{name}},
+			Hi {{name}},
 
-		this is a nice template for an email.
-		It is {{time}} to leave.
+			This is a nice template for an email.
+			It is {{time}} to leave.
 
-		Br,
-		Your automated ASAB report
-		```
-
-		It is a markdown template.
-		---
-		tags: ['Send mail']
-		"""
-		return await self._send_email(request, json_data)
+			Br,
+			Your automated ASAB report
+			```
+			---
+			tags: ['Send mail']
+			"""
+			return await self._send_email(request, json_data)
 
 	@asab.web.tenant.allow_no_tenant
 	async def send_email_jsonata(self, request):
 		"""
-		This endpoint is for sending emails - JSONata template is applied first to the request body.
+		Apply a JSONata template to the request body, then forward the result to
+		`/send_email`.
 
-		It applies JSONata template (stored in `/Templates/JSONata`) to the request body and then the output is used as a body to /send_email endpoint.
-		It allows to transform arbitrary JSON data into a valid email body.
-
-		Build the JSONata template at https://try.jsonata.org
+		JSONata templates are stored under `/Templates/JSONata/` and must produce an
+		object compatible with the `/send_email` request contract.
 		"""
 		jsonata_template = request.match_info["jsonata"]
-		assert '..' not in jsonata_template, "JSONata template cannot contain '..'"
-		assert '/' not in jsonata_template, "JSONata template cannot contain '/'"
+		if '..' in jsonata_template or '/' in jsonata_template:
+			raise aiohttp.web.HTTPBadRequest(text="Invalid JSONata template name.")
 
 		async with self.App.LibraryService.open('/Templates/JSONata/' + jsonata_template + '.txt') as b:
 			expr = jsonata.Jsonata(b.read().decode("utf-8"))
@@ -249,7 +249,7 @@ class WebHandler(object):
 			}
 			return aiohttp.web.json_response(response, status=status_code)
 
-		except slack_sdk.errors.SlackApiError as e:
+		except SlackApiError as e:
 			raise aiohttp.web.HTTPServiceUnavailable(text="{}".format(e))
 		# More specific exception handling goes here so that the service provides nice output
 		except Exception as e:
