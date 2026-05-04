@@ -9,6 +9,7 @@ import aiohttp.web
 import aiohttp.payload_streamer
 
 from ..schemas.emailschema import email_schema
+from ..schemas.mattermostschema import mattermost_schema
 from ..schemas.slackschema import slack_schema
 from ..schemas.smsschema import sms_schema
 from ..schemas.teamsschema import teams_schema
@@ -42,6 +43,7 @@ class WebHandler(object):
 		web_app.router.add_put(r"/send_sms", self.send_sms)
 		web_app.router.add_put(r"/send_push", self.send_push)
 		web_app.router.add_put(r"/send_slack", self.send_slack)
+		web_app.router.add_put(r"/send_mattermost", self.send_mattermost)
 		web_app.router.add_put(r"/send_msteams", self.send_msteams)
 		web_app.router.add_get(r"/authorize_ms365", self.authorize_ms365)
 
@@ -55,65 +57,65 @@ class WebHandler(object):
 		}
 		return asab.web.rest.json_response(request, response)
 
-		@asab.web.tenant.allow_no_tenant
-		@asab.web.rest.json_schema_handler(email_schema)
-		async def send_email(self, request, *, json_data):
-			"""
-			Send one email defined by the request JSON payload.
+	@asab.web.tenant.allow_no_tenant
+	@asab.web.rest.json_schema_handler(email_schema)
+	async def send_email(self, request, *, json_data):
+		"""
+		Send one email defined by the request JSON payload.
 
-			The request contract covers message content only:
-			1. collect recipients and optional headers (`to`, `cc`, `bcc`, `subject`, `from`)
-			2. render the email body from a template under `/Templates/Email/`
-			3. optionally render or attach files from `/Templates/Attachment/` or caller-supplied Base64 content
+		The request contract covers message content only:
+		1. collect recipients and optional headers (`to`, `cc`, `bcc`, `subject`, `from`)
+		2. render the email body from a template under `/Templates/Email/`
+		3. optionally render or attach files from `/Templates/Attachment/` or caller-supplied Base64 content
 
-			Transport behavior such as direct SMTP, SMTP via HTTP CONNECT proxy, or MS365
-			is selected by server-side configuration and is not part of the request body.
+		Transport behavior such as direct SMTP, SMTP via HTTP CONNECT proxy, or MS365
+		is selected by server-side configuration and is not part of the request body.
 
-			Example body:
+		Example body:
 
-			```json
-			{
-				"to": ["tony.montana@goodfellas.com"],
-				"cc": ["jimmy.conway@goodfellas.com"],
-				"bcc": ["henry.hill@goodfellas.com"],
-				"subject": "Lufthansa Heist",
-				"from": "jimmy.conway@goodfellas.com",
-				"body": {
-					"template": "/Templates/Email/test.md",
+		```json
+		{
+			"to": ["tony.montana@goodfellas.com"],
+			"cc": ["jimmy.conway@goodfellas.com"],
+			"bcc": ["henry.hill@goodfellas.com"],
+			"subject": "Lufthansa Heist",
+			"from": "jimmy.conway@goodfellas.com",
+			"body": {
+				"template": "/Templates/Email/test.md",
+				"params": {
+					"name": "Toddy Siciro"
+				}
+			},
+			"attachments": [
+				{
+					"template": "/Templates/Attachment/hello.html",
 					"params": {
-						"name": "Toddy Siciro"
-					}
-				},
-				"attachments": [
-					{
-						"template": "/Templates/Attachment/hello.html",
-						"params": {
-							"name": "Michael Corleone"
-						},
-						"format": "pdf",
-						"filename": "Alert.pdf"
-					}
-				]
-			}
-			```
+						"name": "Michael Corleone"
+					},
+					"format": "pdf",
+					"filename": "Alert.pdf"
+				}
+			]
+		}
+		```
 
-			Example of an email body template:
+		Example of an email body template:
 
-			```text
-			SUBJECT: Automated email for {{name}}
+		```text
+		SUBJECT: Automated email for {{name}}
 
-			Hi {{name}},
+		Hi {{name}},
 
-			This is a nice template for an email.
-			It is {{time}} to leave.
+		This is a nice template for an email.
+		It is {{time}} to leave.
 
-			Br,
-			Your automated ASAB report
-			```
-			---
-			tags: ['Send mail']
-			"""
-			return await self._send_email(request, json_data)
+		Br,
+		Your automated ASAB report
+		```
+		---
+		tags: ['Send mail']
+		"""
+		return await self._send_email(request, json_data)
 
 	@asab.web.tenant.allow_no_tenant
 	async def send_email_jsonata(self, request):
@@ -320,6 +322,57 @@ class WebHandler(object):
 			}
 			return aiohttp.web.json_response(response, status=status_code)
 
+		except Exception as e:
+			L.exception(str(e))
+			response = {
+				"result": "FAILED",
+				"error": {
+					"message": str(e),
+					"error_code": "GENERAL_ERROR",
+				}
+			}
+			return aiohttp.web.json_response(response, status=400)
+		finally:
+			if token is not None:
+				asab.contextvars.Tenant.reset(token)
+
+		return asab.web.rest.json_response(request, {"result": "OK"})
+
+	@asab.web.tenant.allow_no_tenant
+	@asab.web.rest.json_schema_handler(mattermost_schema)
+	async def send_mattermost(self, request, *, json_data):
+		"""
+		Send a Mattermost notification either to a channel or as a direct message.
+		"""
+		if self.App.SendMattermostOrchestrator is None:
+			L.info("Mattermost orchestrator is not initialized. This feature is optional and not configured.")
+			return aiohttp.web.json_response(
+				{
+					"result": "FAILED",
+					"error": "Mattermost service is not configured."
+				},
+				status=400
+			)
+
+		tenant = json_data.get("tenant", None)
+		current_tenant = asab.contextvars.Tenant.get(None)
+		token = None
+
+		if tenant is not None and current_tenant is None:
+			token = asab.contextvars.Tenant.set(tenant)
+
+		try:
+			await self.App.SendMattermostOrchestrator.send_to_mattermost(json_data)
+		except ASABIrisError as e:
+			status_code = self.map_error_code_to_status(e.ErrorCode)
+
+			response = {
+				"result": "ERROR",
+				"error": e.Errori18nKey,
+				"error_dict": e.ErrorDict,
+				"tech_err": e.TechMessage
+			}
+			return aiohttp.web.json_response(response, status=status_code)
 		except Exception as e:
 			L.exception(str(e))
 			response = {
