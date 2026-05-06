@@ -80,8 +80,8 @@ def load_config_overrides(zk_client, path):
 	example::
 
 		{
-		  "smtp": {"host": "smtp.example.com", "port": "587"},
-		  "slack": {"channel": "alerts"}
+			"smtp": {"host": "smtp.example.com", "port": "587"},
+			"slack": {"channel": "alerts"}
 		}
 
 	If the client is missing, the path is empty, the node does not exist, the node is
