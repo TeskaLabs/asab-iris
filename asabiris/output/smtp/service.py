@@ -38,11 +38,6 @@ class ProxySMTP(aiosmtplib.SMTP):
 				"Either a TLS context or a certificate/key must be provided"
 			)
 
-		if self.sock is not None and self.socket_path is not None:
-			raise ValueError(
-				"The socket option is not compatible with socket_path"
-			)
-
 		if self.source_address is not None and (
 			"\r" in self.source_address or "\n" in self.source_address
 		):
