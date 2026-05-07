@@ -9,6 +9,7 @@
 - Push notification supports tenant configuration. (#121 v26.02-alpha)
 - Delegated Email MS365 support. (#119 v26.04-alpha)
 - Introduce tenant service. (#120 v26.04-alpha2)
+- Do not require tenant at get_features endpoint (#131 v26.16-alpha1)
 
 ## v25.47
 
