@@ -9,15 +9,7 @@ import asab
 import asab.contextvars
 import asyncio
 import aiosmtplib
-from aiosmtplib.compat import create_connection, create_unix_connection
-from aiosmtplib.errors import (
-	SMTPConnectError,
-	SMTPConnectTimeoutError,
-	SMTPServerDisconnected,
-	SMTPTimeoutError,
-)
-from aiosmtplib.protocol import SMTPProtocol
-from aiosmtplib.status import SMTPStatus
+import aiosmtplib.protocol as smtp_protocol
 
 from ...output_abc import OutputABC
 from ...errors import ASABIrisError, ErrorCode
@@ -46,16 +38,6 @@ class ProxySMTP(aiosmtplib.SMTP):
 				"Either a TLS context or a certificate/key must be provided"
 			)
 
-		if self.sock is not None and self.socket_path is not None:
-			raise ValueError(
-				"The socket option is not compatible with socket_path"
-			)
-
-		if self.socket_path is not None and any([self.hostname, self.port]):
-			raise ValueError(
-				"The socket_path option is not compatible with hostname/port"
-			)
-
 		if self.source_address is not None and (
 			"\r" in self.source_address or "\n" in self.source_address
 		):
@@ -74,7 +56,7 @@ class ProxySMTP(aiosmtplib.SMTP):
 		if self.loop is None:
 			raise RuntimeError("No event loop set")
 
-		protocol = SMTPProtocol(
+		protocol = smtp_protocol.SMTPProtocol(
 			loop=self.loop, connection_lost_callback=self._connection_lost
 		)
 
@@ -85,25 +67,15 @@ class ProxySMTP(aiosmtplib.SMTP):
 			ssl_handshake_timeout = self.timeout
 
 		if self.sock:
-			connect_coro = create_connection(
-				self.loop,
+			connect_coro = self.loop.create_connection(
 				lambda: protocol,
 				sock=self.sock,
 				ssl=tls_context,
 				server_hostname=self.hostname if self.use_tls else None,
 				ssl_handshake_timeout=ssl_handshake_timeout,
 			)
-		elif self.socket_path:
-			connect_coro = create_unix_connection(
-				self.loop,
-				lambda: protocol,
-				path=self.socket_path,
-				ssl=tls_context,
-				ssl_handshake_timeout=ssl_handshake_timeout,
-			)
 		else:
-			connect_coro = create_connection(
-				self.loop,
+			connect_coro = self.loop.create_connection(
 				lambda: protocol,
 				host=self.hostname,
 				port=self.port,
@@ -114,13 +86,13 @@ class ProxySMTP(aiosmtplib.SMTP):
 		try:
 			transport, _ = await asyncio.wait_for(connect_coro, timeout=self.timeout)
 		except OSError as exc:
-			raise SMTPConnectError(
+			raise aiosmtplib.SMTPConnectError(
 				"Error connecting to {host} on port {port}: {err}".format(
 					host=self.hostname, port=self.port, err=exc
 				)
 			) from exc
 		except asyncio.TimeoutError as exc:
-			raise SMTPConnectTimeoutError(
+			raise aiosmtplib.SMTPConnectTimeoutError(
 				"Timed out connecting to {host} on port {port}".format(
 					host=self.hostname, port=self.port
 				)
@@ -131,19 +103,19 @@ class ProxySMTP(aiosmtplib.SMTP):
 
 		try:
 			response = await protocol.read_response(timeout=self.timeout)
-		except SMTPServerDisconnected as exc:
-			raise SMTPConnectError(
+		except aiosmtplib.SMTPServerDisconnected as exc:
+			raise aiosmtplib.SMTPConnectError(
 				"Error connecting to {host} on port {port}: {err}".format(
 					host=self.hostname, port=self.port, err=exc
 				)
 			) from exc
-		except SMTPTimeoutError as exc:
-			raise SMTPConnectTimeoutError(
+		except aiosmtplib.SMTPTimeoutError as exc:
+			raise aiosmtplib.SMTPConnectTimeoutError(
 				"Timed out waiting for server ready message"
 			) from exc
 
-		if response.code != SMTPStatus.ready:
-			raise SMTPConnectError(str(response))
+		if response.code != aiosmtplib.SMTPStatus.ready:
+			raise aiosmtplib.SMTPConnectError(str(response))
 
 		return response
 
@@ -407,7 +379,7 @@ class EmailOutputService(asab.Service, OutputABC):
 				)
 			except ASABIrisError:
 				raise
-			except aiosmtplib.errors.SMTPConnectError as e:
+			except aiosmtplib.SMTPConnectError as e:
 				L.warning("Connection failed: {}".format(e), struct_data={"host": self.Host, "port": self.Port})
 				if attempt < retry_attempts - 1:
 					L.info("Retrying email send after connection failure, attempt {}".format(attempt + 1))
@@ -421,7 +393,7 @@ class EmailOutputService(asab.Service, OutputABC):
 						"host": self.Host,
 					}
 				)
-			except aiosmtplib.errors.SMTPAuthenticationError as e:
+			except aiosmtplib.SMTPAuthenticationError as e:
 				L.warning("SMTP error: {}".format(e), struct_data={"host": self.Host})
 				raise ASABIrisError(
 					ErrorCode.SMTP_AUTHENTICATION_ERROR,
@@ -431,7 +403,7 @@ class EmailOutputService(asab.Service, OutputABC):
 						"host": self.Host
 					}
 				)
-			except aiosmtplib.errors.SMTPResponseException as e:
+			except aiosmtplib.SMTPResponseException as e:
 				L.warning("SMTP Error", struct_data={"message": e.message, "code": e.code, "host": self.Host})
 				if attempt < retry_attempts - 1:
 					L.info("Retrying email send after connection failure, attempt {}".format(attempt + 1))
@@ -447,7 +419,7 @@ class EmailOutputService(asab.Service, OutputABC):
 						"host": self.Host
 					}
 				)
-			except aiosmtplib.errors.SMTPServerDisconnected as e:
+			except aiosmtplib.SMTPServerDisconnected as e:
 				L.warning("Server disconnected: {}; check the SMTP credentials".format(e), struct_data={"host": self.Host})
 				if attempt < retry_attempts - 1:
 					L.info("Retrying email send after connection failure, attempt {}".format(attempt + 1))
@@ -461,7 +433,7 @@ class EmailOutputService(asab.Service, OutputABC):
 						"host": self.Host
 					}
 				)
-			except aiosmtplib.errors.SMTPTimeoutError as e:
+			except aiosmtplib.SMTPTimeoutError as e:
 				L.warning("SMTP timeout encountered: {}; check network connectivity or SMTP server status".format(e), struct_data={"host": self.Host})
 				if attempt < retry_attempts - 1:
 					L.info("Retrying email send after connection failure, attempt {}".format(attempt + 1))
