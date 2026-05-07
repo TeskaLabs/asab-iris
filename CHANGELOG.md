@@ -1,6 +1,7 @@
 # CHANGELOG
 
-
+# Patch
+- Do not require tenant at get_features endpoint (#132 v26.12-beta3)
 
 ## v25.xx
 
