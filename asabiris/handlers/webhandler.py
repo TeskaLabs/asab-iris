@@ -46,6 +46,7 @@ class WebHandler(object):
 		web_app.router.add_get(r"/authorize_ms365", self.authorize_ms365)
 
 
+	@asab.web.tenant.allow_no_tenant
 	async def get_features(self, request):
 		"""
 		Return the application's features (enabled orchestrators).
