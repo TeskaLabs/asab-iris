@@ -16,7 +16,6 @@ from ...formater_abc import FormatterABC
 
 L = logging.getLogger(__name__)
 
-
 #
 
 

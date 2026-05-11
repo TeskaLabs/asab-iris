@@ -1,6 +1,7 @@
 from .smtp.service import EmailOutputService
 from .sms.service import SMSOutputService
 from .msteams.service import MSTeamsOutputService
+from .mattermost.service import MattermostOutputService
 try:
 	from .ms365.service import M365EmailOutputService
 except ModuleNotFoundError:
@@ -14,7 +15,8 @@ except ModuleNotFoundError:
 __all__ = [
 	"EmailOutputService",
 	"MSTeamsOutputService",
-	"SMSOutputService"
+	"SMSOutputService",
+	"MattermostOutputService",
 ]
 
 if SlackOutputService is not None:

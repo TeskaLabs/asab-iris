@@ -70,6 +70,23 @@ class TenantConfigExtractionService(asab.Service):
 		except KeyError as e:
 			raise KeyError("MS Teams configuration missing key: '{}'".format(e))
 
+	def get_mattermost_config(self, tenant):
+		"""
+		Retrieves Mattermost-specific configuration.
+		"""
+		config = self.load_tenant_config(tenant)
+		try:
+			mattermost_config = config["mattermost"]
+		except KeyError as e:
+			raise KeyError("Mattermost configuration missing key: '{}'".format(e))
+
+		return {
+			"url": mattermost_config.get("url"),
+			"token": mattermost_config.get("token"),
+			"bot_username": mattermost_config.get("bot_username"),
+			"security_channel_id": mattermost_config.get("security_channel_id"),
+		}
+
 	def get_sms_config(self, tenant):
 		"""
 		Retrieves SMS-specific configuration for a given tenant.
