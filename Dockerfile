@@ -48,7 +48,8 @@ FROM pcr.teskalabs.com/alpine:3.18 AS shiping
 
 RUN apk add --no-cache \
   python3 \
-  libgit2
+  libgit2 \
+  tzdata
 
 COPY --from=building /usr/lib/python3.11/site-packages /usr/lib/python3.11/site-packages
 
