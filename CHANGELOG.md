@@ -4,6 +4,9 @@
 
 ## v25.xx
 
+### Fixes
+- Add tzdata dependency required by xhtml2pdf (#133 v26.16-alpha2)
+
 ### Features
 - New output push notifications. (#117 v25.50-alpha)
 - Push notification supports tenant configuration. (#121 v26.02-alpha)
