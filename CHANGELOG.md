@@ -1,6 +1,7 @@
 # CHANGELOG
 
 # Patch
+- Critical: Add tzdata dependency required by xhtml2pdf (#134 v26.12-beta4)
 - Do not require tenant at get_features endpoint (#132 v26.12-beta3)
 
 ## v25.xx
