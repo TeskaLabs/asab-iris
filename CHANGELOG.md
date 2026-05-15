@@ -5,6 +5,7 @@
 ## v25.xx
 
 ### Fixes
+- Use vendored kazoo for persistent watcher support (#135 v26.16-alpha3)
 - Add tzdata dependency required by xhtml2pdf (#133 v26.16-alpha2)
 
 ### Features

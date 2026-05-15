@@ -36,9 +36,24 @@ RUN apk add --no-cache \
      cairo-dev
 
 RUN pip3 install --upgrade pip
-RUN pip3 install --no-cache-dir pygit2==1.11 aiokafka aiosmtplib msal fastjsonschema jsonata-python
-RUN pip3 install --no-cache-dir jinja2 markdown pyyaml xhtml2pdf pytz tzdata git+https://github.com/TeskaLabs/asab.git
-RUN pip3 install --no-cache-dir sentry-sdk slack_sdk
+RUN pip3 install --no-cache-dir \
+    pygit2==1.11 \
+    aiokafka \
+    aiosmtplib \
+    msal \
+    fastjsonschema \
+    jsonata-python \
+    jinja2 \
+    markdown \
+    pyyaml \
+    xhtml2pdf \
+    pytz \
+    tzdata \
+    sentry-sdk \
+    slack_sdk \
+    git+https://github.com/TeskaLabs/kazoo.git \
+    git+https://github.com/TeskaLabs/asab.git
+# ^ Use vendored Kazoo library till https://github.com/python-zk/kazoo/pull/715 is merged (persistent watcher support)
 
 RUN mkdir -p /app/asab-iris
 
