@@ -23,6 +23,7 @@
       - pip install requests
       - pip install aiohttp
       - pip install -U git+https://github.com/TeskaLabs/asab
+      - pip install -U git+https://github.com/TeskaLabs/kazoo
       - pip install msal
       - pip install temp
       - pip install aiokafka
@@ -51,6 +52,7 @@
       - pip install requests
       - pip install aiohttp
       - pip install -U git+https://github.com/TeskaLabs/asab
+      - pip install -U git+https://github.com/TeskaLabs/kazoo
       - pip install msal
       - pip install temp
       - pip install aiokafka
@@ -79,6 +81,7 @@
       - pip install requests
       - pip install aiohttp
       - pip install -U git+https://github.com/TeskaLabs/asab
+      - pip install -U git+https://github.com/TeskaLabs/kazoo
       - pip install msal
       - pip install temp
       - pip install aiokafka
@@ -110,6 +113,7 @@
       - pip install pytz
       - pip install jsonata-python
       - pip install -U git+https://github.com/TeskaLabs/asab
+      - pip install -U git+https://github.com/TeskaLabs/kazoo
       - pip install msal
       - python3 -m flake8 asabiris
 
