@@ -1,8 +1,11 @@
 # CHANGELOG
 
+### Fixes
+- Accept Microsoft Teams Workflows 202 Accepted responses as successful sends.
+- Default unnamed base64 attachments without format to .bin filenames.
 
 
-## v25.xx
+## v25.26
 
 ### Fixes
 - Use vendored kazoo for persistent watcher support (#135 v26.16-alpha3)
