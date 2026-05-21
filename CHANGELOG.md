@@ -3,6 +3,7 @@
 # Patch
 - Use forked kazoo for persistent watcher support (#136 v26.12-beta5)
 - Accept Microsoft Teams Workflows 202 Accepted responses as successful sends (#136 v26.12-beta6)
+- Default unnamed base64 attachments without format to .bin filenames (#136 v26.12-beta6)
 - Critical: Add tzdata dependency required by xhtml2pdf (#134 v26.12-beta4)
 - Do not require tenant at get_features endpoint (#132 v26.12-beta3)
 
