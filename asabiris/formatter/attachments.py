@@ -121,9 +121,11 @@ class AttachmentRenderingService(asab.Service):
 		if afname is not None:
 			return afname
 
+		extension = attachment.get('format') or 'bin'
+
 		return "att-{}.{}".format(
 			datetime.datetime.now().strftime('%Y%m%d-%H%M%S'),
-			attachment['format']
+			extension
 		)
 
 
