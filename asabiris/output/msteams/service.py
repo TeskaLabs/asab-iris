@@ -90,7 +90,7 @@ class MSTeamsOutputService(asab.Service, OutputABC):
         # Sending the message to MS Teams using aiohttp
         async with aiohttp.ClientSession() as session:
             async with session.post(webhook_url, json=adaptive_card) as resp:
-                if resp.status == 200:
+                if resp.status in (200, 202):
                     L.log(asab.LOG_NOTICE, "MS Teams message sent successfully.")
                     return True
                 else:
