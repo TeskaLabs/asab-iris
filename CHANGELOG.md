@@ -1,19 +1,21 @@
 # CHANGELOG
 
-# Patch
-- Use forked kazoo for persistent watcher support (#136 v26.12-beta5)
-- Accept Microsoft Teams Workflows 202 Accepted responses as successful sends (#136 v26.12-beta6)
-- Default unnamed base64 attachments without format to .bin filenames (#136 v26.12-beta6)
-- Critical: Add tzdata dependency required by xhtml2pdf (#134 v26.12-beta4)
-- Do not require tenant at get_features endpoint (#132 v26.12-beta3)
 
-## v25.xx
+## v26.12
 
 ### Features
 - New output push notifications. (#117 v25.50-alpha)
 - Push notification supports tenant configuration. (#121 v26.02-alpha)
 - Delegated Email MS365 support. (#119 v26.04-alpha)
 - Introduce tenant service. (#120 v26.04-alpha2)
+
+# Fixes
+- Allow no tenant to push notification. (#129 v26.12-beta)
+- Update asab: v26.12.02 into dockerfile (#130 v26.12-beta2)
+- Do not require tenant at get_features endpoint (#131 v26.12-beta3)
+- Critical: Add tzdata dependency required by xhtml2pdf (#134 v26.12-beta4)
+- Use forked kazoo for persistent watcher support (#135 v26.12-beta5)
+- Accept Microsoft Teams Workflows 202 Accepted responses as successfully sends (#136 v26.12-beta6)
 
 ## v25.47
 
