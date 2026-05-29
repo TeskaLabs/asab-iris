@@ -1,8 +1,10 @@
 # CHANGELOG
 
 
+## v26.xx
+- Accept Microsoft Teams Workflows 202 Accepted responses as successful sends.
 
-## v25.xx
+## v25.12
 
 ### Fixes
 - Use vendored kazoo for persistent watcher support (#135 v26.16-alpha3)
