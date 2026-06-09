@@ -191,10 +191,13 @@ class SlackOutputService(asab.Service, OutputABC):
 		)
 
 
-	def get_channel_id(self, client, channel_name, types=["public_channel", "private_channel"]):
+	def get_channel_id(self, client, channel_name, types=None):
 		"""
 		Fetches Slack channel ID from Slack API.
 		"""
+		if types is None:
+			types = ["public_channel", "private_channel"]
+
 		if channel_name.startswith("id "):
 			return channel_name.split("id ")[1]
 
