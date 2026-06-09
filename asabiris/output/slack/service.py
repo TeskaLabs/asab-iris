@@ -43,8 +43,8 @@ class SlackOutputService(asab.Service, OutputABC):
 
 		self.Cache = {}
 
-		if slack_sdk.WebClient is None:
-			L.warning("slack_sdk is not installed. Slack service is disabled.")
+		if slack_sdk is None:
+			L.warning("slack_sdk library is not installed. Slack service is disabled.")
 			return
 
 		app.PubSub.subscribe("Application.tick/1800!", self._on_tick)
