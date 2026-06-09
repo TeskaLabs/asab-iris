@@ -95,7 +95,7 @@ class SendSlackOrchestrator(object):
 
 		output = self.MarkdownFormatterService.unformat(output)
 		atts_gen = self.AttachmentRenderingService.render_attachment(attachments)
-		await self.SlackOutputService.send_files(output, atts_gen)
+		await self.SlackOutputService.send_files(output, atts_gen, channel)
 
 
 	async def render_attachment(self, template, params):
