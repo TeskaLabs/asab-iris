@@ -5,11 +5,10 @@ import configparser
 import asab
 
 try:
-	import slack_sdk.errors
 	import slack_sdk
+	import slack_sdk.errors
 except ModuleNotFoundError:
 	slack_sdk = None
-	slack_sdk.errors = None
 
 from ...errors import ASABIrisError, ErrorCode
 from ...output_abc import OutputABC
