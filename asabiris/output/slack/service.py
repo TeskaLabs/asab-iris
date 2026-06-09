@@ -75,6 +75,7 @@ class SlackOutputService(asab.Service, OutputABC):
 					"Tenant-specific Slack configuration not found for '%s'. Using global config.",
 					effective_tenant
 				)
+				token, default_channel = self.ConfigToken, self.ConfigChannel
 		else:
 			token, default_channel = self.ConfigToken, self.ConfigChannel
 
