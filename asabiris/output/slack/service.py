@@ -52,9 +52,12 @@ class SlackOutputService(asab.Service, OutputABC):
 
 	def _on_tick(self, event):
 		# clear cache every 1800 seconds
+		to_delete = []
 		for key, value in self.Cache.items():
 			if time.time() - value[2] > 3600:
-				del self.Cache[key]
+				to_delete.append(key)
+		for key in to_delete:
+			self.Cache.pop(key, None)
 
 
 	def _resolve(self, channel=None):
