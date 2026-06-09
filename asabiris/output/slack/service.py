@@ -94,6 +94,10 @@ class SlackOutputService(asab.Service, OutputABC):
 		"""
 		Sends a message to a Slack channel.
 		"""
+		if slack_sdk is None:
+			L.warning("slack_sdk library is not installed. Slack service is disabled.")
+			return
+
 		client, channel_id = self._resolve(channel)
 
 		if channel is None:
@@ -138,8 +142,8 @@ class SlackOutputService(asab.Service, OutputABC):
 		"""
 		Sends a message to a Slack channel with attachments.
 		"""
-		if self.Client is None:
-			L.warning("SlackOutputService is not initialized properly. File will not be sent.")
+		if slack_sdk is None:
+			L.warning("slack_sdk library is not installed. Slack service is disabled.")
 			return
 
 		client, channel_id = self._resolve(channel)
