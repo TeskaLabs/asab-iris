@@ -1,20 +1,22 @@
+import time
 import logging
 import configparser
-try:
-	import slack_sdk.errors as slack_errors
-	from slack_sdk import WebClient
-	SlackApiError = slack_errors.SlackApiError
-except ModuleNotFoundError:
-	slack_errors = None
-	WebClient = None
-
-	class SlackApiError(Exception):
-		pass
-from ...errors import ASABIrisError, ErrorCode
 
 import asab
 
+try:
+	import slack_sdk
+	import slack_sdk.errors
+except ModuleNotFoundError:
+	slack_sdk = None
+
+from ...errors import ASABIrisError, ErrorCode
 from ...output_abc import OutputABC
+
+if slack_sdk is not None:
+	SlackApiError = slack_sdk.errors.SlackApiError
+else:
+	SlackApiError = Exception
 
 
 L = logging.getLogger(__name__)
@@ -30,62 +32,87 @@ def check_config(config, section, parameter):
 
 
 class SlackOutputService(asab.Service, OutputABC):
+
 	def __init__(self, app, service_name="SlackOutputService"):
 		super().__init__(app, service_name)
-
-		# Load global configuration as defaults
-		self.SlackWebhookUrl = check_config(asab.Config, "slack", "token")
-		self.Channel = check_config(asab.Config, "slack", "channel")
-		# Keep tenant-config service always available
 		self.ConfigService = app.get_service("TenantConfigExtractionService")
 
-		# If required Slack configuration is missing, disable Slack service
-		if not self.SlackWebhookUrl or not self.Channel:
-			L.warning("Slack output service is not properly configured. Disabling Slack service.")
-			self.Client = None
+		# Load global configuration as defaults
+		self.ConfigToken = check_config(asab.Config, "slack", "token")
+		self.ConfigChannel = check_config(asab.Config, "slack", "channel")
+
+		self.Cache = {}
+
+		if slack_sdk is None:
+			L.warning("slack_sdk library is not installed. Slack service is disabled.")
 			return
 
-		if WebClient is None:
-			L.warning("slack_sdk is not installed. Slack service is disabled.")
-			self.Client = None
-			return
-
-		self.Client = WebClient(token=self.SlackWebhookUrl)
+		app.PubSub.subscribe("Application.tick/1800!", self._on_tick)
 
 
-	async def send_message(self, blocks, fallback_message) -> None:
-		"""
-		Sends a message to a Slack channel.
-		"""
-		if self.Client is None:
-			L.warning("SlackOutputService is not initialized properly. Message will not be sent.")
-			return
+	def _on_tick(self, event):
+		# clear cache every 1800 seconds
+		to_delete = []
+		for key, value in self.Cache.items():
+			if time.time() - value[2] > 3600:
+				to_delete.append(key)
+		for key in to_delete:
+			self.Cache.pop(key, None)
 
+
+	def _resolve(self, channel=None):
 		try:
 			effective_tenant = asab.contextvars.Tenant.get()
 		except LookupError:
 			effective_tenant = None
 
 		# determine which token/channel to use
-		token, channel = (self.SlackWebhookUrl, self.Channel)
 		if effective_tenant and self.ConfigService is not None:
 			try:
-				token, channel = self.ConfigService.get_slack_config(effective_tenant)
+				token, default_channel = self.ConfigService.get_slack_config(effective_tenant)
 			except KeyError:
 				L.warning(
 					"Tenant-specific Slack configuration not found for '%s'. Using global config.",
 					effective_tenant
 				)
+				token, default_channel = self.ConfigToken, self.ConfigChannel
+		else:
+			token, default_channel = self.ConfigToken, self.ConfigChannel
+
+		if channel is None:
+			channel = default_channel
+
+		cache_hit = self.Cache.get((token, channel), None)
+		if cache_hit is not None:
+			return cache_hit[0], cache_hit[1]
+
+		client = slack_sdk.WebClient(token=token)
+		channel_id = self.get_channel_id(client, channel)
+
+		self.Cache[(token, channel)] = (client, channel_id, time.time())
+
+		return client, channel_id
+
+
+	async def send_message(self, blocks, fallback_message, channel=None) -> None:
+		"""
+		Sends a message to a Slack channel.
+		"""
+		if slack_sdk is None:
+			L.warning("slack_sdk library is not installed. Slack service is disabled.")
+			return
+
+		client, channel_id = self._resolve(channel)
 
 		if channel is None:
 			raise ValueError("Cannot send message to Slack. Reason: Missing Slack channel")
-		if token is None:
-			raise ValueError("Cannot send message to Slack. Reason: Missing Webhook URL or token")
+		if client is None:
+			raise ValueError("Cannot send message to Slack.")
 
 		# Audit log of outgoing payload at NOTICE level
 		L.log(
 			asab.LOG_NOTICE,
-			"SlackOutputService.send_message → channel=%s, text=%r, blocks=%r",
+			"SlackOutputService.send_message",
 			struct_data={
 				"channel": channel,
 				"text": fallback_message,
@@ -94,8 +121,6 @@ class SlackOutputService(asab.Service, OutputABC):
 		)
 
 		try:
-			client = WebClient(token=token)
-			channel_id = self.get_channel_id(client, channel)
 			client.chat_postMessage(
 				channel=channel_id,
 				text=fallback_message,
@@ -117,33 +142,15 @@ class SlackOutputService(asab.Service, OutputABC):
 		)
 
 
-	async def send_files(self, body: str, atts_gen,):
+	async def send_files(self, body: str, atts_gen, channel=None):
 		"""
 		Sends a message to a Slack channel with attachments.
 		"""
-		if self.Client is None:
-			L.warning("SlackOutputService is not initialized properly. File will not be sent.")
+		if slack_sdk is None:
+			L.warning("slack_sdk library is not installed. Slack service is disabled.")
 			return
 
-		try:
-			effective_tenant = asab.contextvars.Tenant.get()
-		except LookupError:
-			effective_tenant = None
-
-		token, channel = (self.SlackWebhookUrl, self.Channel)
-		if effective_tenant and self.ConfigService is not None:
-			try:
-				token, channel = self.ConfigService.get_slack_config(effective_tenant)
-			except KeyError:
-				L.warning("Tenant-specific Slack configuration not found for '{}'. Using global config.".format(effective_tenant))
-
-		if channel is None:
-			raise ValueError("Cannot send message to Slack. Reason: Missing Slack channel")
-		if token is None:
-			raise ValueError("Cannot send message to Slack. Reason: Missing Webhook URL or token")
-
-		client = WebClient(token=token)
-		channel_id = self.get_channel_id(client, channel)
+		client, channel_id = self._resolve(channel)
 
 		try:
 			async for attachment in atts_gen:
@@ -185,13 +192,19 @@ class SlackOutputService(asab.Service, OutputABC):
 		)
 
 
-	def get_channel_id(self, client, channel_name, types="public_channel"):
+	def get_channel_id(self, client, channel_name, types=None):
 		"""
 		Fetches Slack channel ID from Slack API.
 		"""
+		if types is None:
+			types = ["public_channel", "private_channel"]
+
+		if channel_name.startswith("id "):
+			return channel_name.split("id ")[1]
+
 		for response in client.conversations_list(types=types):
 			for channel in response['channels']:
-				if channel['name'] == channel_name:
+				if channel.get('name') == channel_name:
 					return channel['id']
 
 		# Business-level error: channel not found

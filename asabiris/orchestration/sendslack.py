@@ -38,6 +38,13 @@ class SendSlackOrchestrator(object):
 
 		body = msg['body']
 		template = body["template"]
+		channel = body.get("channel", None)
+
+		# This allows to speficy channel id or member id directly, skipping the lookup by channel name.
+		channel_id = body.get("channel_id", None)
+		if channel_id is not None:
+			channel = "id " + channel_id
+
 		attachments = msg.get("attachments", None)
 		# if params no provided pass empty params
 		# - primarily use absolute path - starts with "/"
@@ -81,14 +88,14 @@ class SendSlackOrchestrator(object):
 				fallback_message = output
 				blocks = None
 
-			await self.SlackOutputService.send_message(blocks, fallback_message)
+			await self.SlackOutputService.send_message(blocks, fallback_message, channel)
 			return
 
 		# Sending attachments
 
 		output = self.MarkdownFormatterService.unformat(output)
 		atts_gen = self.AttachmentRenderingService.render_attachment(attachments)
-		await self.SlackOutputService.send_files(output, atts_gen)
+		await self.SlackOutputService.send_files(output, atts_gen, channel)
 
 
 	async def render_attachment(self, template, params):

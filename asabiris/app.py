@@ -123,14 +123,7 @@ class ASABIRISApplication(asab.Application):
 			else:
 				# Initialize the SlackOutputService
 				self.SlackOutputService = SlackOutputService(self)
-
-				# Only initialize SendSlackOrchestrator if the SlackOutputService client is valid
-				if self.SlackOutputService.Client is None:
-					# If client is None, disable Slack orchestrator as well
-					self.SendSlackOrchestrator = None
-				else:
-					# If the client is valid, initialize the orchestrator
-					self.SendSlackOrchestrator = SendSlackOrchestrator(self)
+				self.SendSlackOrchestrator = SendSlackOrchestrator(self)
 
 		else:
 			# If the slack section is not present in the config, set both services to None
