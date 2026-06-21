@@ -1,0 +1,35 @@
+meta {
+  name: Send Slack
+  type: http
+  seq: 1
+}
+
+put {
+  url: {{BASE_URL}}/send_slack
+  body: json
+  auth: inherit
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "type": "slack",
+    "body": {
+      "template": "/Templates/Slack/message.md",
+      "params": {
+        "name": "Toddy Siciro",
+        "error": "None"
+      },
+      "channel": "alerts"
+    }
+  }
+}
+
+docs {
+  Send a Slack message rendered from a template under /Templates/Slack/.
+  Target the default channel, a named channel, or a channel/member ID via channel or channel_id.
+  On success returns {"result": "OK"}.
+}

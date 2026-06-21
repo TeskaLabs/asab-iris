@@ -1,0 +1,35 @@
+meta {
+  name: Send Mattermost
+  type: http
+  seq: 1
+}
+
+put {
+  url: {{BASE_URL}}/send_mattermost
+  body: json
+  auth: inherit
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "type": "mattermost",
+    "channel_id": "security_channel_id",
+    "body": {
+      "template": "/Templates/Mattermost/message.md",
+      "params": {
+        "user.name": "alice",
+        "event.code": "HIP_Sentinel_Fail"
+      }
+    }
+  }
+}
+
+docs {
+  Send a Mattermost notification to a channel or as a direct message.
+  Provide channel_id to post to a channel, or username for a DM.
+  On success returns {"result": "OK"}.
+}

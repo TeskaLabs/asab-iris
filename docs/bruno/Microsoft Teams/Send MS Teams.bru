@@ -1,0 +1,35 @@
+meta {
+  name: Send MS Teams
+  type: http
+  seq: 1
+}
+
+put {
+  url: {{BASE_URL}}/send_msteams
+  body: json
+  auth: inherit
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "type": "msteams",
+    "title": "Testing Iris",
+    "body": {
+      "template": "/Templates/MSTeams/alert.md",
+      "params": {
+        "message": "I am testing a template",
+        "event": "Iris-Event"
+      }
+    }
+  }
+}
+
+docs {
+  Send a Microsoft Teams message rendered from a template under /Templates/MSTeams/.
+  Delivery uses the incoming webhook configured in [msteams] webhook_url.
+  On success returns {"result": "OK"}.
+}

@@ -1,0 +1,18 @@
+meta {
+  name: Authorize MS365
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{BASE_URL}}/authorize_ms365
+  body: none
+  auth: inherit
+}
+
+docs {
+  Start the Microsoft 365 delegated OAuth authorization flow.
+  Without ?code: redirects the browser to Microsoft login.
+  With ?code=...: exchanges the authorization code for tokens.
+  Required only when [m365_email] mode=delegated and SMTP is not configured.
+}

@@ -44,6 +44,12 @@ asab.Config.add_defaults({
 
 
 class ASABIRISApplication(asab.Application):
+	"""
+	ASAB Iris — document rendering and outbound notification microservice.
+
+	Supports email, Slack, Mattermost, Microsoft Teams, SMS, and push
+	notifications (ntfy.sh). Templates are loaded from the ASAB Library.
+	"""
 
 	def __init__(self, args=None):
 		super().__init__(args=args)

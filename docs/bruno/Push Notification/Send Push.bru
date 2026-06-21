@@ -1,0 +1,36 @@
+meta {
+  name: Send Push
+  type: http
+  seq: 1
+}
+
+put {
+  url: {{BASE_URL}}/send_push
+  body: json
+  auth: inherit
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "topic": "alerts",
+    "body": {
+      "template": "/Templates/Push/alert.txt",
+      "params": {
+        "title": "IRIS Alert",
+        "message": "Library sync failed at {{time}}",
+        "time": "2025-10-23 10:40 UTC"
+      }
+    },
+    "tenant": "pharma-dev"
+  }
+}
+
+docs {
+  Send a push notification via ntfy.sh (or a self-hosted ntfy server).
+  Templates must live under /Templates/Push/. When topic is omitted, the configured default_topic is used.
+  On success returns {"result": "OK"}.
+}
