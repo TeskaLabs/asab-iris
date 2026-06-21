@@ -123,7 +123,10 @@ class ASABIRISApplication(asab.Application):
 			try:
 				from .output.slack import SlackOutputService
 			except ModuleNotFoundError as e:
-				L.warning("Slack section present but Slack dependencies are missing: %s", e)
+				L.warning(
+					"Slack is configured in [slack] but the slack_sdk package is not installed; Slack notifications are disabled. Install slack_sdk or remove the [slack] section.",
+					struct_data={"config_section": "slack", "missing_dependency": getattr(e, "name", "slack_sdk")},
+				)
 				self.SlackOutputService = None
 				self.SendSlackOrchestrator = None
 			else:
@@ -178,7 +181,10 @@ class ASABIRISApplication(asab.Application):
 			try:
 				from .output.ms365 import M365EmailOutputService
 			except ModuleNotFoundError as e:
-				L.warning("MS365 section present but MS365 dependencies are missing: %s", e)
+				L.warning(
+					"Microsoft 365 email is configured in [m365_email] but required dependencies are missing; MS365 email output is disabled. Install msal and requests or remove the [m365_email] section.",
+					struct_data={"config_section": "m365_email", "missing_dependency": getattr(e, "name", None)},
+				)
 				self.M365EmailOutputService = None
 			else:
 				m365 = M365EmailOutputService(self)

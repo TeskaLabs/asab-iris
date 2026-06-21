@@ -248,7 +248,9 @@ class WebHandler(object):
 	async def _send_email(self, request, json_data):
 		# If neither SMTP nor MS365 was set up, fail early
 		if self.App.SendEmailOrchestrator is None:
-			L.info("Email orchestrator is not enabled.")
+			L.info(
+				"Email send request rejected because no email provider is configured. Configure [smtp] host or [m365_email], or expect HTTP 400 responses.",
+			)
 			return aiohttp.web.json_response(
 				{
 					"result": "FAILED",
@@ -290,7 +292,10 @@ class WebHandler(object):
 			return aiohttp.web.json_response(response, status=status_code)
 
 		except Exception as e:
-			L.exception(str(e))
+			L.exception(
+				"Unexpected error while processing email send request; HTTP 400 returned to the client.",
+				struct_data={"endpoint": "send_email", "tenant": tenant, "template": json_data.get("body", {}).get("template")},
+			)
 			bad_response = {
 				"result": "FAILED",
 				"error": {
@@ -354,7 +359,9 @@ class WebHandler(object):
 				description: Slack service unavailable.
 		"""
 		if self.App.SendSlackOrchestrator is None:
-			L.info("Slack orchestrator is not initialized. This feature is optional and not configured.")
+			L.info(
+				"Slack send request rejected because Slack is not configured. Add [slack] configuration or expect HTTP 400 responses.",
+			)
 			return aiohttp.web.json_response(
 				{
 					"result": "FAILED",
@@ -388,7 +395,10 @@ class WebHandler(object):
 			raise aiohttp.web.HTTPServiceUnavailable(text="{}".format(e))
 		# More specific exception handling goes here so that the service provides nice output
 		except Exception as e:
-			L.exception(str(e))
+			L.exception(
+				"Unexpected error while processing Slack send request; HTTP 400 returned to the client.",
+				struct_data={"endpoint": "send_slack", "tenant": tenant, "template": json_data.get("body", {}).get("template")},
+			)
 			response = {
 				"result": "FAILED",
 				"error": {
@@ -445,7 +455,9 @@ class WebHandler(object):
 				description: Invalid payload or Microsoft Teams not configured.
 		"""
 		if self.App.SendMSTeamsOrchestrator is None:
-			L.info("MSTeams orchestrator is not initialized. This feature is optional and not configured.")
+			L.info(
+				"Microsoft Teams send request rejected because MS Teams is not configured. Add [msteams] webhook_url or expect HTTP 400 responses.",
+			)
 			return aiohttp.web.json_response(
 				{
 					"result": "FAILED",
@@ -475,7 +487,10 @@ class WebHandler(object):
 			return aiohttp.web.json_response(response, status=status_code)
 
 		except Exception as e:
-			L.exception(str(e))
+			L.exception(
+				"Unexpected error while processing Microsoft Teams send request; HTTP 400 returned to the client.",
+				struct_data={"endpoint": "send_msteams", "tenant": tenant, "template": json_data.get("body", {}).get("template")},
+			)
 			response = {
 				"result": "FAILED",
 				"error": {
@@ -534,7 +549,9 @@ class WebHandler(object):
 				description: Invalid payload or Mattermost not configured.
 		"""
 		if self.App.SendMattermostOrchestrator is None:
-			L.info("Mattermost orchestrator is not initialized. This feature is optional and not configured.")
+			L.info(
+				"Mattermost send request rejected because Mattermost is not configured. Add [mattermost] url and token or expect HTTP 400 responses.",
+			)
 			return aiohttp.web.json_response(
 				{
 					"result": "FAILED",
@@ -563,7 +580,10 @@ class WebHandler(object):
 			}
 			return aiohttp.web.json_response(response, status=status_code)
 		except Exception as e:
-			L.exception(str(e))
+			L.exception(
+				"Unexpected error while processing Mattermost send request; HTTP 400 returned to the client.",
+				struct_data={"endpoint": "send_mattermost", "tenant": tenant, "template": json_data.get("body", {}).get("template")},
+			)
 			response = {
 				"result": "FAILED",
 				"error": {
@@ -660,7 +680,10 @@ class WebHandler(object):
 			}
 			return aiohttp.web.json_response(response, status=status_code)
 		except Exception as e:
-			L.exception(str(e))
+			L.exception(
+				"Unexpected error while rendering a template; HTTP 400 returned to the client.",
+				struct_data={"endpoint": "render", "tenant": tenant, "template": template, "format": fmt},
+			)
 			response = {
 				"result": "FAILED",
 				"error": {
@@ -729,7 +752,9 @@ class WebHandler(object):
 				description: Invalid payload, invalid phone number, or SMS not configured.
 		"""
 		if self.App.SendSMSOrchestrator is None:
-			L.info("SMS orchestrator is not initialized. This feature is optional and not configured.")
+			L.info(
+				"SMS send request rejected because SMS is not configured. Add [sms] configuration or expect HTTP 400 responses.",
+			)
 			return aiohttp.web.json_response(
 				{
 					"result": "FAILED",
@@ -761,7 +786,10 @@ class WebHandler(object):
 			return aiohttp.web.json_response(response, status=status_code)
 
 		except Exception as e:
-			L.exception(str(e))
+			L.exception(
+				"Unexpected error while processing SMS send request; HTTP 400 returned to the client.",
+				struct_data={"endpoint": "send_sms", "tenant": tenant, "template": json_data.get("body", {}).get("template")},
+			)
 			response = {
 				"result": "FAILED",
 				"error": {
@@ -819,7 +847,9 @@ class WebHandler(object):
 				description: Invalid payload or push service not configured.
 		"""
 		if self.App.SendPushOrchestrator is None:
-			L.info("Push orchestrator is not initialized.")
+			L.info(
+				"Push send request rejected because push (ntfy) is not configured. Add [push] url or expect HTTP 400 responses.",
+			)
 			return aiohttp.web.json_response(
 				{
 					"result": "FAILED",
@@ -840,7 +870,10 @@ class WebHandler(object):
 			}
 			return aiohttp.web.json_response(response, status=status_code)
 		except Exception as e:
-			L.exception(str(e))
+			L.exception(
+				"Unexpected error while processing push send request; HTTP 400 returned to the client.",
+				struct_data={"endpoint": "send_push", "tenant": json_data.get("tenant"), "topic": json_data.get("topic"), "template": json_data.get("body", {}).get("template")},
+			)
 			response = {
 				"result": "FAILED",
 				"error": {
@@ -975,8 +1008,10 @@ class WebHandler(object):
 				},
 				status=400,
 			)
-		except Exception as e:
-			L.exception("Unexpected error during MS365 token exchange: %s", e)
+		except Exception:
+			L.exception(
+				"Unexpected error during Microsoft 365 OAuth token exchange on /authorize_ms365; HTTP 500 returned to the client.",
+			)
 			return aiohttp.web.json_response(
 				{
 					"result": "ERROR",
