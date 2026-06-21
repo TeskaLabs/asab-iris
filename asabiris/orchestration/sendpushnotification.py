@@ -97,13 +97,29 @@ class SendPushOrchestrator(object):
 
 			# 4) Delegate to output
 			res = await self.PushOutput.send(push_dict, push_dict.get("tenant"))
-			L.log(asab.LOG_NOTICE, "Push sent successfully via ntfy.")
+			L.log(
+				asab.LOG_NOTICE,
+				"Push notification sent successfully via ntfy.",
+				struct_data={
+					"tenant": push_dict.get("tenant"),
+					"topic": push_dict.get("topic"),
+					"template": body.get("template"),
+				},
+			)
 			return res
 
 		except ASABIrisError:
 			raise
 		except Exception as e:
-			L.exception("Unhandled error in SendPushOrchestrator.send_push: {}".format(e))
+			L.exception(
+				"Unexpected error while sending push notification.",
+				struct_data={
+					"tenant": push_dict.get("tenant"),
+					"topic": push_dict.get("topic"),
+					"template": push_dict.get("body", {}).get("template"),
+					"error_type": type(e).__name__,
+				},
+			)
 			raise ASABIrisError(
 				ErrorCode.SERVER_ERROR,
 				tech_message="Unhandled error in push orchestrator: {}".format(e),

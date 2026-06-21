@@ -24,10 +24,12 @@ def check_config(config, section, parameter):
 		return config.get(section, parameter)
 	except (configparser.NoSectionError, configparser.NoOptionError) as e:
 		L.warning(
-			"Configuration parameter '%s' missing in section '%s': %s",
-			parameter,
-			section,
-			e,
+			"Required configuration option is missing; set it in the service configuration section.",
+			struct_data={
+				"config_section": section,
+				"config_option": parameter,
+				"error_type": e.__class__.__name__,
+			},
 		)
 		return None
 
@@ -42,7 +44,10 @@ class M365EmailOutputService(asab.Service, OutputABC):
 		mode_raw = cfg.get("m365_email", "mode", fallback="app")
 		self.Mode = mode_raw.strip().lower() if mode_raw is not None else "app"
 		if self.Mode not in ("app", "delegated"):
-			L.warning("Unknown m365_email.mode '%s', falling back to 'app'.", self.Mode)
+			L.warning(
+				"Unknown m365_email.mode value; falling back to 'app'. Set mode to 'app' or 'delegated' in [m365_email].",
+				struct_data={"mode": self.Mode},
+			)
 			self.Mode = "app"
 
 		self.TenantID = cfg.get("m365_email", "tenant_id", fallback=None)
@@ -66,7 +71,15 @@ class M365EmailOutputService(asab.Service, OutputABC):
 		self._delegated_tokens = None
 
 		if not all([self.TenantID, self.ClientID, self.ClientSecret, self.UserEmail]):
-			L.info("Incomplete M365 config—disabling email service")
+			L.info(
+				"Microsoft 365 email service is disabled because required [m365_email] options are missing.",
+				struct_data={
+					"tenant_id_configured": bool(self.TenantID),
+					"client_id_configured": bool(self.ClientID),
+					"client_secret_configured": bool(self.ClientSecret),
+					"user_email_configured": bool(self.UserEmail),
+				},
+			)
 			self.MsalApp = None
 			self.AttachmentRenderer = None
 			return
@@ -107,21 +120,33 @@ class M365EmailOutputService(asab.Service, OutputABC):
 		path = self._tokens_storage_zk_path()
 		raw = await self._zk_read_bytes(path)
 		if raw is None:
-			L.info("No stored MS365 delegated tokens at %s", path)
+			L.info(
+				"No stored Microsoft 365 delegated tokens found; complete /authorize_ms365 to enable delegated email.",
+				struct_data={"storage_path": path},
+			)
 			return
 
 		try:
 			data = json.loads(raw.decode("utf-8"))
 		except Exception as e:
-			L.warning("Failed to decode MS365 delegated tokens from %s: %s", path, e)
+			L.warning(
+				"Stored Microsoft 365 delegated tokens are invalid JSON; re-authorize via /authorize_ms365.",
+				struct_data={"storage_path": path, "error_type": type(e).__name__},
+			)
 			return
 
 		if not isinstance(data, dict):
-			L.warning("Invalid delegated token format at %s", path)
+			L.warning(
+				"Stored Microsoft 365 delegated tokens have an invalid format; re-authorize via /authorize_ms365.",
+				struct_data={"storage_path": path},
+			)
 			return
 
 		if not data.get("refresh_token"):
-			L.warning("Stored delegated tokens at %s have no refresh_token", path)
+			L.warning(
+				"Stored Microsoft 365 delegated tokens are missing a refresh token; re-authorize via /authorize_ms365.",
+				struct_data={"storage_path": path},
+			)
 			return
 
 		# Optional: if you stored authorized_user, sanity-check it matches configured sender
@@ -131,17 +156,19 @@ class M365EmailOutputService(asab.Service, OutputABC):
 			got = str(authorized_user).strip().lower()
 			if expected and got != expected:
 				L.warning(
-					"Stored delegated tokens authorized_user '%s' does not match configured sender '%s'. Ignoring tokens.",
-					authorized_user,
-					self.UserEmail,
+					"Stored Microsoft 365 delegated tokens were authorized for a different mailbox than configured user_email; re-authorize as the configured sender.",
+					struct_data={
+						"storage_path": path,
+						"authorized_user": authorized_user,
+						"configured_sender": self.UserEmail,
+					},
 				)
 				return
 
 		self._delegated_tokens = data
 		L.info(
-			"Loaded MS365 delegated tokens from %s (expires_at=%s)",
-			path,
-			data.get("expires_at"),
+			"Loaded Microsoft 365 delegated tokens from persistent storage.",
+			struct_data={"storage_path": path, "expires_at": data.get("expires_at")},
 		)
 
 	async def build_authorization_uri(self) -> str:
@@ -232,7 +259,10 @@ class M365EmailOutputService(asab.Service, OutputABC):
 		self._verify_id_token_sender_email(result)
 
 		if "access_token" not in result:
-			L.error("Authorization code exchange failed: %r", result)
+			L.error(
+				"Microsoft 365 authorization code exchange failed; verify client_id, client_secret, redirect_uri, and Azure AD app permissions.",
+				struct_data={"msal_result": result},
+			)
 			raise ASABIrisError(
 				ErrorCode.INVALID_SERVICE_CONFIGURATION,
 				tech_message="Failed to exchange code for tokens: {}".format(result),
@@ -245,7 +275,10 @@ class M365EmailOutputService(asab.Service, OutputABC):
 		# Persist to ZooKeeper so restart doesn't require login
 		await self._persist_delegated_tokens()
 
-		L.info("MS365 delegated tokens stored+persistent (expires_in=%s)", result.get("expires_in"))
+		L.info(
+			"Microsoft 365 delegated tokens stored and persisted successfully.",
+			struct_data={"expires_in": result.get("expires_in"), "user_email": self.UserEmail},
+		)
 		return True
 
 	async def _check_and_refresh_tokens(self, event_name):
@@ -264,9 +297,8 @@ class M365EmailOutputService(asab.Service, OutputABC):
 			await self._get_delegated_access_token_async(force_refresh=True)
 		except ASABIrisError as e:
 			L.warning(
-				"Failed to refresh MS365 delegated tokens on event '%s': %s",
-				event_name,
-				str(e),
+				"Failed to refresh Microsoft 365 delegated tokens; re-authorize via /authorize_ms365 if email delivery stops working.",
+				struct_data={"event": event_name, "error_code": e.ErrorCode.name if hasattr(e.ErrorCode, "name") else str(e.ErrorCode)},
 			)
 
 	def _store_tokens(self, token_response: dict):
@@ -370,7 +402,10 @@ class M365EmailOutputService(asab.Service, OutputABC):
 		if "access_token" in result:
 			return result["access_token"]
 
-		L.error("App-only token acquisition failed: %r", result)
+		L.error(
+			"Microsoft 365 app-only token acquisition failed; verify tenant_id, client_id, client_secret, and Mail.Send application permission.",
+			struct_data={"msal_result": result, "mode": self.Mode},
+		)
 		raise ASABIrisError(
 			ErrorCode.INVALID_SERVICE_CONFIGURATION,
 			tech_message="Failed to obtain app-only token: {}".format(result),
@@ -398,7 +433,10 @@ class M365EmailOutputService(asab.Service, OutputABC):
 				"Missing refresh token for MS365 delegated mode."
 			)
 
-		L.info("Refreshing MS365 delegated access token (proactor).")
+		L.info(
+			"Refreshing Microsoft 365 delegated access token.",
+			struct_data={"user_email": self.UserEmail},
+		)
 		result = await self._refresh_delegated_tokens(refresh_token)
 
 		if "id_token" in result:
@@ -463,11 +501,17 @@ class M365EmailOutputService(asab.Service, OutputABC):
 		try:
 			raw = json.dumps(self._delegated_tokens, sort_keys=True).encode("utf-8")
 		except Exception as e:
-			L.warning("Failed to serialize delegated tokens for persistence: %s", e)
+			L.warning(
+				"Failed to serialize Microsoft 365 delegated tokens for persistence; tokens remain in memory only until restart.",
+				struct_data={"storage_path": path, "error_type": type(e).__name__},
+			)
 			return
 
 		await self._zk_write_bytes(path, raw)
-		L.info("Persisted MS365 delegated tokens to %s", path)
+		L.info(
+			"Persisted Microsoft 365 delegated tokens to ZooKeeper.",
+			struct_data={"storage_path": path},
+		)
 
 	async def _graph_post(self, api_url, payload, token):
 		def do_post(_client):
@@ -635,9 +679,8 @@ class M365EmailOutputService(asab.Service, OutputABC):
 		if effective_tenant is not None:
 			if self.ConfigService is None:
 				L.info(
-					"Tenant context '%s' present but TenantConfigExtractionService is unavailable; "
-					"using caller/global email configuration.",
-					effective_tenant
+					"Tenant context is present but tenant configuration service is unavailable; using caller or global email settings.",
+					struct_data={"tenant": effective_tenant},
 				)
 			else:
 				try:
@@ -649,8 +692,8 @@ class M365EmailOutputService(asab.Service, OutputABC):
 						tenant_subject = tcfg.get("subject")
 				except Exception as e:
 					L.warning(
-						"Tenant email config fetch failed: {}".format(e),
-						struct_data={"tenant": effective_tenant}
+						"Failed to load tenant email configuration; using caller or global email settings.",
+						struct_data={"tenant": effective_tenant, "error_type": type(e).__name__},
 					)
 
 		# Normalize recipients
@@ -714,7 +757,14 @@ class M365EmailOutputService(asab.Service, OutputABC):
 		try:
 			resp = await self._graph_post(api_url, payload, token)
 		except requests.exceptions.Timeout as e:
-			L.error("Timeout sending email: %s", e)
+			L.error(
+				"Microsoft Graph sendMail request timed out; check network connectivity and Graph API availability.",
+				struct_data={
+					"endpoint": api_url,
+					"tenant": effective_tenant,
+					"error_type": type(e).__name__,
+				},
+			)
 			raise ASABIrisError(
 				ErrorCode.SERVER_ERROR,
 				tech_message="Timeout when calling Graph API",
@@ -722,7 +772,14 @@ class M365EmailOutputService(asab.Service, OutputABC):
 				error_dict={"error_message": str(e)},
 			)
 		except requests.exceptions.RequestException as e:
-			L.error("Network error sending email: %s", e)
+			L.error(
+				"Network error while calling Microsoft Graph sendMail; verify outbound HTTPS access and DNS resolution.",
+				struct_data={
+					"endpoint": api_url,
+					"tenant": effective_tenant,
+					"error_type": type(e).__name__,
+				},
+			)
 			raise ASABIrisError(
 				ErrorCode.SERVER_ERROR,
 				tech_message="Network error during Graph API call",
@@ -731,13 +788,23 @@ class M365EmailOutputService(asab.Service, OutputABC):
 			)
 
 		if resp.status_code == 401:
-			L.info("Token expired or invalid—retrying with force_refresh.")
+			L.info(
+				"Microsoft Graph returned 401; refreshing access token and retrying sendMail.",
+				struct_data={"endpoint": api_url, "tenant": effective_tenant},
+			)
 			token = await self._get_access_token_async(force_refresh=True)
 
 			try:
 				resp = await self._graph_post(api_url, payload, token)
 			except requests.exceptions.Timeout as e:
-				L.error("Timeout sending email (retry): %s", e)
+				L.error(
+					"Microsoft Graph sendMail request timed out on retry after token refresh.",
+					struct_data={
+						"endpoint": api_url,
+						"tenant": effective_tenant,
+						"error_type": type(e).__name__,
+					},
+				)
 				raise ASABIrisError(
 					ErrorCode.SERVER_ERROR,
 					tech_message="Timeout when calling Graph API (retry)",
@@ -745,7 +812,14 @@ class M365EmailOutputService(asab.Service, OutputABC):
 					error_dict={"error_message": str(e)},
 				) from e
 			except requests.exceptions.RequestException as e:
-				L.error("Network error sending email (retry): %s", e)
+				L.error(
+					"Network error while calling Microsoft Graph sendMail on retry after token refresh.",
+					struct_data={
+						"endpoint": api_url,
+						"tenant": effective_tenant,
+						"error_type": type(e).__name__,
+					},
+				)
 				raise ASABIrisError(
 					ErrorCode.SERVER_ERROR,
 					tech_message="Network error during Graph API call (retry)",
@@ -758,7 +832,10 @@ class M365EmailOutputService(asab.Service, OutputABC):
 
 		# 400 Bad request
 		if resp.status_code == 400:
-			L.error("Bad request: %s", resp.text)
+			L.error(
+				"Microsoft Graph rejected the email payload with HTTP 400; review recipients, subject, body, and attachments.",
+				struct_data={"endpoint": api_url, "tenant": effective_tenant, "status": resp.status_code, "body": resp.text},
+			)
 			raise ASABIrisError(
 				ErrorCode.INVALID_REQUEST,
 				tech_message="Graph API returned 400: {}".format(resp.text),
@@ -768,7 +845,10 @@ class M365EmailOutputService(asab.Service, OutputABC):
 
 		# 403 Forbidden (e.g. permissions or mailbox issues)
 		if resp.status_code == 403:
-			L.error("Permission denied: %s", resp.text)
+			L.error(
+				"Microsoft Graph denied sendMail with HTTP 403; verify Azure AD app permissions and mailbox access.",
+				struct_data={"endpoint": api_url, "tenant": effective_tenant, "status": resp.status_code, "body": resp.text},
+			)
 			raise ASABIrisError(
 				ErrorCode.INVALID_SERVICE_CONFIGURATION,
 				tech_message="Graph API returned 403: {}".format(resp.text),
@@ -779,7 +859,10 @@ class M365EmailOutputService(asab.Service, OutputABC):
 		# 429 Too many requests
 		if resp.status_code == 429:
 			retry_after = resp.headers.get("Retry-After", "unknown")
-			L.warning("Rate limited (Retry-After: %s)", retry_after)
+			L.warning(
+				"Microsoft Graph rate limit reached; reduce send frequency or wait before retrying.",
+				struct_data={"endpoint": api_url, "tenant": effective_tenant, "status": resp.status_code, "retry_after": retry_after},
+			)
 			raise ASABIrisError(
 				ErrorCode.SERVER_ERROR,
 				tech_message="Rate limited, retry after {}".format(retry_after),
@@ -788,7 +871,10 @@ class M365EmailOutputService(asab.Service, OutputABC):
 			)
 
 		# 5xx and unexpected
-		L.error("Unexpected status %s: %s", resp.status_code, resp.text)
+		L.error(
+			"Microsoft Graph sendMail returned an unexpected HTTP status; review Graph API response and service configuration.",
+			struct_data={"endpoint": api_url, "tenant": effective_tenant, "status": resp.status_code, "body": resp.text},
+		)
 		raise ASABIrisError(
 			ErrorCode.SERVER_ERROR,
 			tech_message="Graph API error {}: {}".format(resp.status_code, resp.text),

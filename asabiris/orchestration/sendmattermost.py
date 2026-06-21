@@ -50,7 +50,10 @@ class SendMattermostOrchestrator(object):
 		try:
 			SendMattermostOrchestrator.ValidationSchemaMattermost(msg)
 		except fastjsonschema.exceptions.JsonSchemaException as e:
-			L.warning("Invalid Mattermost notification format: {}".format(e))
+			L.warning(
+				"Mattermost notification request failed schema validation; fix the request payload structure.",
+				struct_data={"validation_error": str(e)},
+			)
 			return
 
 		body = msg["body"]

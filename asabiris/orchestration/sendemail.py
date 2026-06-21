@@ -97,7 +97,10 @@ class SendEmailOrchestrator:
 				body=body_html,
 				attachments=atts_gen
 			)
-			L.info("Email sent via SMTP to: {}".format(', '.join(self._recipient_list_for_log(email_to))))
+			L.info(
+				"Email sent via SMTP.",
+				struct_data={"provider": "smtp", "recipients": self._recipient_list_for_log(email_to)},
+			)
 
 		elif self.M365Service is not None:
 			# MS365 path: use same async Attachment generator
@@ -112,7 +115,10 @@ class SendEmailOrchestrator:
 				email_cc=email_cc,
 				email_bcc=email_bcc
 			)
-			L.info("Email sent via MS365 to: {}".format(', '.join(self._recipient_list_for_log(email_to))))
+			L.info(
+				"Email sent via Microsoft 365.",
+				struct_data={"provider": "m365", "recipients": self._recipient_list_for_log(email_to)},
+			)
 
 
 	async def _render_template(
@@ -202,7 +208,10 @@ class SendEmailOrchestrator:
 				body=body,
 				attachments=attachments  # pass through untouched
 			)
-			L.info("Raw email sent via SMTP to: {}".format(', '.join(self._recipient_list_for_log(email_to))))
+			L.info(
+				"Raw email sent via SMTP.",
+				struct_data={"provider": "smtp", "recipients": self._recipient_list_for_log(email_to)},
+			)
 			return
 
 		# Fallback: MS365
@@ -215,7 +224,10 @@ class SendEmailOrchestrator:
 				content_type,
 				attachments  # still just pass through
 			)
-			L.info("Raw email sent via MS365 to: {}".format(', '.join(self._recipient_list_for_log(email_to))))
+			L.info(
+				"Raw email sent via Microsoft 365.",
+				struct_data={"provider": "m365", "recipients": self._recipient_list_for_log(email_to)},
+			)
 			return
 
 		raise ASABIrisError(

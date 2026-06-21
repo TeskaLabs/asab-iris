@@ -15,7 +15,14 @@ def check_config(config, section, parameter):
 	try:
 		return config.get(section, parameter)
 	except (configparser.NoOptionError, configparser.NoSectionError) as e:
-		L.warning("Configuration parameter '{}' is missing in section '{}': {}".format(parameter, section, e))
+		L.warning(
+			"Required configuration option is missing; set it in the service configuration section.",
+			struct_data={
+				"config_section": section,
+				"config_option": parameter,
+				"error_type": e.__class__.__name__,
+			},
+		)
 		return None
 
 
@@ -52,7 +59,10 @@ class MattermostOutputService(asab.Service, OutputABC):
 
 		self.IsConfigured = bool(self.Url and self.Token)
 		if not self.IsConfigured:
-			L.warning("Mattermost output service is not properly configured. Disabling Mattermost service.")
+			L.warning(
+				"Mattermost output is disabled because url or token is missing in [mattermost]; configure both to enable delivery.",
+				struct_data={"url_configured": bool(self.Url), "token_configured": bool(self.Token)},
+			)
 
 	def _resolve_config(self, tenant=None):
 		"""
@@ -80,7 +90,10 @@ class MattermostOutputService(asab.Service, OutputABC):
 			try:
 				tenant_config = self.ConfigService.get_mattermost_config(tenant)
 			except KeyError:
-				L.warning("Tenant-specific Mattermost configuration not found for '%s'. Using global config.", tenant)
+				L.warning(
+					"Tenant-specific Mattermost configuration not found; using global [mattermost] settings.",
+					struct_data={"tenant": tenant},
+				)
 			else:
 				for key, value in tenant_config.items():
 					if value:
@@ -155,10 +168,11 @@ class MattermostOutputService(asab.Service, OutputABC):
 
 		L.log(
 			asab.LOG_NOTICE,
-			"MattermostOutputService.send -> channel_id=%s, username=%s, payload=%r",
+			"Sending Mattermost message.",
 			struct_data={
 				"channel_id": channel_id,
 				"username": username,
+				"tenant": effective_tenant,
 				"payload": post_payload,
 			}
 		)
