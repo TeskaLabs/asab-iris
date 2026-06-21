@@ -114,7 +114,7 @@ class WebHandler(object):
 		Your automated ASAB report
 		```
 		---
-		tags: ['Send mail']
+		tags: ['E-Mail']
 		"""
 		return await self._send_email(request, json_data)
 
@@ -126,6 +126,9 @@ class WebHandler(object):
 
 		JSONata templates are stored under `/Templates/JSONata/` and must produce an
 		object compatible with the `/send_email` request contract.
+
+		---
+		tags: ['E-Mail']
 		"""
 		jsonata_template = request.match_info["jsonata"]
 		if '..' in jsonata_template or '/' in jsonata_template:
@@ -217,7 +220,7 @@ class WebHandler(object):
 			}
 		},
 		---
-		tags: ['Send alerts']
+		tags: ['Slack']
 		"""
 		if self.App.SendSlackOrchestrator is None:
 			L.info("Slack orchestrator is not initialized. This feature is optional and not configured.")
@@ -291,7 +294,7 @@ class WebHandler(object):
 		}
 
 		---
-		tags: ['Send MS Teams']
+		tags: ['Microsoft Teams']
 		"""
 		if self.App.SendMSTeamsOrchestrator is None:
 			L.info("MSTeams orchestrator is not initialized. This feature is optional and not configured.")
@@ -344,6 +347,8 @@ class WebHandler(object):
 	async def send_mattermost(self, request, *, json_data):
 		"""
 		Send a Mattermost notification either to a channel or as a direct message.
+		---
+		tags: ['Mattermost']
 		"""
 		if self.App.SendMattermostOrchestrator is None:
 			L.info("Mattermost orchestrator is not initialized. This feature is optional and not configured.")
@@ -475,7 +480,8 @@ class WebHandler(object):
 	@asab.web.tenant.allow_no_tenant
 	@asab.web.rest.json_schema_handler(sms_schema)
 	async def send_sms(self, request, *, json_data):
-		"""Send an SMS message to the phone number specified in the request body.
+		"""
+		Send an SMS message to the phone number specified in the request body.
 
 			Args:
 				request: The HTTP request object.
@@ -485,11 +491,8 @@ class WebHandler(object):
 
 			Returns:
 				A JSON response with a "result" key set to "OK" and a "data" key containing the result of the SMSOutputService.
-		```
-		localhost:8080/send_sms
 
 		Example body:
-
 		```
 				{
 				"Phone": "123456789",
@@ -501,9 +504,10 @@ class WebHandler(object):
 				}
 			}
 		}
+		```
 
 		---
-		```
+		tags: ['SMS']
 		"""
 		if self.App.SendSMSOrchestrator is None:
 			L.info("SMS orchestrator is not initialized. This feature is optional and not configured.")
@@ -573,7 +577,7 @@ class WebHandler(object):
 		}
 		```
 		---
-		tags: ['Send Push']
+		tags: ['Push Notification (ntfy.sh)']
 		"""
 		if self.App.SendPushOrchestrator is None:
 			L.info("Push orchestrator is not initialized.")
@@ -641,6 +645,9 @@ class WebHandler(object):
 		"""
 		OAuth 2.0 Authorization Code Flow handler.
 		Serves both as the initiator (no ?code) and the callback (with ?code).
+
+		---
+		tags: ['Microsoft 365']
 		"""
 		# Get the actual service instance from the app
 		m365_service = self.App.get_service("M365EmailOutputService")
