@@ -58,6 +58,7 @@ RUN pip3 install --no-cache-dir \
 RUN mkdir -p /app/asab-iris
 
 COPY . /app/asab-iris
+RUN (cd /app/asab-iris && asab-manifest.py ./MANIFEST.json)
 
 FROM pcr.teskalabs.com/alpine:3.18 AS shiping
 
@@ -66,6 +67,7 @@ RUN apk add --no-cache \
   libgit2
 
 COPY --from=building /usr/lib/python3.11/site-packages /usr/lib/python3.11/site-packages
+COPY --from=building /app/asab-iris/MANIFEST.json /app/MANIFEST.json
 
 COPY ./asabiris      /app/asab-iris/asabiris
 COPY ./asab-iris.py  /app/asab-iris/asab-iris.py
