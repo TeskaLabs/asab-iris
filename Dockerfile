@@ -38,7 +38,7 @@ RUN apk add --no-cache \
 RUN pip3 install --upgrade pip
 RUN pip3 install --no-cache-dir \
     pygit2==1.11 \
-    aiokafka \
+    aiokafka[lz4,snappy,zstd] \
     aiosmtplib \
     msal \
     fastjsonschema \
