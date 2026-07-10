@@ -136,7 +136,21 @@
       - docker system prune -f
 
     script:
-      - docker build -t $DOCKER_REGISTRY_IMAGE .
+      - docker build -t $DOCKER_REGISTRY_IMAGE
+        --build-arg CI_COMMIT_BRANCH
+        --build-arg CI_COMMIT_TAG
+        --build-arg CI_COMMIT_REF_NAME
+        --build-arg CI_COMMIT_SHA
+        --build-arg CI_COMMIT_TIMESTAMP
+        --build-arg CI_JOB_ID
+        --build-arg CI_PIPELINE_CREATED_AT
+        --build-arg CI_RUNNER_ID
+        --build-arg CI_RUNNER_EXECUTABLE_ARCH
+        --build-arg GITHUB_HEAD_REF
+        --build-arg GITHUB_JOB
+        --build-arg GITHUB_SHA
+        --build-arg GITHUB_REPOSITORY
+        .
       - docker login -u "$DOCKER_USER" -p "$DOCKER_PASSWORD" "$DOCKER_REGISTRY"
       - docker push $DOCKER_REGISTRY_IMAGE
 
@@ -162,7 +176,21 @@
       - docker system prune -f
 
     script:
-      - docker build -t "${DOCKER_REGISTRY_IMAGE}:${CI_COMMIT_TAG}" --no-cache .
+      - docker build -t "${DOCKER_REGISTRY_IMAGE}:${CI_COMMIT_TAG}" --no-cache
+        --build-arg CI_COMMIT_BRANCH
+        --build-arg CI_COMMIT_TAG
+        --build-arg CI_COMMIT_REF_NAME
+        --build-arg CI_COMMIT_SHA
+        --build-arg CI_COMMIT_TIMESTAMP
+        --build-arg CI_JOB_ID
+        --build-arg CI_PIPELINE_CREATED_AT
+        --build-arg CI_RUNNER_ID
+        --build-arg CI_RUNNER_EXECUTABLE_ARCH
+        --build-arg GITHUB_HEAD_REF
+        --build-arg GITHUB_JOB
+        --build-arg GITHUB_SHA
+        --build-arg GITHUB_REPOSITORY
+        .
       - docker login -u "$DOCKER_USER" -p "$DOCKER_PASSWORD" "$DOCKER_REGISTRY"
       - docker push "${DOCKER_REGISTRY_IMAGE}:${CI_COMMIT_TAG}"
       - docker rmi "${DOCKER_REGISTRY_IMAGE}:${CI_COMMIT_TAG}"
