@@ -36,7 +36,7 @@ RUN apk add --no-cache \
      cairo-dev
 
 RUN pip3 install --upgrade pip
-RUN pip3 install --no-cache-dir pygit2==1.11 aiokafka[all] aiosmtplib msal fastjsonschema jsonata-python
+RUN pip3 install --no-cache-dir pygit2==1.11 aiokafka[lz4,snappy,zstd] aiosmtplib msal fastjsonschema jsonata-python
 RUN pip3 install --no-cache-dir jinja2 markdown pyyaml xhtml2pdf git+https://github.com/TeskaLabs/asab.git@v25.47.04
 RUN pip3 install --no-cache-dir sentry-sdk slack_sdk pytz
 
