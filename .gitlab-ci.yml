@@ -26,7 +26,7 @@
       - pip install -U git+https://github.com/TeskaLabs/kazoo
       - pip install msal
       - pip install temp
-      - pip install aiokafka
+      - pip install aiokafka[lz4,snappy,zstd]
       - pip install slack-sdk
       - pip install sentry-sdk
       - pip install pytz
@@ -55,7 +55,7 @@
       - pip install -U git+https://github.com/TeskaLabs/kazoo
       - pip install msal
       - pip install temp
-      - pip install aiokafka
+      - pip install aiokafka[lz4,snappy,zstd]
       - pip install slack-sdk
       - pip install sentry-sdk
       - pip install pytz
@@ -84,7 +84,7 @@
       - pip install -U git+https://github.com/TeskaLabs/kazoo
       - pip install msal
       - pip install temp
-      - pip install aiokafka
+      - pip install aiokafka[lz4,snappy,zstd]
       - pip install slack-sdk
       - pip install sentry-sdk
       - pip install pytz
@@ -107,7 +107,7 @@
       - pip install Markdown
       - pip install aiohttp
       - pip install temp
-      - pip install aiokafka
+      - pip install aiokafka[lz4,snappy,zstd]
       - pip install slack-sdk
       - pip install sentry-sdk
       - pip install pytz
