@@ -27,7 +27,14 @@ def check_config(config, section, parameter):
 		value = config.get(section, parameter)
 		return value
 	except configparser.NoOptionError as e:
-		L.warning("Configuration parameter '{}' is missing in section '{}': {}".format(parameter, section, e))
+		L.warning(
+			"Required configuration option is missing; set it in the service configuration section.",
+			struct_data={
+				"config_section": section,
+				"config_option": parameter,
+				"error_type": e.__class__.__name__,
+			},
+		)
 		return None
 
 
@@ -44,7 +51,9 @@ class SlackOutputService(asab.Service, OutputABC):
 		self.Cache = {}
 
 		if slack_sdk is None:
-			L.warning("slack_sdk library is not installed. Slack service is disabled.")
+			L.warning(
+				"Slack output is disabled because slack_sdk is not installed; install slack_sdk to enable Slack notifications.",
+			)
 			return
 
 		app.PubSub.subscribe("Application.tick/1800!", self._on_tick)
@@ -72,8 +81,8 @@ class SlackOutputService(asab.Service, OutputABC):
 				token, default_channel = self.ConfigService.get_slack_config(effective_tenant)
 			except KeyError:
 				L.warning(
-					"Tenant-specific Slack configuration not found for '%s'. Using global config.",
-					effective_tenant
+					"Tenant-specific Slack configuration not found; using global [slack] token and channel.",
+					struct_data={"tenant": effective_tenant},
 				)
 				token, default_channel = self.ConfigToken, self.ConfigChannel
 		else:
@@ -99,7 +108,9 @@ class SlackOutputService(asab.Service, OutputABC):
 		Sends a message to a Slack channel.
 		"""
 		if slack_sdk is None:
-			L.warning("slack_sdk library is not installed. Slack service is disabled.")
+			L.warning(
+				"Slack output is disabled because slack_sdk is not installed; install slack_sdk to enable Slack notifications.",
+			)
 			return
 
 		client, channel_id = self._resolve(channel)
@@ -112,7 +123,7 @@ class SlackOutputService(asab.Service, OutputABC):
 		# Audit log of outgoing payload at NOTICE level
 		L.log(
 			asab.LOG_NOTICE,
-			"SlackOutputService.send_message",
+			"Sending Slack message.",
 			struct_data={
 				"channel": channel,
 				"text": fallback_message,
@@ -127,7 +138,10 @@ class SlackOutputService(asab.Service, OutputABC):
 				blocks=blocks
 			)
 		except SlackApiError as e:
-			L.warning("Failed to send message to Slack: %s", e)
+			L.warning(
+				"Failed to send Slack message; verify bot token, channel name, and Slack API permissions.",
+				struct_data={"channel": channel, "error_message": str(e)},
+			)
 			raise ASABIrisError(
 				ErrorCode.SLACK_API_ERROR,
 				tech_message="Slack API error occurred: {}".format(str(e)),
@@ -147,7 +161,9 @@ class SlackOutputService(asab.Service, OutputABC):
 		Sends a message to a Slack channel with attachments.
 		"""
 		if slack_sdk is None:
-			L.warning("slack_sdk library is not installed. Slack service is disabled.")
+			L.warning(
+				"Slack output is disabled because slack_sdk is not installed; install slack_sdk to enable Slack notifications.",
+			)
 			return
 
 		client, channel_id = self._resolve(channel)
@@ -163,11 +179,12 @@ class SlackOutputService(asab.Service, OutputABC):
 				# Audit-log each attachment at NOTICE level
 				L.log(
 					asab.LOG_NOTICE,
-					"Uploading to Slack → filename=%s, position=%d, size=%d bytes",
+					"Uploading file attachment to Slack.",
 					struct_data={
 						"filename": attachment.FileName,
 						"position": attachment.Position,
 						"size": size,
+						"channel": channel,
 					}
 				)
 				client.files_upload_v2(
@@ -177,7 +194,10 @@ class SlackOutputService(asab.Service, OutputABC):
 					initial_comment=body.format() if attachment.Position == 0 else None
 				)
 		except SlackApiError as e:
-			L.warning("Failed to upload files to Slack: {}".format(e))
+			L.warning(
+				"Failed to upload files to Slack; verify bot token, channel access, and file size limits.",
+				struct_data={"channel": channel, "error_message": str(e)},
+			)
 			raise ASABIrisError(
 				ErrorCode.SLACK_API_ERROR,
 				tech_message="Slack API error occurred: {}".format(e),

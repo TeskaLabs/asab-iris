@@ -1,0 +1,33 @@
+meta {
+  name: Send Mail (alias)
+  type: http
+  seq: 3
+}
+
+put {
+  url: {{BASE_URL}}/send_mail
+  body: json
+  auth: inherit
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "to": ["tony.montana@goodfellas.com"],
+    "subject": "Lufthansa Heist",
+    "from": "jimmy.conway@goodfellas.com",
+    "body": {
+      "template": "/Templates/Email/test.md",
+      "params": {
+        "name": "Toddy Siciro"
+      }
+    }
+  }
+}
+
+docs {
+  Backward-compatible alias of PUT /send_email.
+}

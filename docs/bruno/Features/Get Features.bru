@@ -1,0 +1,16 @@
+meta {
+  name: Get Features
+  type: http
+  seq: 1
+}
+
+get {
+  url: {{BASE_URL}}/features
+  body: none
+  auth: inherit
+}
+
+docs {
+  List notification channels enabled in the current Iris instance.
+  Returns orchestrator names such as email, slack, mattermost, msteams, sms, push, and render-report.
+}

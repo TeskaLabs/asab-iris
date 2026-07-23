@@ -1,0 +1,32 @@
+meta {
+  name: Send E-Mail (JSONata)
+  type: http
+  seq: 2
+}
+
+put {
+  url: {{BASE_URL}}/send_email_jsonata/:jsonata
+  body: json
+  auth: inherit
+}
+
+params:path {
+  jsonata: alert
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "customer": "Acme Corp",
+    "severity": "high"
+  }
+}
+
+docs {
+  Apply a JSONata template to the request body, then send the result via /send_email.
+  Path parameter {jsonata} is the template file name without .txt extension
+  (loads /Templates/JSONata/{jsonata}.txt). PUT and POST behave identically.
+}

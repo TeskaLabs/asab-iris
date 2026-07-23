@@ -25,10 +25,15 @@ class TenantConfigExtractionService(asab.Service):
 
 			# Initialize Kazoo client
 			self.ZK = app.ZooKeeperContainer.ZooKeeper.Client
-			L.info("ZooKeeper client initialized for tenant configuration.")
+			L.info(
+				"Tenant configuration ZooKeeper client initialized.",
+				struct_data={"tenant_config_path": self.TenantConfigPath},
+			)
 
 		except (configparser.NoOptionError, configparser.NoSectionError):
-			L.warning("Tenant configuration not provided. Proceeding without ZooKeeper integration.")
+			L.warning(
+				"Tenant configuration URL is not set in [tenant_config]; per-tenant output settings will not be loaded from ZooKeeper.",
+			)
 
 
 	def load_tenant_config(self, tenant):
@@ -41,7 +46,10 @@ class TenantConfigExtractionService(asab.Service):
 
 		data, _ = self.ZK.get(path)
 		config = json.loads(data.decode("utf-8"))
-		L.info("Loaded tenant configuration from '{}'.".format(path))
+		L.info(
+			"Loaded tenant configuration from ZooKeeper.",
+			struct_data={"tenant": tenant, "path": path},
+		)
 		return config
 
 	def get_slack_config(self, tenant):
@@ -53,7 +61,10 @@ class TenantConfigExtractionService(asab.Service):
 			slack_config = config["slack"]
 			token = slack_config["token"]
 			channel = slack_config["channel"]
-			L.info("Loaded Slack config for tenant '{}'.".format(tenant))
+			L.info(
+				"Loaded Slack configuration for tenant.",
+				struct_data={"tenant": tenant},
+			)
 			return token, channel
 		except KeyError as e:
 			raise KeyError("Slack configuration missing key: '{}'".format(e))
@@ -65,7 +76,10 @@ class TenantConfigExtractionService(asab.Service):
 		config = self.load_tenant_config(tenant)
 		try:
 			webhook_url = config["msteams"]["webhook_url"]
-			L.info("Loaded MS Teams config for tenant '{}'.".format(tenant))
+			L.info(
+				"Loaded Microsoft Teams configuration for tenant.",
+				struct_data={"tenant": tenant},
+			)
 			return webhook_url
 		except KeyError as e:
 			raise KeyError("MS Teams configuration missing key: '{}'".format(e))
@@ -105,13 +119,22 @@ class TenantConfigExtractionService(asab.Service):
 
 				# Ensure all values are present; otherwise, use global config
 				if all([login, password, api_url]):
-					L.info("Loaded complete SMS config for tenant '{}'.".format(tenant))
+					L.info(
+						"Loaded complete SMS configuration for tenant.",
+						struct_data={"tenant": tenant},
+					)
 					return login, password, api_url, phone
 				else:
-					L.warning("Tenant '{}' SMS config is incomplete. Using global config.".format(tenant))
+					L.warning(
+						"Tenant SMS configuration is incomplete; global [sms] credentials will be used.",
+						struct_data={"tenant": tenant},
+					)
 
 			except (KeyError, TypeError) as e:
-				L.warning("Tenant-specific SMS configuration error for '{}'. Using global config. Error: '{}'".format(tenant, e))
+				L.warning(
+					"Failed to load tenant SMS configuration; global [sms] credentials will be used.",
+					struct_data={"tenant": tenant, "error_type": type(e).__name__},
+				)
 
 		return None, None, None
 
@@ -161,9 +184,15 @@ class TenantConfigExtractionService(asab.Service):
 			subject = email_cfg.get("subject")
 
 			if to_list:
-				L.info("Loaded tenant email config (to) for '{}'.".format(tenant))
+				L.info(
+					"Loaded tenant email recipients from ZooKeeper.",
+					struct_data={"tenant": tenant, "recipient_count": len(to_list)},
+				)
 			else:
-				L.warning("No tenant email.to configured for '{}'.".format(tenant))
+				L.warning(
+					"No email.to recipients configured for tenant; configure email.to in tenant ZooKeeper config.",
+					struct_data={"tenant": tenant},
+				)
 
 			return {
 				"to": to_list,
@@ -174,7 +203,10 @@ class TenantConfigExtractionService(asab.Service):
 			}
 
 		except Exception as e:
-			L.warning("Failed to load tenant email config for '{}': {}".format(tenant, e))
+			L.warning(
+				"Failed to load tenant email configuration from ZooKeeper; email delivery may use request body recipients only.",
+				struct_data={"tenant": tenant, "error_type": type(e).__name__},
+			)
 			return {"to": [], "cc": [], "bcc": [], "from": None, "subject": None}
 
 	def get_push_topic(self, tenant):

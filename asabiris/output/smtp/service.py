@@ -353,19 +353,45 @@ class EmailOutputService(asab.Service, OutputABC):
 						cert_bundle=self.Cert or None,
 						validate_certs=self.ValidateCerts
 					)
-				L.log(asab.LOG_NOTICE, "Email sent", struct_data={'result': result[1], "host": self.Host})
+				L.log(
+					asab.LOG_NOTICE,
+					"Email sent successfully via SMTP.",
+					struct_data={
+						"result": result[1],
+						"host": self.Host,
+						"port": self.Port,
+						"tenant": effective_tenant,
+						"recipient_count": len(to_recipients),
+					},
+				)
 				break  # Email sent successfully, exit the retry loop
 
 			except ProxyConnectError as e:
 				L.warning(
-					"Proxy connection failed: {}".format(e),
-					struct_data={"proxy_host": self.ProxyHost, "proxy_port": self.ProxyPort, "host": self.Host}
+					"SMTP proxy connection failed; verify proxy_host, proxy_port, proxy credentials, and network reachability to the proxy.",
+					struct_data={
+						"proxy_host": self.ProxyHost,
+						"proxy_port": self.ProxyPort,
+						"host": self.Host,
+						"port": self.Port,
+						"tenant": effective_tenant,
+						"attempt": attempt + 1,
+						"max_attempts": retry_attempts,
+						"error_message": str(e),
+					},
 				)
 				if attempt < retry_attempts - 1:
 					L.log(
 						asab.LOG_NOTICE,
-						"Retrying email send after proxy connection failure",
-						struct_data={"attempt": attempt + 1, "proxy_host": self.ProxyHost, "proxy_port": self.ProxyPort, "host": self.Host}
+						"Retrying email send after SMTP proxy connection failure.",
+						struct_data={
+							"attempt": attempt + 1,
+							"max_attempts": retry_attempts,
+							"proxy_host": self.ProxyHost,
+							"proxy_port": self.ProxyPort,
+							"host": self.Host,
+							"tenant": effective_tenant,
+						},
 					)
 					await asyncio.sleep(delay)
 					continue
@@ -380,9 +406,28 @@ class EmailOutputService(asab.Service, OutputABC):
 			except ASABIrisError:
 				raise
 			except aiosmtplib.SMTPConnectError as e:
-				L.warning("Connection failed: {}".format(e), struct_data={"host": self.Host, "port": self.Port})
+				L.warning(
+					"SMTP connection failed; verify host, port, firewall rules, and TLS/STARTTLS settings in [smtp].",
+					struct_data={
+						"host": self.Host,
+						"port": self.Port,
+						"tenant": effective_tenant,
+						"attempt": attempt + 1,
+						"max_attempts": retry_attempts,
+						"error_message": str(e),
+					},
+				)
 				if attempt < retry_attempts - 1:
-					L.info("Retrying email send after connection failure, attempt {}".format(attempt + 1))
+					L.info(
+						"Retrying email send after SMTP connection failure.",
+						struct_data={
+							"attempt": attempt + 1,
+							"max_attempts": retry_attempts,
+							"host": self.Host,
+							"port": self.Port,
+							"tenant": effective_tenant,
+						},
+					)
 					await asyncio.sleep(delay)
 					continue  # Retry the email sending
 				raise ASABIrisError(
@@ -394,7 +439,15 @@ class EmailOutputService(asab.Service, OutputABC):
 					}
 				)
 			except aiosmtplib.SMTPAuthenticationError as e:
-				L.warning("SMTP error: {}".format(e), struct_data={"host": self.Host})
+				L.warning(
+					"SMTP authentication failed; verify user and password in [smtp] or tenant email configuration.",
+					struct_data={
+						"host": self.Host,
+						"port": self.Port,
+						"tenant": effective_tenant,
+						"error_message": str(e),
+					},
+				)
 				raise ASABIrisError(
 					ErrorCode.SMTP_AUTHENTICATION_ERROR,
 					tech_message="SMTP authentication error: {}.".format(str(e)),
@@ -404,9 +457,29 @@ class EmailOutputService(asab.Service, OutputABC):
 					}
 				)
 			except aiosmtplib.SMTPResponseException as e:
-				L.warning("SMTP Error", struct_data={"message": e.message, "code": e.code, "host": self.Host})
+				L.warning(
+					"SMTP server rejected the message; review the SMTP response code and message body.",
+					struct_data={
+						"message": e.message,
+						"code": e.code,
+						"host": self.Host,
+						"port": self.Port,
+						"tenant": effective_tenant,
+						"attempt": attempt + 1,
+						"max_attempts": retry_attempts,
+					},
+				)
 				if attempt < retry_attempts - 1:
-					L.info("Retrying email send after connection failure, attempt {}".format(attempt + 1))
+					L.info(
+						"Retrying email send after SMTP response error.",
+						struct_data={
+							"attempt": attempt + 1,
+							"max_attempts": retry_attempts,
+							"host": self.Host,
+							"code": e.code,
+							"tenant": effective_tenant,
+						},
+					)
 					await asyncio.sleep(delay)
 					continue  # Retry the email sending
 				raise ASABIrisError(
@@ -420,9 +493,27 @@ class EmailOutputService(asab.Service, OutputABC):
 					}
 				)
 			except aiosmtplib.SMTPServerDisconnected as e:
-				L.warning("Server disconnected: {}; check the SMTP credentials".format(e), struct_data={"host": self.Host})
+				L.warning(
+					"SMTP server disconnected unexpectedly; verify credentials, session limits, and server health.",
+					struct_data={
+						"host": self.Host,
+						"port": self.Port,
+						"tenant": effective_tenant,
+						"attempt": attempt + 1,
+						"max_attempts": retry_attempts,
+						"error_message": str(e),
+					},
+				)
 				if attempt < retry_attempts - 1:
-					L.info("Retrying email send after connection failure, attempt {}".format(attempt + 1))
+					L.info(
+						"Retrying email send after SMTP server disconnect.",
+						struct_data={
+							"attempt": attempt + 1,
+							"max_attempts": retry_attempts,
+							"host": self.Host,
+							"tenant": effective_tenant,
+						},
+					)
 					await asyncio.sleep(delay)
 					continue  # Retry the email sending
 				raise ASABIrisError(
@@ -434,9 +525,27 @@ class EmailOutputService(asab.Service, OutputABC):
 					}
 				)
 			except aiosmtplib.SMTPTimeoutError as e:
-				L.warning("SMTP timeout encountered: {}; check network connectivity or SMTP server status".format(e), struct_data={"host": self.Host})
+				L.warning(
+					"SMTP request timed out; check network connectivity, DNS resolution, and SMTP server availability.",
+					struct_data={
+						"host": self.Host,
+						"port": self.Port,
+						"tenant": effective_tenant,
+						"attempt": attempt + 1,
+						"max_attempts": retry_attempts,
+						"error_message": str(e),
+					},
+				)
 				if attempt < retry_attempts - 1:
-					L.info("Retrying email send after connection failure, attempt {}".format(attempt + 1))
+					L.info(
+						"Retrying email send after SMTP timeout.",
+						struct_data={
+							"attempt": attempt + 1,
+							"max_attempts": retry_attempts,
+							"host": self.Host,
+							"tenant": effective_tenant,
+						},
+					)
 					await asyncio.sleep(delay)
 					continue  # Retry the email sending
 				raise ASABIrisError(
@@ -448,9 +557,28 @@ class EmailOutputService(asab.Service, OutputABC):
 					}
 				)
 			except Exception as e:
-				L.warning("SMTP error: {}; check credentials".format(e), struct_data={"host": self.Host})
+				L.warning(
+					"Unexpected SMTP error; review [smtp] configuration and server logs for details.",
+					struct_data={
+						"host": self.Host,
+						"port": self.Port,
+						"tenant": effective_tenant,
+						"attempt": attempt + 1,
+						"max_attempts": retry_attempts,
+						"error_type": type(e).__name__,
+						"error_message": str(e),
+					},
+				)
 				if attempt < retry_attempts - 1:
-					L.info("Retrying email send after connection failure, attempt {}".format(attempt + 1))
+					L.info(
+						"Retrying email send after unexpected SMTP error.",
+						struct_data={
+							"attempt": attempt + 1,
+							"max_attempts": retry_attempts,
+							"host": self.Host,
+							"tenant": effective_tenant,
+						},
+					)
 					await asyncio.sleep(delay)
 					continue  # Retry the email sending
 				raise ASABIrisError(
