@@ -76,7 +76,7 @@ COPY ./CHANGELOG.md     /app/asab-iris/CHANGELOG.md
 
 RUN set -ex \
   && mkdir /conf \
-  && touch /conf/asab-iris.conf
+  && touch conf/asab-iris.conf
 
 WORKDIR /app/asab-iris
 CMD ["python3", "asab-iris.py", "-c", "/conf/asab-iris.conf"]
