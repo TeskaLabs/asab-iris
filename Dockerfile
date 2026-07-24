@@ -67,7 +67,7 @@ RUN apk add --no-cache \
   libgit2
 
 COPY --from=building /usr/lib/python3.11/site-packages /usr/lib/python3.11/site-packages
-COPY --from=building /app/asab-iris/MANIFEST.json /app/asab-iris/MANIFEST.json
+COPY --from=building /app/asab-iris/MANIFEST.json /app/MANIFEST.json
 
 COPY ./asabiris      /app/asab-iris/asabiris
 COPY ./asab-iris.py  /app/asab-iris/asab-iris.py
