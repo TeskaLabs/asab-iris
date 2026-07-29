@@ -208,12 +208,14 @@ class SendEmailOrchestrator:
 		# Fallback: MS365
 		if self.M365Service is not None:
 			await self.M365Service.send_email(
-				email_from,
-				email_to,
-				email_subject,
-				body,
-				content_type,
-				attachments  # still just pass through
+				email_from=email_from,
+				email_to=email_to,
+				subject=email_subject,
+				body=body,
+				content_type=content_type,
+				email_cc=email_cc,
+				email_bcc=email_bcc,
+				attachments=attachments
 			)
 			L.info("Raw email sent via MS365 to: {}".format(', '.join(self._recipient_list_for_log(email_to))))
 			return

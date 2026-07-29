@@ -155,6 +155,8 @@ class EmailOutputService(asab.Service, OutputABC):
 
 		self.SSL = asab.Config.getboolean(config_section_name, "ssl")
 		self.StartTLS = asab.Config.getboolean(config_section_name, "starttls")
+		if self.SSL and self.StartTLS:
+			raise ValueError("SMTP configuration cannot enable both `ssl` and `starttls`")
 
 		self.User = asab.Config.get(config_section_name, "user")
 		self.Password = asab.Config.get(config_section_name, "password")
@@ -244,16 +246,40 @@ class EmailOutputService(asab.Service, OutputABC):
 
 		# Resolve tenant recipients (no global/default fallback)
 		to_list = []
-		if effective_tenant:
+		tenant_cc = []
+		tenant_bcc = []
+		tenant_from = None
+		tenant_subject = None
+		if effective_tenant and self.TenantConfigService is not None:
 			tenant_email_cfg = self.TenantConfigService.get_email_config(effective_tenant)
 			if isinstance(tenant_email_cfg, dict):
 				tenant_to = tenant_email_cfg.get("to") or []
 				if isinstance(tenant_to, list):
 					to_list = [str(x).strip() for x in tenant_to if str(x).strip()]
+				tenant_cc_value = tenant_email_cfg.get("cc") or []
+				if isinstance(tenant_cc_value, list):
+					tenant_cc = [str(x).strip() for x in tenant_cc_value if str(x).strip()]
+				tenant_bcc_value = tenant_email_cfg.get("bcc") or []
+				if isinstance(tenant_bcc_value, list):
+					tenant_bcc = [str(x).strip() for x in tenant_bcc_value if str(x).strip()]
+				tenant_from_value = tenant_email_cfg.get("from")
+				if isinstance(tenant_from_value, str) and len(tenant_from_value.strip()) > 0:
+					tenant_from = tenant_from_value
+				tenant_subject_value = tenant_email_cfg.get("subject")
+				if isinstance(tenant_subject_value, str) and len(tenant_subject_value.strip()) > 0:
+					tenant_subject = tenant_subject_value
 
 		# Prefer tenant list, else body list
 		if not to_list:
 			to_list = body_to
+		if tenant_cc:
+			email_cc = tenant_cc
+		if tenant_bcc:
+			email_bcc = tenant_bcc
+		if tenant_from is not None:
+			email_from = tenant_from
+		if tenant_subject is not None:
+			email_subject = tenant_subject
 
 		# Enforce "no default to"
 		if not to_list:

@@ -48,8 +48,8 @@ class MSTeamsOutputService(asab.Service, OutputABC):
         if effective_tenant and self.ConfigService is not None:
             try:
                 webhook_url = self.ConfigService.get_msteams_config(effective_tenant)
-            except KeyError:
-                L.warning("Tenant-specific MS Teams configuration not found for '{}'. Using global config.".format(effective_tenant))
+            except Exception as e:
+                L.warning("Tenant-specific MS Teams configuration lookup failed for '{}'. Using global config. Error: {}".format(effective_tenant, e))
 
         if webhook_url is None:
             L.error("MS Teams webhook URL is missing.")

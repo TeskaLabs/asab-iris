@@ -123,7 +123,7 @@ class AttachmentRenderingService(asab.Service):
 
 		return "att-{}.{}".format(
 			datetime.datetime.now().strftime('%Y%m%d-%H%M%S'),
-			attachment['format']
+			attachment.get('format', 'bin')
 		)
 
 

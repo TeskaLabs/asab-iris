@@ -23,6 +23,9 @@ class TenantConfigExtractionService(asab.Service):
 			url_parts = urllib.parse.urlparse(tenant_config_url)
 			self.TenantConfigPath = url_parts.path
 
+			if app.ZooKeeperContainer is None:
+				raise ValueError("[tenant_config] is configured but ZooKeeper is unavailable.")
+
 			# Initialize Kazoo client
 			self.ZK = app.ZooKeeperContainer.ZooKeeper.Client
 			L.info("ZooKeeper client initialized for tenant configuration.")

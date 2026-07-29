@@ -458,6 +458,9 @@ class M365EmailOutputService(asab.Service, OutputABC):
 	async def _persist_delegated_tokens(self):
 		if not isinstance(self._delegated_tokens, dict):
 			return
+		if self.App.ZooKeeperContainer is None:
+			L.info("ZooKeeper is unavailable; skipping MS365 delegated token persistence.")
+			return
 
 		path = self._tokens_storage_zk_path()
 		try:

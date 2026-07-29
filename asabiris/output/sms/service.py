@@ -201,7 +201,7 @@ class SMSOutputService(asab.Service, OutputABC):
 		phone_tenant = None
 
 		# 2) If tenant is specified, attempt to load tenant creds and phone
-		if effective_tenant:
+		if effective_tenant and self.ConfigService is not None:
 			login_tenant = None
 			password_tenant = None
 			api_url_tenant = None
