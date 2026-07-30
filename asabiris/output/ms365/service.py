@@ -103,6 +103,9 @@ class M365EmailOutputService(asab.Service, OutputABC):
 
 	async def _try_load_stored_tokens(self):
 		self._delegated_tokens = None
+		if self.App.ZooKeeperContainer is None:
+			L.info("ZooKeeper is unavailable; skipping MS365 delegated token loading.")
+			return
 
 		path = self._tokens_storage_zk_path()
 		raw = await self._zk_read_bytes(path)

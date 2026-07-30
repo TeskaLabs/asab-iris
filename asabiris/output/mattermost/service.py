@@ -79,8 +79,8 @@ class MattermostOutputService(asab.Service, OutputABC):
 		if tenant and self.ConfigService is not None:
 			try:
 				tenant_config = self.ConfigService.get_mattermost_config(tenant)
-			except Exception as e:
-				L.warning("Tenant-specific Mattermost configuration lookup failed for '%s'. Using global config. Error: %s", tenant, e)
+			except KeyError:
+				L.warning("Tenant-specific Mattermost configuration not found for '%s'. Using global config.", tenant)
 			else:
 				for key, value in tenant_config.items():
 					if value:
