@@ -12,6 +12,7 @@ except ModuleNotFoundError:
 
 from ...errors import ASABIrisError, ErrorCode
 from ...output_abc import OutputABC
+from ...audit import AuditLogger
 
 if slack_sdk is not None:
 	SlackApiError = slack_sdk.errors.SlackApiError
@@ -130,7 +131,6 @@ class SlackOutputService(asab.Service, OutputABC):
 				"blocks": blocks,
 			}
 		)
-
 		try:
 			client.chat_postMessage(
 				channel=channel_id,
@@ -154,6 +154,7 @@ class SlackOutputService(asab.Service, OutputABC):
 			"Slack message sent successfully.",
 			struct_data={"channel": channel}
 		)
+		AuditLogger.log(asab.LOG_NOTICE, "Slack message sent", struct_data={"channel": channel, "channel_id": channel_id})
 
 
 	async def send_files(self, body: str, atts_gen, channel=None):
@@ -210,6 +211,7 @@ class SlackOutputService(asab.Service, OutputABC):
 			"Slack files sent successfully.",
 			struct_data={"channel": channel}
 		)
+		AuditLogger.log(asab.LOG_NOTICE, "Slack files sent", struct_data={"channel": channel, "channel_id": channel_id})
 
 
 	def get_channel_id(self, client, channel_name, types=None):

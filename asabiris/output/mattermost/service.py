@@ -7,6 +7,7 @@ import asab
 
 from ...errors import ASABIrisError, ErrorCode
 from ...output_abc import OutputABC
+from ...audit import AuditLogger
 
 L = logging.getLogger(__name__)
 
@@ -177,7 +178,13 @@ class MattermostOutputService(asab.Service, OutputABC):
 			}
 		)
 
-		return await self._post_json(config, "/api/v4/posts", post_payload)
+		result = await self._post_json(config, "/api/v4/posts", post_payload)
+		AuditLogger.log(
+			asab.LOG_NOTICE,
+			"Mattermost message sent",
+			struct_data={"channel_id": channel_id, "username": username, "tenant": effective_tenant},
+		)
+		return result
 
 	async def get_user_ids(self, config, bot_username, target_username):
 		"""

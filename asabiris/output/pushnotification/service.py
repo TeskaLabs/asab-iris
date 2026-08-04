@@ -4,6 +4,7 @@ import asab
 import aiohttp
 
 from ...errors import ASABIrisError, ErrorCode
+from ...audit import AuditLogger
 
 L = logging.getLogger(__name__)
 SLACK_LINK_RE = re.compile(r"<(https?://[^>|]+)(?:\|[^>]+)?>")
@@ -148,4 +149,9 @@ class PushOutputService(asab.Service):
 				error_dict={"error_message": str(err)}
 			)
 
+		AuditLogger.log(
+			asab.LOG_NOTICE,
+			"Push notification sent",
+			struct_data={"topic": topic, "tenant": tenant},
+		)
 		return True

@@ -13,6 +13,7 @@ import aiosmtplib.protocol as smtp_protocol
 
 from ...output_abc import OutputABC
 from ...errors import ASABIrisError, ErrorCode
+from ...audit import AuditLogger
 
 #
 
@@ -362,6 +363,17 @@ class EmailOutputService(asab.Service, OutputABC):
 						"port": self.Port,
 						"tenant": effective_tenant,
 						"recipient_count": len(to_recipients),
+					},
+				)
+				AuditLogger.log(
+					asab.LOG_NOTICE,
+					"Email sent",
+					struct_data={
+						"provider": "smtp",
+						"to": to_recipients,
+						"cc": cc_recipients,
+						"bcc": bcc_recipients,
+						"tenant": effective_tenant,
 					},
 				)
 				break  # Email sent successfully, exit the retry loop

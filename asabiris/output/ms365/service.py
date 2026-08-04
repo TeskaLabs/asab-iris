@@ -10,6 +10,7 @@ import requests
 import msal
 
 from ...errors import ASABIrisError, ErrorCode
+from ...audit import AuditLogger
 from ...output_abc import OutputABC
 
 L = logging.getLogger(__name__)
@@ -828,6 +829,11 @@ class M365EmailOutputService(asab.Service, OutputABC):
 				) from e
 		# Success cases
 		if resp.status_code in (200, 202, 204):
+			AuditLogger.log(
+				asab.LOG_NOTICE,
+				"Email sent",
+				struct_data={"provider": "m365", "to": to_list, "cc": cc_list, "bcc": bcc_list, "tenant": effective_tenant},
+			)
 			return True
 
 		# 400 Bad request
