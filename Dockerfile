@@ -1,5 +1,5 @@
-FROM pcr.teskalabs.com/alpine:3.18 AS building
-MAINTAINER TeskaLabs Ltd (support@teskalabs.com)
+FROM pcr.teskalabs.com/alpine:3.22 AS building
+LABEL maintainer="TeskaLabs Ltd (support@teskalabs.com)"
 
 # Include build environment variables from GitLab CI/CD
 ARG CI_COMMIT_BRANCH
@@ -35,9 +35,9 @@ RUN apk add --no-cache \
     freetype-dev \
      cairo-dev
 
-RUN pip3 install --upgrade pip
-RUN pip3 install --no-cache-dir \
-    pygit2==1.11 \
+RUN pip3 install --break-system-packages --upgrade pip
+RUN pip3 install --break-system-packages --no-cache-dir \
+    pygit2 \
     aiokafka[lz4,snappy,zstd] \
     aiosmtplib \
     msal \
@@ -60,13 +60,13 @@ RUN mkdir -p /app/asab-iris
 COPY . /app/asab-iris
 RUN (cd /app/asab-iris && asab-manifest.py ./MANIFEST.json)
 
-FROM pcr.teskalabs.com/alpine:3.18 AS shiping
+FROM pcr.teskalabs.com/alpine:3.22 AS shiping
 
 RUN apk add --no-cache \
   python3 \
   libgit2
 
-COPY --from=building /usr/lib/python3.11/site-packages /usr/lib/python3.11/site-packages
+COPY --from=building /usr/lib/python3.12/site-packages /usr/lib/python3.12/site-packages
 COPY --from=building /app/asab-iris/MANIFEST.json /app/MANIFEST.json
 
 COPY ./asabiris      /app/asab-iris/asabiris
