@@ -37,7 +37,7 @@ RUN apk add --no-cache \
 
 RUN pip3 install --break-system-packages --upgrade pip
 RUN pip3 install --break-system-packages --no-cache-dir \
-    pygit2==1.11 \
+    pygit2 \
     aiokafka[lz4,snappy,zstd] \
     aiosmtplib \
     msal \
