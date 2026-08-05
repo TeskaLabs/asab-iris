@@ -1,0 +1,34 @@
+meta {
+  name: Send SMS
+  type: http
+  seq: 1
+}
+
+put {
+  url: {{BASE_URL}}/send_sms
+  body: json
+  auth: inherit
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "phone": "123456789",
+    "body": {
+      "template": "/Templates/SMS/alert.md",
+      "params": {
+        "message": "I am testing a template",
+        "event": "Iris-Event"
+      }
+    }
+  }
+}
+
+docs {
+  Send an SMS message rendered from a template under /Templates/SMS/.
+  Long messages are split automatically into multiple SMS segments.
+  On success returns {"result": "OK"}.
+}

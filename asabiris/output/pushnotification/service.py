@@ -30,7 +30,10 @@ class PushOutputService(asab.Service):
 				if tenant_topic is not None:
 					tenant_topic = str(tenant_topic).strip()
 			except KeyError:
-				L.warning("Tenant-specific push topic not found for '%s'. Using request/global topic.", tenant)
+				L.warning(
+					"Tenant-specific push topic not found; using topic from request or [push] default_topic.",
+					struct_data={"tenant": tenant},
+				)
 
 		req_topic = (push_data.get("topic") or "").strip()
 		def_topic = (self.DefaultTopic or "").strip()
@@ -93,7 +96,10 @@ class PushOutputService(asab.Service):
 			)
 
 		final_url = "{}/{}".format(base, topic)
-		L.warning("ntfy push URL = {}".format(final_url))
+		L.info(
+			"Sending push notification via ntfy.",
+			struct_data={"url": final_url, "topic": topic, "tenant": tenant, "base_url": base},
+		)
 
 		headers = {}
 		title = params.get("title")
@@ -126,7 +132,15 @@ class PushOutputService(asab.Service):
 							error_dict={"error_message": text}
 						)
 		except aiohttp.ClientError as err:
-			L.error("Network error while sending push: {}".format(err))
+			L.error(
+				"Network error while sending push notification; verify push url and outbound network access.",
+				struct_data={
+					"tenant": tenant,
+					"topic": topic,
+					"url": final_url,
+					"error_type": type(err).__name__,
+				},
+			)
 			raise ASABIrisError(
 				ErrorCode.SERVER_ERROR,
 				tech_message="Network error while sending push.",

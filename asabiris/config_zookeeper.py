@@ -96,19 +96,23 @@ def load_config_overrides(zk_client, path):
 	try:
 		data, _ = zk_client.get(path)
 	except kazoo.exceptions.NoNodeError:
-		L.info("ZooKeeper configuration path '%s' not found. Using static configuration.", path)
+		L.info(
+			"ZooKeeper configuration override node does not exist; static file configuration remains in effect. This is normal when overrides have not been provisioned yet.",
+			struct_data={"zk_path": path},
+		)
 		return {}
 	except kazoo.exceptions.KazooException as e:
 		L.warning(
-			"Failed to read ZooKeeper configuration path '%s': %s: %s. Using static configuration.",
-			path,
-			e.__class__.__name__,
-			e,
+			"Could not read ZooKeeper configuration overrides; static file configuration remains in effect. Check ZooKeeper connectivity and node permissions.",
+			struct_data={"zk_path": path, "error_type": e.__class__.__name__},
 		)
 		return {}
 
 	if data is None or data == b"":
-		L.info("ZooKeeper configuration path '%s' is empty. Using static configuration.", path)
+		L.info(
+			"ZooKeeper configuration override node is empty; static file configuration remains in effect.",
+			struct_data={"zk_path": path},
+		)
 		return {}
 
 	if isinstance(data, bytes):
@@ -117,7 +121,10 @@ def load_config_overrides(zk_client, path):
 		payload_raw = str(data)
 
 	if payload_raw.strip() == "":
-		L.info("ZooKeeper configuration path '%s' is empty. Using static configuration.", path)
+		L.info(
+			"ZooKeeper configuration override node contains only whitespace; static file configuration remains in effect.",
+			struct_data={"zk_path": path},
+		)
 		return {}
 
 	payload = json.loads(payload_raw)
@@ -194,8 +201,8 @@ def apply_zookeeper_config_overrides(app, section_name="config_zookeeper"):
 		path = resolve_config_zookeeper_path(asab.Config, section_name=section_name)
 		if not path:
 			L.warning(
-				"Section [%s] is present but neither 'path' nor 'url' is configured. Using static configuration.",
-				section_name,
+				"[config_zookeeper] section is present but neither 'path' nor 'url' is set; configuration overrides are skipped and static file configuration is used.",
+				struct_data={"config_section": section_name},
 			)
 			return False
 
@@ -204,13 +211,15 @@ def apply_zookeeper_config_overrides(app, section_name="config_zookeeper"):
 			return False
 
 		apply_config_overrides(asab.Config, overrides)
-		L.info("Applied ZooKeeper configuration overrides from '%s'.", path)
+		L.info(
+			"Applied ZooKeeper configuration overrides on top of static configuration.",
+			struct_data={"zk_path": path, "override_sections": sorted(overrides.keys())},
+		)
 		return True
 
 	except (configparser.Error, ValueError, json.JSONDecodeError) as e:
 		L.warning(
-			"Failed to apply ZooKeeper configuration overrides from [%s]: %s. Using static configuration.",
-			section_name,
-			e,
+			"ZooKeeper configuration override payload is invalid; static file configuration remains in effect. Verify the JSON document at the configured node.",
+			struct_data={"config_section": section_name, "zk_path": path if 'path' in locals() else None, "error_type": e.__class__.__name__},
 		)
 		return False

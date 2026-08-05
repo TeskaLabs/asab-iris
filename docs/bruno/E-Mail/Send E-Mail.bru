@@ -1,0 +1,47 @@
+meta {
+  name: Send E-Mail
+  type: http
+  seq: 1
+}
+
+put {
+  url: {{BASE_URL}}/send_email
+  body: json
+  auth: inherit
+}
+
+headers {
+  Content-Type: application/json
+}
+
+body:json {
+  {
+    "to": ["tony.montana@goodfellas.com"],
+    "cc": ["jimmy.conway@goodfellas.com"],
+    "bcc": ["henry.hill@goodfellas.com"],
+    "subject": "Lufthansa Heist",
+    "from": "jimmy.conway@goodfellas.com",
+    "body": {
+      "template": "/Templates/Email/test.md",
+      "params": {
+        "name": "Toddy Siciro"
+      }
+    },
+    "attachments": [
+      {
+        "template": "/Templates/Attachment/hello.html",
+        "params": {
+          "name": "Michael Corleone"
+        },
+        "format": "pdf",
+        "filename": "Alert.pdf"
+      }
+    ]
+  }
+}
+
+docs {
+  Send one email defined by the request JSON payload.
+  Transport (SMTP or MS365) is selected by server configuration.
+  On success returns {"result": "OK"}.
+}

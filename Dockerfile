@@ -38,7 +38,7 @@ RUN apk add --no-cache \
 RUN pip3 install --break-system-packages --upgrade pip
 RUN pip3 install --break-system-packages --no-cache-dir \
     pygit2==1.11 \
-    aiokafka \
+    aiokafka[lz4,snappy,zstd] \
     aiosmtplib \
     msal \
     fastjsonschema \
@@ -67,7 +67,7 @@ RUN apk add --no-cache \
   libgit2
 
 COPY --from=building /usr/lib/python3.12/site-packages /usr/lib/python3.12/site-packages
-COPY --from=building /app/asab-iris/MANIFEST.json /app/asab-iris/MANIFEST.json
+COPY --from=building /app/asab-iris/MANIFEST.json /app/MANIFEST.json
 
 COPY ./asabiris      /app/asab-iris/asabiris
 COPY ./asab-iris.py  /app/asab-iris/asab-iris.py

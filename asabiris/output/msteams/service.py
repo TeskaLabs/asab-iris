@@ -13,7 +13,14 @@ def check_config(config, section, parameter):
         value = config.get(section, parameter)
         return value
     except configparser.NoOptionError as e:
-        L.warning("Configuration parameter '{}' is missing in section '{}': {}".format(parameter, section, e))
+        L.warning(
+            "Required configuration option is missing; set it in the service configuration section.",
+            struct_data={
+                "config_section": section,
+                "config_option": parameter,
+                "error_type": e.__class__.__name__,
+            },
+        )
         return None
 
 
@@ -27,7 +34,9 @@ class MSTeamsOutputService(asab.Service, OutputABC):
 
         # If required MS Teams configuration is missing, disable MS Teams service
         if not self.TeamsWebhookUrl:
-            L.warning("MS Teams output service is not properly configured. Disabling MS Teams service.")
+            L.warning(
+                "Microsoft Teams output is disabled because webhook_url is missing in [msteams]; configure webhook_url to enable delivery.",
+            )
             self.Client = None
             return
 
@@ -49,10 +58,16 @@ class MSTeamsOutputService(asab.Service, OutputABC):
             try:
                 webhook_url = self.ConfigService.get_msteams_config(effective_tenant)
             except KeyError:
-                L.warning("Tenant-specific MS Teams configuration not found for '{}'. Using global config.".format(effective_tenant))
+                L.warning(
+                    "Tenant-specific Microsoft Teams configuration not found; using global [msteams] webhook_url.",
+                    struct_data={"tenant": effective_tenant},
+                )
 
         if webhook_url is None:
-            L.error("MS Teams webhook URL is missing.")
+            L.error(
+                "Microsoft Teams webhook URL is missing; configure webhook_url in [msteams] or tenant configuration.",
+                struct_data={"tenant": effective_tenant},
+            )
             return
 
         adaptive_card = {
@@ -91,13 +106,21 @@ class MSTeamsOutputService(asab.Service, OutputABC):
         async with aiohttp.ClientSession() as session:
             async with session.post(webhook_url, json=adaptive_card) as resp:
                 if resp.status in (200, 202):
-                    L.log(asab.LOG_NOTICE, "MS Teams message sent successfully.")
+                    L.log(
+                        asab.LOG_NOTICE,
+                        "Microsoft Teams message sent successfully.",
+                        struct_data={"tenant": effective_tenant},
+                    )
                     return True
                 else:
                     error_message = await resp.text()
                     L.warning(
-                        "Sending alert to MS Teams was NOT successful. Response status: {}, response: {}".format(
-                            resp.status, error_message)
+                        "Microsoft Teams webhook rejected the message; verify webhook_url and incoming connector settings.",
+                        struct_data={
+                            "tenant": effective_tenant,
+                            "status": resp.status,
+                            "response_body": error_message,
+                        },
                     )
 
                     # Mapping specific status codes to error codes
