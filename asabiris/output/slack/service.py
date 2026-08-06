@@ -211,7 +211,7 @@ class SlackOutputService(asab.Service, OutputABC):
 			"Slack files sent successfully.",
 			struct_data={"channel": channel}
 		)
-		AuditLogger.log(asab.LOG_NOTICE, "Slack files sent", struct_data={"channel": channel, "channel_id": channel_id})
+		AuditLogger.log(asab.LOG_NOTICE, "Slack files sent", struct_data={"channel_id": channel_id})
 
 
 	def get_channel_id(self, client, channel_name, types=None):
