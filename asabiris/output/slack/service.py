@@ -90,17 +90,19 @@ class SlackOutputService(asab.Service, OutputABC):
 
 		if channel is None:
 			channel = default_channel
+		if channel is None:
+			raise ValueError("Cannot send message to Slack. Reason: Missing Slack channel")
 
 		cache_hit = self.Cache.get((token, channel), None)
 		if cache_hit is not None:
-			return cache_hit[0], cache_hit[1]
+			return cache_hit[0], cache_hit[1], channel
 
 		client = slack_sdk.WebClient(token=token)
 		channel_id = self.get_channel_id(client, channel)
 
 		self.Cache[(token, channel)] = (client, channel_id, time.time())
 
-		return client, channel_id
+		return client, channel_id, channel
 
 
 	async def send_message(self, blocks, fallback_message, channel=None) -> None:
@@ -113,10 +115,8 @@ class SlackOutputService(asab.Service, OutputABC):
 			)
 			return
 
-		client, channel_id = self._resolve(channel)
+		client, channel_id, channel = self._resolve(channel)
 
-		if channel is None:
-			raise ValueError("Cannot send message to Slack. Reason: Missing Slack channel")
 		if client is None:
 			raise ValueError("Cannot send message to Slack.")
 
@@ -166,7 +166,7 @@ class SlackOutputService(asab.Service, OutputABC):
 			)
 			return
 
-		client, channel_id = self._resolve(channel)
+		client, channel_id, channel = self._resolve(channel)
 
 		try:
 			async for attachment in atts_gen:
