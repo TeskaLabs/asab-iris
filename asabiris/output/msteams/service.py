@@ -1,9 +1,13 @@
 import logging
 import configparser
+import urllib.parse
+
 import aiohttp
 import asab
+
 from ...errors import ASABIrisError, ErrorCode
 from ...output_abc import OutputABC
+from ...audit import AuditLogger
 
 L = logging.getLogger(__name__)
 
@@ -106,6 +110,14 @@ class MSTeamsOutputService(asab.Service, OutputABC):
         async with aiohttp.ClientSession() as session:
             async with session.post(webhook_url, json=adaptive_card) as resp:
                 if resp.status in (200, 202):
+                    AuditLogger.log(
+                        asab.LOG_NOTICE,
+                        "Microsoft Teams message sent",
+                        struct_data={
+                            "webhook_host": urllib.parse.urlsplit(webhook_url).hostname,
+                            "tenant": effective_tenant,
+                        },
+                    )
                     L.log(
                         asab.LOG_NOTICE,
                         "Microsoft Teams message sent successfully.",

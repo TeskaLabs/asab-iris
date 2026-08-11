@@ -13,6 +13,7 @@ import aiosmtplib.protocol as smtp_protocol
 
 from ...output_abc import OutputABC
 from ...errors import ASABIrisError, ErrorCode
+from ...audit import AuditLogger
 
 #
 
@@ -353,17 +354,6 @@ class EmailOutputService(asab.Service, OutputABC):
 						cert_bundle=self.Cert or None,
 						validate_certs=self.ValidateCerts
 					)
-				L.log(
-					asab.LOG_NOTICE,
-					"Email sent successfully via SMTP.",
-					struct_data={
-						"result": result[1],
-						"host": self.Host,
-						"port": self.Port,
-						"tenant": effective_tenant,
-						"recipient_count": len(to_recipients),
-					},
-				)
 				break  # Email sent successfully, exit the retry loop
 
 			except ProxyConnectError as e:
@@ -589,6 +579,29 @@ class EmailOutputService(asab.Service, OutputABC):
 						"host": self.Host
 					}
 				)
+
+		L.log(
+			asab.LOG_NOTICE,
+			"Email sent successfully via SMTP.",
+			struct_data={
+				"result": result[1],
+				"host": self.Host,
+				"port": self.Port,
+				"tenant": effective_tenant,
+				"recipient_count": len(to_recipients),
+			},
+		)
+		AuditLogger.log(
+			asab.LOG_NOTICE,
+			"Email sent",
+			struct_data={
+				"provider": "smtp",
+				"to": to_recipients,
+				"cc": cc_recipients,
+				"bcc": bcc_recipients,
+				"tenant": effective_tenant,
+			},
+		)
 
 	async def _send_via_proxy_smtp_client(self, *, msg, sender, recipients):
 		"""

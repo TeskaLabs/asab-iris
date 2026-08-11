@@ -12,6 +12,7 @@ import pytz
 
 from ...output_abc import OutputABC
 from ...errors import ASABIrisError, ErrorCode
+from ...audit import AuditLogger
 
 L = logging.getLogger(__name__)
 
@@ -411,5 +412,9 @@ class SMSOutputService(asab.Service, OutputABC):
 						"SMS part sent successfully.",
 						struct_data={"tenant": effective_tenant, "api_url": api_url},
 					)
-
+		AuditLogger.log(
+			asab.LOG_NOTICE,
+			"SMS sent",
+			struct_data={"phone": phone, "tenant": effective_tenant},
+		)
 		return True
