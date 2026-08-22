@@ -12,6 +12,8 @@ import logging
 from typing import List, Tuple, Dict
 
 import asab
+import yaml
+
 from ..errors import ASABIrisError, ErrorCode
 
 L = logging.getLogger(__name__)
@@ -260,6 +262,33 @@ def _extract_subject_html(html: str) -> Tuple[str, str]:
 
 
 def _extract_subject_md(text: str) -> Tuple[str, str]:
+	if re.match(r"\A---\r?\n", text):
+		match = re.match(r"\A---\r?\n(.*?)\r?\n---(?:\r?\n|$)", text, re.DOTALL)
+		if match is None:
+			raise ASABIrisError(
+				ErrorCode.INVALID_FORMAT,
+				tech_message="Markdown frontmatter is missing its closing delimiter.",
+				error_i18n_key="invalid_frontmatter",
+				error_dict={}
+			)
+		try:
+			metadata = yaml.safe_load(match.group(1)) or {}
+		except yaml.YAMLError as e:
+			raise ASABIrisError(
+				ErrorCode.INVALID_FORMAT,
+				tech_message="Invalid YAML frontmatter: {}".format(e),
+				error_i18n_key="invalid_frontmatter",
+				error_dict={}
+			) from e
+		if not isinstance(metadata, dict) or not isinstance(metadata.get("subject", ""), str):
+			raise ASABIrisError(
+				ErrorCode.INVALID_FORMAT,
+				tech_message="Markdown frontmatter must be a mapping with a string subject.",
+				error_i18n_key="invalid_frontmatter",
+				error_dict={}
+			)
+		return text[match.end():], metadata.get("subject")
+
 	if text.startswith("SUBJECT:"):
 		parts = text.split("\n", 1)
 		subject = parts[0].split(":", 1)[1].strip()
