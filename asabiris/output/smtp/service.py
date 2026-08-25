@@ -245,7 +245,7 @@ class EmailOutputService(asab.Service, OutputABC):
 
 		# Resolve tenant recipients (no global/default fallback)
 		to_list = []
-		if effective_tenant:
+		if effective_tenant and self.TenantConfigService is not None:
 			tenant_email_cfg = self.TenantConfigService.get_email_config(effective_tenant)
 			if isinstance(tenant_email_cfg, dict):
 				tenant_to = tenant_email_cfg.get("to") or []
