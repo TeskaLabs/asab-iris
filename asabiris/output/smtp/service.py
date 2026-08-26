@@ -245,12 +245,20 @@ class EmailOutputService(asab.Service, OutputABC):
 
 		# Resolve tenant recipients (no global/default fallback)
 		to_list = []
-		if effective_tenant:
+		tenant_cc = []
+		tenant_bcc = []
+		tenant_subject = None
+		tenant_from = None
+		if effective_tenant and self.TenantConfigService is not None:
 			tenant_email_cfg = self.TenantConfigService.get_email_config(effective_tenant)
 			if isinstance(tenant_email_cfg, dict):
 				tenant_to = tenant_email_cfg.get("to") or []
 				if isinstance(tenant_to, list):
 					to_list = [str(x).strip() for x in tenant_to if str(x).strip()]
+				tenant_cc = tenant_email_cfg.get("cc") or []
+				tenant_bcc = tenant_email_cfg.get("bcc") or []
+				tenant_subject = tenant_email_cfg.get("subject") or None
+				tenant_from = tenant_email_cfg.get("from") or None
 
 		# Prefer tenant list, else body list
 		if not to_list:
@@ -286,6 +294,10 @@ class EmailOutputService(asab.Service, OutputABC):
 		msg['To'] = ', '.join(to_recipients)
 		cc_recipients = []
 		bcc_recipients = []
+		email_cc = tenant_cc or email_cc
+		email_bcc = tenant_bcc or email_bcc
+		email_subject = tenant_subject or email_subject
+		email_from = tenant_from or email_from
 
 		if email_cc:
 			assert isinstance(email_cc, list)
