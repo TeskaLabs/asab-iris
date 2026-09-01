@@ -2,6 +2,22 @@ class SMTPDeliverError(Exception):
 	pass
 
 
+class TenantConfigError(Exception):
+	"""Base error for tenant configuration loading failures."""
+
+
+class TenantConfigNotFoundError(TenantConfigError, KeyError):
+	"""The requested tenant configuration node does not exist."""
+
+
+class TenantConfigValidationError(TenantConfigError, ValueError):
+	"""Tenant configuration input or payload is invalid."""
+
+
+class TenantConfigReadError(TenantConfigError):
+	"""ZooKeeper could not be queried for tenant configuration."""
+
+
 class PathError(Exception):
 	"""
 	Equivalent to HTTP 404 Not-Found.

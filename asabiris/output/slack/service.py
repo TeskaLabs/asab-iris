@@ -11,6 +11,7 @@ except ModuleNotFoundError:
 	slack_sdk = None
 
 from ...errors import ASABIrisError, ErrorCode
+from ...exceptions import TenantConfigError
 from ...output_abc import OutputABC
 from ...audit import AuditLogger
 
@@ -80,9 +81,9 @@ class SlackOutputService(asab.Service, OutputABC):
 		if effective_tenant and self.ConfigService is not None:
 			try:
 				token, default_channel = self.ConfigService.get_slack_config(effective_tenant)
-			except KeyError:
+			except (KeyError, TenantConfigError):
 				L.warning(
-					"Tenant-specific Slack configuration not found; using global [slack] token and channel.",
+					"Tenant-specific Slack configuration is unavailable or invalid; using global [slack] token and channel.",
 					struct_data={"tenant": effective_tenant},
 				)
 				token, default_channel = self.ConfigToken, self.ConfigChannel

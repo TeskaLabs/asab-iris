@@ -1,5 +1,15 @@
+from ..exceptions import (
+	TenantConfigError,
+	TenantConfigNotFoundError,
+	TenantConfigReadError,
+	TenantConfigValidationError,
+)
 from .tenant_config import TenantConfigExtractionService
 
 __all__ = [
-	"TenantConfigExtractionService"
+	"TenantConfigError",
+	"TenantConfigExtractionService",
+	"TenantConfigNotFoundError",
+	"TenantConfigReadError",
+	"TenantConfigValidationError",
 ]

@@ -75,7 +75,7 @@ class AttachmentRenderingService(asab.Service):
 					yield Attachment(
 						Content=rendered_output,
 						ContentType="application/pdf",
-						FileName=self._determine_file_name(a),
+						FileName=self._determine_file_name(a, fmt),
 						Position=n,
 					)
 
@@ -87,7 +87,7 @@ class AttachmentRenderingService(asab.Service):
 					yield Attachment(
 						Content=io.BytesIO(rendered_output.encode('utf-8')),
 						ContentType=a.get('content-type', "text/html"),
-						FileName=self._determine_file_name(a),
+						FileName=self._determine_file_name(a, fmt),
 						Position=n,
 					)
 
@@ -98,7 +98,7 @@ class AttachmentRenderingService(asab.Service):
 					yield Attachment(
 						Content=io.BytesIO(rendered_output.encode('utf-8')),
 						ContentType=a.get('content-type', "text/markdown"),
-						FileName=self._determine_file_name(a),
+						FileName=self._determine_file_name(a, fmt),
 						Position=n,
 					)
 
@@ -116,14 +116,14 @@ class AttachmentRenderingService(asab.Service):
 				raise RuntimeError("Unknown attachment in API call")
 
 
-	def _determine_file_name(self, attachment) -> str:
+	def _determine_file_name(self, attachment, default_format='bin') -> str:
 		afname = attachment.get('filename')
 		if afname is not None:
 			return afname
 
 		return "att-{}.{}".format(
 			datetime.datetime.now().strftime('%Y%m%d-%H%M%S'),
-			attachment['format']
+			attachment.get('format', default_format)
 		)
 
 

@@ -804,6 +804,7 @@ class WebHandler(object):
 
 		return asab.web.rest.json_response(request, {"result": "OK"})
 
+	@asab.web.tenant.allow_no_tenant
 	@asab.web.rest.json_schema_handler(push_schema)
 	async def send_push(self, request, *, json_data):
 		"""
@@ -858,6 +859,13 @@ class WebHandler(object):
 				status=400
 			)
 
+		tenant = json_data.get("tenant", None)
+		current_tenant = asab.contextvars.Tenant.get(None)
+		token = None
+
+		if tenant is not None and current_tenant is None:
+			token = asab.contextvars.Tenant.set(tenant)
+
 		try:
 			await self.App.SendPushOrchestrator.send_push(json_data)
 		except ASABIrisError as e:
@@ -882,6 +890,9 @@ class WebHandler(object):
 				}
 			}
 			return aiohttp.web.json_response(response, status=400)
+		finally:
+			if token is not None:
+				asab.contextvars.Tenant.reset(token)
 
 		return asab.web.rest.json_response(request, {"result": "OK"})
 

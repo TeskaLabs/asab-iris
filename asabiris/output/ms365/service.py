@@ -2,7 +2,9 @@ import logging
 import configparser
 import time
 import base64
+import email.utils
 import json
+import urllib.parse
 import kazoo.exceptions
 
 import asab
@@ -117,6 +119,9 @@ class M365EmailOutputService(asab.Service, OutputABC):
 
 	async def _try_load_stored_tokens(self):
 		self._delegated_tokens = None
+		if self.App.ZooKeeperContainer is None:
+			L.info("ZooKeeper is unavailable; skipping MS365 delegated token loading.")
+			return
 
 		path = self._tokens_storage_zk_path()
 		raw = await self._zk_read_bytes(path)
@@ -497,6 +502,9 @@ class M365EmailOutputService(asab.Service, OutputABC):
 	async def _persist_delegated_tokens(self):
 		if not isinstance(self._delegated_tokens, dict):
 			return
+		if self.App.ZooKeeperContainer is None:
+			L.info("ZooKeeper is unavailable; skipping MS365 delegated token persistence.")
+			return
 
 		path = self._tokens_storage_zk_path()
 		try:
@@ -643,6 +651,15 @@ class M365EmailOutputService(asab.Service, OutputABC):
 		s = str(val).strip()
 		return [s] if s else []
 
+	def _normalize_tenant_sender(self, val):
+		if not isinstance(val, str) or not val.strip():
+			return None
+		_, address = email.utils.parseaddr(val)
+		address = address.strip()
+		if not address or "@" not in address or any(char.isspace() for char in address):
+			return None
+		return address
+
 	async def send_email(
 		self,
 		email_from,
@@ -677,6 +694,7 @@ class M365EmailOutputService(asab.Service, OutputABC):
 		tenant_cc = []
 		tenant_bcc = []
 		tenant_subject = None
+		tenant_from = None
 		if effective_tenant is not None:
 			if self.ConfigService is None:
 				L.info(
@@ -691,6 +709,13 @@ class M365EmailOutputService(asab.Service, OutputABC):
 						tenant_cc = tcfg.get("cc", [])
 						tenant_bcc = tcfg.get("bcc", [])
 						tenant_subject = tcfg.get("subject")
+						tenant_from_value = tcfg.get("from")
+						tenant_from = self._normalize_tenant_sender(tenant_from_value)
+						if tenant_from_value and tenant_from is None:
+							L.warning(
+								"Tenant email.from is invalid for Microsoft 365; using the caller or configured sender.",
+								struct_data={"tenant": effective_tenant},
+							)
 				except Exception as e:
 					L.warning(
 						"Failed to load tenant email configuration; using caller or global email settings.",
@@ -716,9 +741,15 @@ class M365EmailOutputService(asab.Service, OutputABC):
 
 		if self.Mode == "delegated":
 			api_url = "https://graph.microsoft.com/v1.0/me/sendMail"
+			if tenant_from and tenant_from.lower() != self.UserEmail.strip().lower():
+				L.warning(
+					"Tenant email.from cannot override the authorized sender in delegated Microsoft 365 mode; using m365_email.user_email.",
+					struct_data={"tenant": effective_tenant},
+				)
 		else:
+			sender = tenant_from or email_from or self.UserEmail
 			api_url = "https://graph.microsoft.com/v1.0/users/{}/sendMail".format(
-				email_from or self.UserEmail
+				urllib.parse.quote(sender, safe="")
 			)
 
 		subject = tenant_subject or subject or self.Subject
