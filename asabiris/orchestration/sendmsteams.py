@@ -43,7 +43,10 @@ class SendMSTeamsOrchestrator(object):
 		try:
 			SendMSTeamsOrchestrator.ValidationSchemaMSTeams(msg)
 		except fastjsonschema.exceptions.JsonSchemaException as e:
-			L.warning("Invalid notification format: {}".format(e))
+			L.warning(
+				"Microsoft Teams notification request failed schema validation; fix the request payload structure.",
+				struct_data={"validation_error": str(e)},
+			)
 			return
 
 		body = msg['body']

@@ -4,9 +4,9 @@
     - build
 
 
-  test py39:
+  test py312:
     stage: test
-    image: pcr.teskalabs.com/python:3.9
+    image: pcr.teskalabs.com/python:3.12
     tags:
     - amd64
     - docker
@@ -17,7 +17,7 @@
       - pip install jinja2
       - pip install Markdown
       - pip install aiosmtplib
-      - pip install reportlab==3.6.6  # Freeze reportlab version because of https://github.com/xhtml2pdf/xhtml2pdf/issues/589
+      - pip install reportlab==4.0
       - pip install xhtml2pdf
       - pip install Pillow
       - pip install requests
@@ -26,7 +26,7 @@
       - pip install -U git+https://github.com/TeskaLabs/kazoo
       - pip install msal
       - pip install temp
-      - pip install aiokafka
+      - pip install aiokafka[lz4,snappy,zstd]
       - pip install slack-sdk
       - pip install sentry-sdk
       - pip install pytz
@@ -55,7 +55,7 @@
       - pip install -U git+https://github.com/TeskaLabs/kazoo
       - pip install msal
       - pip install temp
-      - pip install aiokafka
+      - pip install aiokafka[lz4,snappy,zstd]
       - pip install slack-sdk
       - pip install sentry-sdk
       - pip install pytz
@@ -84,7 +84,7 @@
       - pip install -U git+https://github.com/TeskaLabs/kazoo
       - pip install msal
       - pip install temp
-      - pip install aiokafka
+      - pip install aiokafka[lz4,snappy,zstd]
       - pip install slack-sdk
       - pip install sentry-sdk
       - pip install pytz
@@ -107,7 +107,7 @@
       - pip install Markdown
       - pip install aiohttp
       - pip install temp
-      - pip install aiokafka
+      - pip install aiokafka[lz4,snappy,zstd]
       - pip install slack-sdk
       - pip install sentry-sdk
       - pip install pytz

@@ -12,6 +12,7 @@ import pytz
 
 from ...output_abc import OutputABC
 from ...errors import ASABIrisError, ErrorCode
+from ...audit import AuditLogger
 
 L = logging.getLogger(__name__)
 
@@ -64,7 +65,10 @@ class SMSOutputService(asab.Service, OutputABC):
 		try:
 			self.TimeZone = pytz.timezone(tz_name)
 		except Exception:
-			L.warning("Invalid timezone '{}', falling back to Europe/Prague.".format(tz_name))
+			L.warning(
+				"Invalid timezone in [sms]; using Europe/Prague. Set timezone to a valid IANA name.",
+				struct_data={"timezone": tz_name},
+			)
 			self.TimeZone = pytz.timezone("Europe/Prague")
 
 		# Get tenant configuration service
@@ -209,7 +213,10 @@ class SMSOutputService(asab.Service, OutputABC):
 			try:
 				conf = self.ConfigService.get_sms_config(effective_tenant)
 			except Exception as err:
-				L.warning("Failed to load tenant '{}' SMS config: {}".format(effective_tenant, err))
+				L.warning(
+					"Failed to load tenant SMS configuration; using global [sms] credentials.",
+					struct_data={"tenant": effective_tenant, "error_type": type(err).__name__},
+				)
 				conf = None
 
 			# Accept tuple/list (3 or 4 items) or dict
@@ -220,26 +227,38 @@ class SMSOutputService(asab.Service, OutputABC):
 						if len(conf) >= 4:
 							phone_tenant = _clean(conf[3])
 					else:
-						L.warning("Tenant '{}' SMS config tuple too short: {}".format(effective_tenant, conf))
+						L.warning(
+							"Tenant SMS configuration tuple is too short; using global [sms] credentials.",
+							struct_data={"tenant": effective_tenant},
+						)
 				elif isinstance(conf, dict):
 					login_tenant = conf.get("login")
 					password_tenant = conf.get("password")
 					api_url_tenant = conf.get("api_url")
 					phone_tenant = _clean(conf.get("phone"))
 				else:
-					L.warning("Tenant '{}' SMS config in unexpected format.".format(effective_tenant))
+					L.warning(
+						"Tenant SMS configuration has an unexpected format; using global [sms] credentials.",
+						struct_data={"tenant": effective_tenant},
+					)
 
 			# Override creds if all three tenant values are present
 			if login_tenant and password_tenant and api_url_tenant:
 				login, password, api_url = login_tenant, password_tenant, api_url_tenant
 			else:
-				L.warning("Tenant '{}' SMS config incomplete—using global credentials.".format(effective_tenant))
+				L.warning(
+					"Tenant SMS configuration is incomplete; using global [sms] credentials.",
+					struct_data={"tenant": effective_tenant},
+				)
 
 		phone = next((p for p in (phone_tenant, body_phone) if p), None)
 
 		# 3) Validate that we have a phone number from at least one source
 		if not phone:
-			L.warning("No phone number provided (tenant or request body).")
+			L.warning(
+				"No SMS recipient phone number configured; set phone in tenant SMS config or in the request body.",
+				struct_data={"tenant": effective_tenant},
+			)
 			raise ASABIrisError(
 				ErrorCode.INVALID_SERVICE_CONFIGURATION,
 				tech_message="No phone number provided (tenant/api/config).",
@@ -249,7 +268,10 @@ class SMSOutputService(asab.Service, OutputABC):
 
 		# 4) Validate that we have credentials and URL
 		if not (login and password and api_url):
-			L.error("Missing SMS configuration (login, password, or API URL).")
+			L.error(
+				"SMS service is not configured; set login, password, and api_url in [sms] or tenant configuration.",
+				struct_data={"tenant": effective_tenant, "api_url": api_url},
+			)
 			raise ASABIrisError(
 				ErrorCode.INVALID_SERVICE_CONFIGURATION,
 				tech_message="Missing SMS configuration (login, password, or API URL).",
@@ -278,7 +300,10 @@ class SMSOutputService(asab.Service, OutputABC):
 					)
 
 				if not message.isascii():
-					L.warning("Message contains non-ASCII characters.")
+					L.warning(
+						"SMS message contains non-ASCII characters; use ASCII-only text for SMS delivery.",
+						struct_data={"tenant": effective_tenant},
+					)
 					raise ASABIrisError(
 						ErrorCode.INVALID_SERVICE_CONFIGURATION,
 						tech_message="Message contains non-ASCII characters.",
@@ -304,7 +329,14 @@ class SMSOutputService(asab.Service, OutputABC):
 						async with session.get(api_url, params=params) as resp:
 							response_body = await resp.text()
 					except aiohttp.ClientError as err:
-						L.error("Network error while sending SMS: {}".format(err))
+						L.error(
+							"Network error while calling SMS provider; verify api_url and outbound network access.",
+							struct_data={
+								"tenant": effective_tenant,
+								"api_url": api_url,
+								"error_type": type(err).__name__,
+							},
+						)
 						raise ASABIrisError(
 							ErrorCode.SERVER_ERROR,
 							tech_message="Network error while calling SMSBrana.cz.",
@@ -313,7 +345,15 @@ class SMSOutputService(asab.Service, OutputABC):
 						) from err
 
 					if resp.status != 200:
-						L.warning("SMSBrana.cz responded with {}: {}".format(resp.status, response_body))
+						L.warning(
+							"SMS provider returned a non-200 HTTP status; review provider credentials and API settings.",
+							struct_data={
+								"tenant": effective_tenant,
+								"api_url": api_url,
+								"status": resp.status,
+								"response_body": response_body,
+							},
+						)
 						raise ASABIrisError(
 							ErrorCode.SERVER_ERROR,
 							tech_message="SMSBrana.cz responded with '{}': '{}'".format(resp.status, response_body),
@@ -331,7 +371,15 @@ class SMSOutputService(asab.Service, OutputABC):
 						custom_message = self.ERROR_CODE_MAPPING.get(err_code, "Unknown error occurred.")
 					except (ET.ParseError, ValueError) as err:
 						custom_message = "Failed to parse response from SMSBrana.cz."
-						L.warning("Invalid XML response: {}".format(response_body))
+						L.warning(
+							"SMS provider returned an invalid XML response; verify api_url and provider service status.",
+							struct_data={
+								"tenant": effective_tenant,
+								"api_url": api_url,
+								"response_body": response_body,
+								"error_type": type(err).__name__,
+							},
+						)
 						raise ASABIrisError(
 							ErrorCode.SERVER_ERROR,
 							tech_message="Failed to parse response from SMSBrana.cz.",
@@ -340,7 +388,16 @@ class SMSOutputService(asab.Service, OutputABC):
 						) from err
 
 					if err_code != "0":
-						L.warning("SMS delivery failed. Response: {}".format(response_body))
+						L.warning(
+							"SMS delivery failed; review SMS provider error code and account settings.",
+							struct_data={
+								"tenant": effective_tenant,
+								"api_url": api_url,
+								"error_code": err_code,
+								"error_message": custom_message,
+								"response_body": response_body,
+							},
+						)
 						raise ASABIrisError(
 							ErrorCode.SERVER_ERROR,
 							tech_message="SMS delivery failed. Error code: {}. Message: {}".format(
@@ -350,6 +407,14 @@ class SMSOutputService(asab.Service, OutputABC):
 							error_dict={"error_message": custom_message}
 						)
 
-					L.log(asab.LOG_NOTICE, "SMS part sent successfully")
-
+					L.log(
+						asab.LOG_NOTICE,
+						"SMS part sent successfully.",
+						struct_data={"tenant": effective_tenant, "api_url": api_url},
+					)
+		AuditLogger.log(
+			asab.LOG_NOTICE,
+			"SMS sent",
+			struct_data={"phone": phone, "tenant": effective_tenant},
+		)
 		return True

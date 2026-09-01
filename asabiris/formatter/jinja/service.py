@@ -64,17 +64,26 @@ class JinjaFormatterService(asab.Service, FormatterABC):
 
 		json_path = pathlib.Path(json_path_str)
 		if not json_path.is_file():
-			L.warning("JSON file specified '{}' in configuration does not exist.".format(json_path))
+			L.warning(
+				"Jinja variables JSON file does not exist; global template variables from file will not be loaded.",
+				struct_data={"variables_file": str(json_path)},
+			)
 			return
 
 		try:
 			with open(json_path, 'r') as json_file:
 				json_data = json.load(json_file)
 		except IOError as io_err:
-			L.warning("Failed to read JSON file '{}': {}".format(json_path, io_err))
+			L.warning(
+				"Failed to read Jinja variables JSON file; global template variables from file will not be loaded.",
+				struct_data={"variables_file": str(json_path), "error_type": type(io_err).__name__},
+			)
 			return
 		except json.JSONDecodeError as json_err:
-			L.warning("Invalid JSON format in file '{}': {}".format(json_path, json_err))
+			L.warning(
+				"Jinja variables JSON file contains invalid JSON; fix the file or remove jinja.variables from configuration.",
+				struct_data={"variables_file": str(json_path), "error_type": type(json_err).__name__},
+			)
 			return
 
 		self.Variables.update(json_data)

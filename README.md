@@ -235,6 +235,39 @@ Content-Type: application/json
 
 > If `[smtp]` is configured, this request will be sent via **SMTP**. Otherwise, if `[m365_email]` is configured, it will be sent via **MS365**.
 
+### Markdown email subject
+
+Markdown email templates can define their subject in YAML frontmatter. Jinja
+expressions are rendered before the subject is extracted, and the frontmatter
+is not included in the email body.
+
+```markdown
+---
+subject: "Monthly report for {{ name }}"
+---
+# Monthly report
+
+Hello {{ name }}.
+```
+
+An explicit `subject` in the `/send_email` request takes precedence over the
+template subject. For backward compatibility, templates without frontmatter
+can continue to use `SUBJECT:` on the first line.
+
+To migrate an existing template, replace:
+
+```text
+SUBJECT: Monthly report for {{ name }}
+```
+
+with:
+
+```markdown
+---
+subject: "Monthly report for {{ name }}"
+---
+```
+
 
 ## Email Markdown Wrapper Configuration
 

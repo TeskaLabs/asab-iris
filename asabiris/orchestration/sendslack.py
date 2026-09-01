@@ -33,7 +33,10 @@ class SendSlackOrchestrator(object):
 		try:
 			SendSlackOrchestrator.ValidationSchemaSlack(msg)
 		except fastjsonschema.exceptions.JsonSchemaException as e:
-			L.warning("Invalid notification format: {}".format(e))
+			L.warning(
+				"Slack notification request failed schema validation; fix the request payload structure.",
+				struct_data={"validation_error": str(e)},
+			)
 			return
 
 		body = msg['body']
@@ -106,7 +109,10 @@ class SendSlackOrchestrator(object):
 		try:
 			jinja_output = await self.JinjaService.format(template, params)
 		except KeyError:
-			L.warning("Failed to load or render a template (missing?)", struct_data={'template': template})
+			L.warning(
+				"Failed to load or render Slack attachment template; verify the template exists under /Templates/.",
+				struct_data={'template': template},
+			)
 			raise
 
 		return jinja_output
