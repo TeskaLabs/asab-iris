@@ -1,10 +1,18 @@
 import logging
 import json
 import configparser
+import re
 import urllib.parse
 import asab
 
+from ..exceptions import (
+	TenantConfigNotFoundError,
+	TenantConfigReadError,
+	TenantConfigValidationError,
+)
+
 L = logging.getLogger(__name__)
+TENANT_ID_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._-]*$")
 
 
 class TenantConfigExtractionService(asab.Service):
@@ -16,39 +24,96 @@ class TenantConfigExtractionService(asab.Service):
 		self.TenantConfigPath = None
 		self.ZK = None
 
-		# Try to read tenant config from asab.Config
+		# Read and validate tenant configuration before exposing the service.
 		try:
 			tenant_config_url = asab.Config.get("tenant_config", "url")
-			# Parse the ZooKeeper URL
-			url_parts = urllib.parse.urlparse(tenant_config_url)
-			self.TenantConfigPath = url_parts.path
+		except (configparser.NoOptionError, configparser.NoSectionError) as e:
+			raise TenantConfigValidationError(
+				"Tenant configuration URL is not set in [tenant_config]."
+			) from e
 
-			if app.ZooKeeperContainer is None:
-				raise ValueError("[tenant_config] is configured but ZooKeeper is unavailable.")
+		url_parts = urllib.parse.urlparse(tenant_config_url)
+		self.TenantConfigPath = self._validate_base_path(url_parts.path)
 
-			# Initialize Kazoo client
-			self.ZK = app.ZooKeeperContainer.ZooKeeper.Client
-			L.info(
-				"Tenant configuration ZooKeeper client initialized.",
-				struct_data={"tenant_config_path": self.TenantConfigPath},
+		if app.ZooKeeperContainer is None:
+			raise TenantConfigReadError("ZooKeeper is unavailable for tenant configuration.")
+
+		self.ZK = app.ZooKeeperContainer.ZooKeeper.Client
+		if self.ZK is None:
+			raise TenantConfigReadError("ZooKeeper client is unavailable for tenant configuration.")
+
+		L.info(
+			"Tenant configuration ZooKeeper client initialized.",
+			struct_data={"tenant_config_path": self.TenantConfigPath},
+		)
+
+	@staticmethod
+	def _validate_base_path(path):
+		if not isinstance(path, str) or not path.startswith("/"):
+			raise TenantConfigValidationError(
+				"Tenant configuration URL must contain an absolute ZooKeeper path."
 			)
-
-		except (configparser.NoOptionError, configparser.NoSectionError):
-			L.warning(
-				"Tenant configuration URL is not set in [tenant_config]; per-tenant output settings will not be loaded from ZooKeeper.",
+		path = path.rstrip("/")
+		if not path:
+			raise TenantConfigValidationError(
+				"Tenant configuration base path must not be the ZooKeeper root."
 			)
+		return path
+
+	@staticmethod
+	def _validate_tenant(tenant):
+		if not isinstance(tenant, str) or TENANT_ID_RE.fullmatch(tenant) is None:
+			raise TenantConfigValidationError(
+				"Tenant identifier must contain only letters, digits, dots, underscores, and hyphens."
+			)
+		return tenant
 
 
 	def load_tenant_config(self, tenant):
 		"""
 		Loads tenant-specific configuration from ZooKeeper.
 		"""
-		path = "{}/{}".format(self.TenantConfigPath, tenant)
-		if not self.ZK.exists(path):
-			raise KeyError("Tenant configuration not found at '{}'.".format(path))
+		if self.ZK is None:
+			raise TenantConfigReadError("Tenant configuration service is not ready.")
 
-		data, _ = self.ZK.get(path)
-		config = json.loads(data.decode("utf-8"))
+		base_path = self._validate_base_path(self.TenantConfigPath)
+		tenant = self._validate_tenant(tenant)
+		path = "{}/{}".format(base_path, tenant)
+
+		try:
+			exists = self.ZK.exists(path)
+		except Exception as e:
+			raise TenantConfigReadError(
+				"Could not check tenant configuration in ZooKeeper."
+			) from e
+		if not exists:
+			raise TenantConfigNotFoundError(
+				"Tenant configuration not found at '{}'.".format(path)
+			)
+
+		try:
+			data, _ = self.ZK.get(path)
+		except Exception as e:
+			raise TenantConfigReadError(
+				"Could not read tenant configuration from ZooKeeper."
+			) from e
+
+		if not isinstance(data, bytes):
+			raise TenantConfigValidationError("Tenant configuration payload must be bytes.")
+		try:
+			payload = data.decode("utf-8")
+		except UnicodeDecodeError as e:
+			raise TenantConfigValidationError(
+				"Tenant configuration payload must be valid UTF-8."
+			) from e
+		try:
+			config = json.loads(payload)
+		except json.JSONDecodeError as e:
+			raise TenantConfigValidationError(
+				"Tenant configuration payload must be valid JSON."
+			) from e
+		if not isinstance(config, dict):
+			raise TenantConfigValidationError("Tenant configuration payload must be a JSON object.")
 		L.info(
 			"Loaded tenant configuration from ZooKeeper.",
 			struct_data={"tenant": tenant, "path": path},
@@ -60,42 +125,54 @@ class TenantConfigExtractionService(asab.Service):
 		Retrieves Slack-specific configuration.
 		"""
 		config = self.load_tenant_config(tenant)
-		try:
-			slack_config = config["slack"]
-			token = slack_config["token"]
-			channel = slack_config["channel"]
-			L.info(
-				"Loaded Slack configuration for tenant.",
-				struct_data={"tenant": tenant},
-			)
-			return token, channel
-		except KeyError as e:
-			raise KeyError("Slack configuration missing key: '{}'".format(e))
+		slack_config = config.get("slack")
+		if not isinstance(slack_config, dict):
+			raise TenantConfigValidationError("Tenant Slack configuration must be a JSON object.")
+		token = slack_config.get("token")
+		channel = slack_config.get("channel")
+		if not isinstance(token, str) or not token.strip():
+			raise TenantConfigValidationError("Tenant Slack configuration requires a string token.")
+		if not isinstance(channel, str) or not channel.strip():
+			raise TenantConfigValidationError("Tenant Slack configuration requires a string channel.")
+		L.info(
+			"Loaded Slack configuration for tenant.",
+			struct_data={"tenant": tenant},
+		)
+		return token.strip(), channel.strip()
 
 	def get_msteams_config(self, tenant):
 		"""
 		Retrieves MS Teams-specific configuration.
 		"""
 		config = self.load_tenant_config(tenant)
-		try:
-			webhook_url = config["msteams"]["webhook_url"]
-			L.info(
-				"Loaded Microsoft Teams configuration for tenant.",
-				struct_data={"tenant": tenant},
+		teams_config = config.get("msteams")
+		if not isinstance(teams_config, dict):
+			raise TenantConfigValidationError("Tenant Microsoft Teams configuration must be a JSON object.")
+		webhook_url = teams_config.get("webhook_url")
+		if not isinstance(webhook_url, str) or not webhook_url.strip():
+			raise TenantConfigValidationError(
+				"Tenant Microsoft Teams configuration requires a string webhook_url."
 			)
-			return webhook_url
-		except KeyError as e:
-			raise KeyError("MS Teams configuration missing key: '{}'".format(e))
+		L.info(
+			"Loaded Microsoft Teams configuration for tenant.",
+			struct_data={"tenant": tenant},
+		)
+		return webhook_url.strip()
 
 	def get_mattermost_config(self, tenant):
 		"""
 		Retrieves Mattermost-specific configuration.
 		"""
 		config = self.load_tenant_config(tenant)
-		try:
-			mattermost_config = config["mattermost"]
-		except KeyError as e:
-			raise KeyError("Mattermost configuration missing key: '{}'".format(e))
+		mattermost_config = config.get("mattermost")
+		if not isinstance(mattermost_config, dict):
+			raise TenantConfigValidationError("Tenant Mattermost configuration must be a JSON object.")
+		for key in ("url", "token", "bot_username", "security_channel_id"):
+			value = mattermost_config.get(key)
+			if value is not None and not isinstance(value, str):
+				raise TenantConfigValidationError(
+					"Tenant Mattermost configuration value '{}' must be a string.".format(key)
+				)
 
 		return {
 			"url": mattermost_config.get("url"),
@@ -214,12 +291,12 @@ class TenantConfigExtractionService(asab.Service):
 
 	def get_push_topic(self, tenant):
 		cfg = self.load_tenant_config(tenant)
-		push_cfg = cfg.get("push") if isinstance(cfg, dict) else None
+		push_cfg = cfg.get("push")
 		if not isinstance(push_cfg, dict):
-			raise KeyError("Push configuration missing for tenant '{}'.".format(tenant))
+			raise TenantConfigValidationError("Tenant push configuration must be a JSON object.")
 
 		topic = push_cfg.get("topic")
-		if topic is None or len(str(topic).strip()) == 0:
-			raise KeyError("Push topic missing for tenant '{}'.".format(tenant))
+		if not isinstance(topic, str) or not topic.strip():
+			raise TenantConfigValidationError("Tenant push configuration requires a string topic.")
 
-		return str(topic).strip()
+		return topic.strip()

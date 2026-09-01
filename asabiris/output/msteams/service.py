@@ -6,6 +6,7 @@ import aiohttp
 import asab
 
 from ...errors import ASABIrisError, ErrorCode
+from ...exceptions import TenantConfigError
 from ...output_abc import OutputABC
 from ...audit import AuditLogger
 
@@ -61,9 +62,9 @@ class MSTeamsOutputService(asab.Service, OutputABC):
         if effective_tenant and self.ConfigService is not None:
             try:
                 webhook_url = self.ConfigService.get_msteams_config(effective_tenant)
-            except KeyError:
+            except (KeyError, TenantConfigError):
                 L.warning(
-                    "Tenant-specific Microsoft Teams configuration not found; using global [msteams] webhook_url.",
+                    "Tenant-specific Microsoft Teams configuration is unavailable or invalid; using global [msteams] webhook_url.",
                     struct_data={"tenant": effective_tenant},
                 )
 

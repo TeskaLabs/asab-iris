@@ -28,6 +28,10 @@ class SendPushOrchestrator(object):
 			"tenant": "pharma-dev"          # optional
 		}
 		"""
+		effective_tenant = asab.contextvars.Tenant.get(None)
+		if effective_tenant is None:
+			effective_tenant = push_dict.get("tenant")
+
 		# 0) Sanity checks on services
 		if self.JinjaService is None:
 			raise ASABIrisError(
@@ -96,12 +100,12 @@ class SendPushOrchestrator(object):
 			push_dict["body"] = body
 
 			# 4) Delegate to output
-			res = await self.PushOutput.send(push_dict, push_dict.get("tenant"))
+			res = await self.PushOutput.send(push_dict, effective_tenant)
 			L.log(
 				asab.LOG_NOTICE,
 				"Push notification sent successfully via ntfy.",
 				struct_data={
-					"tenant": push_dict.get("tenant"),
+					"tenant": effective_tenant,
 					"topic": push_dict.get("topic"),
 					"template": body.get("template"),
 				},
@@ -114,7 +118,7 @@ class SendPushOrchestrator(object):
 			L.exception(
 				"Unexpected error while sending push notification.",
 				struct_data={
-					"tenant": push_dict.get("tenant"),
+					"tenant": effective_tenant,
 					"topic": push_dict.get("topic"),
 					"template": push_dict.get("body", {}).get("template"),
 					"error_type": type(e).__name__,

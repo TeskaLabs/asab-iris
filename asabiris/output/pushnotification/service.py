@@ -4,6 +4,7 @@ import asab
 import aiohttp
 
 from ...errors import ASABIrisError, ErrorCode
+from ...exceptions import TenantConfigError
 from ...audit import AuditLogger
 
 L = logging.getLogger(__name__)
@@ -30,9 +31,9 @@ class PushOutputService(asab.Service):
 				tenant_topic = self.ConfigService.get_push_topic(tenant)
 				if tenant_topic is not None:
 					tenant_topic = str(tenant_topic).strip()
-			except KeyError:
+			except (KeyError, TenantConfigError):
 				L.warning(
-					"Tenant-specific push topic not found; using topic from request or [push] default_topic.",
+					"Tenant-specific push topic is unavailable or invalid; using topic from request or [push] default_topic.",
 					struct_data={"tenant": tenant},
 				)
 

@@ -6,6 +6,7 @@ import aiohttp
 import asab
 
 from ...errors import ASABIrisError, ErrorCode
+from ...exceptions import TenantConfigError
 from ...output_abc import OutputABC
 from ...audit import AuditLogger
 
@@ -90,9 +91,9 @@ class MattermostOutputService(asab.Service, OutputABC):
 		if tenant and self.ConfigService is not None:
 			try:
 				tenant_config = self.ConfigService.get_mattermost_config(tenant)
-			except KeyError:
+			except (KeyError, TenantConfigError):
 				L.warning(
-					"Tenant-specific Mattermost configuration not found; using global [mattermost] settings.",
+					"Tenant-specific Mattermost configuration is unavailable or invalid; using global [mattermost] settings.",
 					struct_data={"tenant": tenant},
 				)
 			else:
