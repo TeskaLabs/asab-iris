@@ -470,23 +470,40 @@ security_channel_id=channel_id_for_default_alerts
 - `bot_username`: Username of the Mattermost bot account. Required for direct messages.
 - `security_channel_id`: Default channel used when the request does not provide `channel_id`.
 
-**Example Web Request**
+**Delivery demonstration**
 
-```json
-{
-  "body": {
-    "template": "/Templates/Mattermost/message.md",
-    "params": {
-      "user.name": "alice",
-      "device.name": "alice-laptop",
-      "source.ip": "10.0.0.10",
-      "client.ip": "2001:db8::1",
-      "event.code": "HIP_Sentinel_Fail"
-    }
-  },
-  "channel_id": "security_channel_id"
-}
+With Iris running and `[mattermost] security_channel_id` configured, run:
+
+```sh
+curl --fail-with-body \
+  -X PUT 'http://127.0.0.1:8896/send_mattermost' \
+  -H 'Content-Type: application/json' \
+  -d '{"body":{"template":"/Templates/Mattermost/message.md","params":{"title":"Iris Mattermost delivery test","message":"Message delivered from ASAB Iris"}}}'
 ```
+
+The successful Iris response is `{"result":"OK"}`. Iris returns this only after
+Mattermost accepts `POST /api/v4/posts`; it does not by itself prove that the post
+is visible in the intended channel.
+
+Verify the side effect independently by reading the channel's recent posts from
+Mattermost and matching the unique marker:
+
+```sh
+MATTERMOST_URL="https://teams.example.com"
+MATTERMOST_TOKEN="replace-with-bot-token"
+MATTERMOST_CHANNEL_ID="replace-with-channel-id"
+DEMO_ID="Message delivered from ASAB Iris"
+
+curl --fail-with-body \
+  --header "Authorization: Bearer $MATTERMOST_TOKEN" \
+  "$MATTERMOST_URL/api/v4/channels/$MATTERMOST_CHANNEL_ID/posts?page=0&per_page=20" \
+  | jq --arg demo_id "$DEMO_ID" \
+      '[.order[] as $id | .posts[$id] | select(.message | contains($demo_id))] | if length > 0 then . else error("Mattermost post not found") end'
+```
+
+The verification command exits successfully and prints the matching post when
+delivery is complete. It exits non-zero if Mattermost cannot be queried or the
+post is absent. The bot token must have permission to read the target channel.
 
 To send a direct message instead, replace `channel_id` with `username`.
 
@@ -893,3 +910,30 @@ ASAB Iris supports sending notifications to various communication channels such 
 - `body.template`: Path to the Microsoft Teams message template.
 - `params`: Parameters for populating the Teams template.
 ```
+
+## Notification retries
+
+SMTP, Microsoft 365, SMSbrána, Slack, Microsoft Teams, ntfy, and Mattermost use
+bounded delivery retries configured on the server:
+
+```ini
+[notification_retry]
+max_attempts=3
+initial_delay=1
+max_delay=10
+max_elapsed=180
+```
+
+Attempts are counted per delivery step, including the first attempt. Delays and
+elapsed time are in seconds. The elapsed budget covers the notification's
+provider operations, including all SMS parts or Slack upload stages. Set
+`max_attempts=1` to disable retries. Request JSON does not gain retry fields.
+
+Iris retries explicit temporary rejections and connection failures known to
+precede submission. It does not automatically resend after a lost acknowledgement
+or other uncertain delivery outcome. Provider acceptance is not final recipient
+delivery. HTTP requests wait for the bounded result; Kafka invokes configured
+error-notification fallback once after a final delivery failure.
+
+See [retry behavior and local verification](docs/notification-retries.md) for
+provider-specific rules, partial delivery handling, and test commands.
