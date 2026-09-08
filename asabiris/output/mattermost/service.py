@@ -8,6 +8,7 @@ import asab
 from ...errors import ASABIrisError, ErrorCode
 from ...output_abc import OutputABC
 from ...audit import AuditLogger
+from ..retry import DeliveryError, RetryPolicy, http_request
 
 L = logging.getLogger(__name__)
 
@@ -145,6 +146,7 @@ class MattermostOutputService(asab.Service, OutputABC):
 				error_i18n_key="Mattermost service is not configured.",
 			)
 
+		retry = RetryPolicy("mattermost")
 		if username:
 			if not config["bot_username"]:
 				raise ASABIrisError(
@@ -152,8 +154,8 @@ class MattermostOutputService(asab.Service, OutputABC):
 					tech_message="Mattermost bot_username is required for direct messages.",
 					error_i18n_key="Mattermost bot username is not configured.",
 				)
-			bot_user_id, target_user_id = await self.get_user_ids(config, config["bot_username"], username)
-			channel_id = await self.get_direct_channel(config, bot_user_id, target_user_id)
+			bot_user_id, target_user_id = await self.get_user_ids(config, config["bot_username"], username, retry)
+			channel_id = await self.get_direct_channel(config, bot_user_id, target_user_id, retry)
 		elif not channel_id:
 			channel_id = config["security_channel_id"]
 
@@ -178,7 +180,7 @@ class MattermostOutputService(asab.Service, OutputABC):
 			}
 		)
 
-		result = await self._post_json(config, "/api/v4/posts", post_payload)
+		result = await self._post_json(config, "/api/v4/posts", post_payload, retry)
 		AuditLogger.log(
 			asab.LOG_NOTICE,
 			"Mattermost message sent",
@@ -186,7 +188,7 @@ class MattermostOutputService(asab.Service, OutputABC):
 		)
 		return result
 
-	async def get_user_ids(self, config, bot_username, target_username):
+	async def get_user_ids(self, config, bot_username, target_username, retry):
 		"""
 		Resolve Mattermost usernames into user ids.
 
@@ -201,7 +203,7 @@ class MattermostOutputService(asab.Service, OutputABC):
 		users = await self._post_json(
 			config,
 			"/api/v4/users/usernames",
-			[bot_username, target_username],
+			[bot_username, target_username], retry,
 		)
 
 		if not isinstance(users, list):
@@ -230,7 +232,7 @@ class MattermostOutputService(asab.Service, OutputABC):
 
 		return bot_user_id, target_user_id
 
-	async def get_direct_channel(self, config, bot_user_id, target_user_id):
+	async def get_direct_channel(self, config, bot_user_id, target_user_id, retry):
 		"""
 		Create or retrieve the direct-message channel for two Mattermost users.
 
@@ -245,7 +247,7 @@ class MattermostOutputService(asab.Service, OutputABC):
 		channel = await self._post_json(
 			config,
 			"/api/v4/channels/direct",
-			[bot_user_id, target_user_id],
+			[bot_user_id, target_user_id], retry,
 		)
 		channel_id = channel.get("id") if isinstance(channel, dict) else None
 		if not channel_id:
@@ -257,7 +259,7 @@ class MattermostOutputService(asab.Service, OutputABC):
 
 		return channel_id
 
-	async def _post_json(self, config, path, payload):
+	async def _post_json(self, config, path, payload, retry):
 		"""
 		POST a JSON payload to the Mattermost REST API.
 
@@ -280,51 +282,17 @@ class MattermostOutputService(asab.Service, OutputABC):
 		}
 		timeout = aiohttp.ClientTimeout(total=self.Timeout)
 
-		try:
-			async with aiohttp.ClientSession(timeout=timeout) as session:
-				async with session.post(url, headers=headers, json=payload) as resp:
-					body = await resp.text()
-		except aiohttp.ClientError as e:
-			raise ASABIrisError(
-				ErrorCode.SERVER_ERROR,
-				tech_message="Mattermost request failed: {}".format(e),
-				error_i18n_key="Error occurred while calling Mattermost. Reason: '{{error_message}}'.",
-				error_dict={"error_message": str(e)},
-			) from e
-
-		if resp.status in (401, 403):
-			raise ASABIrisError(
-				ErrorCode.AUTHENTICATION_FAILED,
-				tech_message="Mattermost authentication failed: {}".format(body),
-				error_i18n_key="Mattermost authentication failed.",
-				error_dict={"error_message": body},
-			)
-
-		if resp.status in (400, 404):
-			raise ASABIrisError(
-				ErrorCode.INVALID_REQUEST,
-				tech_message="Mattermost rejected the request: {}".format(body),
-				error_i18n_key="Mattermost rejected the request.",
-				error_dict={"error_message": body},
-			)
-
-		if resp.status >= 500:
-			raise ASABIrisError(
-				ErrorCode.SERVER_ERROR,
-				tech_message="Mattermost server error {}: {}".format(resp.status, body),
-				error_i18n_key="Mattermost server error.",
-				error_dict={"error_message": body},
-			)
-
-		if len(body.strip()) == 0:
-			return {}
-
-		try:
-			return json.loads(body)
-		except json.JSONDecodeError as e:
-			raise ASABIrisError(
-				ErrorCode.SERVER_ERROR,
-				tech_message="Mattermost returned invalid JSON: {}".format(e),
-				error_i18n_key="Mattermost API returned invalid JSON.",
-				error_dict={"error_message": str(e)},
-			) from e
+		async with aiohttp.ClientSession(timeout=timeout) as session:
+			async def post():
+				body = await http_request(
+					session, "POST", url, headers=headers, json=payload, success=(200, 201),
+					read_only=path == "/api/v4/users/usernames",
+				)
+				try:
+					result = json.loads(body)
+				except json.JSONDecodeError as exc:
+					raise DeliveryError("Invalid Mattermost acknowledgement.", "uncertain") from exc
+				if path == "/api/v4/posts" and (not isinstance(result, dict) or not result.get("id")):
+					raise DeliveryError("Missing Mattermost post acknowledgement.", "uncertain")
+				return result
+			return await retry.run(post, step=path)

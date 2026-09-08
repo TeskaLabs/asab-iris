@@ -8,6 +8,7 @@ import asab
 from ...errors import ASABIrisError, ErrorCode
 from ...output_abc import OutputABC
 from ...audit import AuditLogger
+from ..retry import DeliveryError, RetryPolicy, http_request
 
 L = logging.getLogger(__name__)
 
@@ -72,7 +73,7 @@ class MSTeamsOutputService(asab.Service, OutputABC):
                 "Microsoft Teams webhook URL is missing; configure webhook_url in [msteams] or tenant configuration.",
                 struct_data={"tenant": effective_tenant},
             )
-            return
+            raise ASABIrisError(ErrorCode.INVALID_SERVICE_CONFIGURATION, tech_message="Teams webhook URL is missing.")
 
         adaptive_card = {
             "type": "message",
@@ -106,51 +107,18 @@ class MSTeamsOutputService(asab.Service, OutputABC):
             ]
         }
 
-        # Sending the message to MS Teams using aiohttp
-        async with aiohttp.ClientSession() as session:
-            async with session.post(webhook_url, json=adaptive_card) as resp:
-                if resp.status in (200, 202):
-                    AuditLogger.log(
-                        asab.LOG_NOTICE,
-                        "Microsoft Teams message sent",
-                        struct_data={
-                            "webhook_host": urllib.parse.urlsplit(webhook_url).hostname,
-                            "tenant": effective_tenant,
-                        },
-                    )
-                    L.log(
-                        asab.LOG_NOTICE,
-                        "Microsoft Teams message sent successfully.",
-                        struct_data={"tenant": effective_tenant},
-                    )
-                    return True
-                else:
-                    error_message = await resp.text()
-                    L.warning(
-                        "Microsoft Teams webhook rejected the message; verify webhook_url and incoming connector settings.",
-                        struct_data={
-                            "tenant": effective_tenant,
-                            "status": resp.status,
-                            "response_body": error_message,
-                        },
-                    )
-
-                    # Mapping specific status codes to error codes
-                    if resp.status == 400:  # Bad Request
-                        error_code = ErrorCode.INVALID_SERVICE_CONFIGURATION
-                    elif resp.status == 404:  # Not Found
-                        error_code = ErrorCode.TEMPLATE_NOT_FOUND
-                    elif resp.status == 503:  # Service Unavailable
-                        error_code = ErrorCode.SERVER_ERROR
-                    else:
-                        error_code = ErrorCode.SERVER_ERROR  # General server error for other cases
-
-                    raise ASABIrisError(
-                        error_code,
-                        tech_message="Error encountered sending message to MS Teams. Status: {}, Reason: {}".format(
-                            resp.status, error_message),
-                        error_i18n_key="Error occurred while sending message to MS Teams. Reason: '{{error_message}}'.",
-                        error_dict={
-                            "error_message": error_message,
-                        }
-                    )
+        retry = RetryPolicy("msteams")
+        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=30)) as session:
+            async def send_card():
+                body = await http_request(session, "POST", webhook_url, json=adaptive_card, success=(200, 202))
+                # Legacy connectors can report throttling inside a successful HTTP response.
+                if "Microsoft Teams endpoint returned HTTP error 429" in body:
+                    raise DeliveryError("Teams connector throttled the request.", "temporary")
+                if body.strip() not in ("", "1"):
+                    raise DeliveryError("Unrecognized Teams acknowledgement; delivery is uncertain.", "uncertain")
+            await retry.run(send_card)
+        AuditLogger.log(
+            asab.LOG_NOTICE, "Microsoft Teams message sent",
+            struct_data={"webhook_host": urllib.parse.urlsplit(webhook_url).hostname, "tenant": effective_tenant},
+        )
+        return True

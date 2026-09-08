@@ -4,6 +4,7 @@ import base64
 import logging
 import re
 import socket
+import ssl
 
 import asab
 import asab.contextvars
@@ -14,6 +15,7 @@ import aiosmtplib.protocol as smtp_protocol
 from ...output_abc import OutputABC
 from ...errors import ASABIrisError, ErrorCode
 from ...audit import AuditLogger
+from ..retry import DeliveryError, RetryPolicy, retry_after_seconds
 
 #
 
@@ -21,7 +23,10 @@ L = logging.getLogger(__name__)
 
 
 class ProxyConnectError(Exception):
-	pass
+	def __init__(self, message, temporary=True, retry_after=None):
+		super().__init__(message)
+		self.Temporary = temporary
+		self.RetryAfter = retry_after
 
 
 class ProxySMTP(aiosmtplib.SMTP):
@@ -116,7 +121,7 @@ class ProxySMTP(aiosmtplib.SMTP):
 			) from exc
 
 		if response.code != aiosmtplib.SMTPStatus.ready:
-			raise aiosmtplib.SMTPConnectError(str(response))
+			raise aiosmtplib.SMTPResponseException(response.code, response.message)
 
 		return response
 
@@ -340,257 +345,36 @@ class EmailOutputService(asab.Service, OutputABC):
 					filename=attachment.FileName
 				)
 
-		# Send the email with retry logic
-		retry_attempts = 3
-		delay = 5  # seconds
+		retry = RetryPolicy("smtp")
+		if msg.is_multipart():
+			msg.set_boundary("iris-" + retry.NotificationId)
+		pending = list(dict.fromkeys(to_recipients + cc_recipients + bcc_recipients))
+		permanent = {}
+		accepted = []
 
-		for attempt in range(retry_attempts):
+		async def send_message():
+			nonlocal pending
 			try:
-				if self.ProxyHost:
-					result = await self._send_via_proxy_smtp_client(
-						msg=msg,
-						sender=sender,
-						recipients=to_recipients + cc_recipients + bcc_recipients
-					)
-				else:
-					result = await aiosmtplib.send(
-						msg,
-						sender=sender,
-						recipients=to_recipients + cc_recipients + bcc_recipients,
-						hostname=self.Host,
-						port=int(self.Port) if self.Port != "" else None,
-						username=self.User,
-						password=self.Password,
-						use_tls=self.SSL,
-						start_tls=self.StartTLS,
-						cert_bundle=self.Cert or None,
-						validate_certs=self.ValidateCerts
-					)
-				break  # Email sent successfully, exit the retry loop
-
-			except ProxyConnectError as e:
-				L.warning(
-					"SMTP proxy connection failed; verify proxy_host, proxy_port, proxy credentials, and network reachability to the proxy.",
-					struct_data={
-						"proxy_host": self.ProxyHost,
-						"proxy_port": self.ProxyPort,
-						"host": self.Host,
-						"port": self.Port,
-						"tenant": effective_tenant,
-						"attempt": attempt + 1,
-						"max_attempts": retry_attempts,
-						"error_message": str(e),
-					},
-				)
-				if attempt < retry_attempts - 1:
-					L.log(
-						asab.LOG_NOTICE,
-						"Retrying email send after SMTP proxy connection failure.",
-						struct_data={
-							"attempt": attempt + 1,
-							"max_attempts": retry_attempts,
-							"proxy_host": self.ProxyHost,
-							"proxy_port": self.ProxyPort,
-							"host": self.Host,
-							"tenant": effective_tenant,
-						},
-					)
-					await asyncio.sleep(delay)
-					continue
-				raise ASABIrisError(
-					ErrorCode.SMTP_CONNECTION_ERROR,
-					tech_message="SMTP proxy connection failed: {}.".format(str(e)),
-					error_i18n_key="Could not connect to SMTP for host '{{host}}'.",
-					error_dict={
-						"host": self.Host,
-					}
-				)
-			except ASABIrisError:
+				result = await self._send_smtp_client(msg=msg, sender=sender, recipients=pending)
+				refused = result[0]
+				accepted.extend(address for address in pending if address not in refused)
+			except DeliveryError as exc:
+				exc.ErrorDict.update(accepted=list(accepted), pending=list(pending), refused=dict(permanent))
 				raise
-			except aiosmtplib.SMTPConnectError as e:
-				L.warning(
-					"SMTP connection failed; verify host, port, firewall rules, and TLS/STARTTLS settings in [smtp].",
-					struct_data={
-						"host": self.Host,
-						"port": self.Port,
-						"tenant": effective_tenant,
-						"attempt": attempt + 1,
-						"max_attempts": retry_attempts,
-						"error_message": str(e),
-					},
+			except aiosmtplib.SMTPRecipientsRefused as exc:
+				refused = {item.recipient: (item.code, item.message) for item in exc.recipients}
+				result = (refused, "Recipients refused")
+			pending = [address for address, response in refused.items() if 400 <= response[0] < 500]
+			permanent.update({address: response[0] for address, response in refused.items() if not 400 <= response[0] < 500})
+			if pending or permanent:
+				raise DeliveryError(
+					"SMTP refused one or more recipients.", "temporary" if pending else "permanent",
+					code=ErrorCode.SMTP_RESPONSE_ERROR,
+					details={"accepted": list(accepted), "pending": list(pending), "refused": dict(permanent)},
 				)
-				if attempt < retry_attempts - 1:
-					L.info(
-						"Retrying email send after SMTP connection failure.",
-						struct_data={
-							"attempt": attempt + 1,
-							"max_attempts": retry_attempts,
-							"host": self.Host,
-							"port": self.Port,
-							"tenant": effective_tenant,
-						},
-					)
-					await asyncio.sleep(delay)
-					continue  # Retry the email sending
-				raise ASABIrisError(
-					ErrorCode.SMTP_CONNECTION_ERROR,
-					tech_message="SMTP connection failed: {}.".format(str(e)),
-					error_i18n_key="Could not connect to SMTP for host '{{host}}'.",
-					error_dict={
-						"host": self.Host,
-					}
-				)
-			except aiosmtplib.SMTPAuthenticationError as e:
-				L.warning(
-					"SMTP authentication failed; verify user and password in [smtp] or tenant email configuration.",
-					struct_data={
-						"host": self.Host,
-						"port": self.Port,
-						"tenant": effective_tenant,
-						"error_message": str(e),
-					},
-				)
-				raise ASABIrisError(
-					ErrorCode.SMTP_AUTHENTICATION_ERROR,
-					tech_message="SMTP authentication error: {}.".format(str(e)),
-					error_i18n_key="SMTP authentication failed for host '{{host}}'.",
-					error_dict={
-						"host": self.Host
-					}
-				)
-			except aiosmtplib.SMTPResponseException as e:
-				L.warning(
-					"SMTP server rejected the message; review the SMTP response code and message body.",
-					struct_data={
-						"message": e.message,
-						"code": e.code,
-						"host": self.Host,
-						"port": self.Port,
-						"tenant": effective_tenant,
-						"attempt": attempt + 1,
-						"max_attempts": retry_attempts,
-					},
-				)
-				if attempt < retry_attempts - 1:
-					L.info(
-						"Retrying email send after SMTP response error.",
-						struct_data={
-							"attempt": attempt + 1,
-							"max_attempts": retry_attempts,
-							"host": self.Host,
-							"code": e.code,
-							"tenant": effective_tenant,
-						},
-					)
-					await asyncio.sleep(delay)
-					continue  # Retry the email sending
-				raise ASABIrisError(
-					ErrorCode.SMTP_RESPONSE_ERROR,
-					tech_message="SMTP response exception: Code {}, Message '{}'.".format(e.code, e.message),
-					error_i18n_key="SMTP response issue encountered for '{{host}}': Code '{{code}}', Message '{{message}}'.",
-					error_dict={
-						"message": e.message,
-						"code": e.code,
-						"host": self.Host
-					}
-				)
-			except aiosmtplib.SMTPServerDisconnected as e:
-				L.warning(
-					"SMTP server disconnected unexpectedly; verify credentials, session limits, and server health.",
-					struct_data={
-						"host": self.Host,
-						"port": self.Port,
-						"tenant": effective_tenant,
-						"attempt": attempt + 1,
-						"max_attempts": retry_attempts,
-						"error_message": str(e),
-					},
-				)
-				if attempt < retry_attempts - 1:
-					L.info(
-						"Retrying email send after SMTP server disconnect.",
-						struct_data={
-							"attempt": attempt + 1,
-							"max_attempts": retry_attempts,
-							"host": self.Host,
-							"tenant": effective_tenant,
-						},
-					)
-					await asyncio.sleep(delay)
-					continue  # Retry the email sending
-				raise ASABIrisError(
-					ErrorCode.SMTP_SERVER_DISCONNECTED,
-					tech_message="SMTP server disconnected: {}.".format(str(e)),
-					error_i18n_key="The SMTP server for '{{host}}' disconnected unexpectedly.",
-					error_dict={
-						"host": self.Host
-					}
-				)
-			except aiosmtplib.SMTPTimeoutError as e:
-				L.warning(
-					"SMTP request timed out; check network connectivity, DNS resolution, and SMTP server availability.",
-					struct_data={
-						"host": self.Host,
-						"port": self.Port,
-						"tenant": effective_tenant,
-						"attempt": attempt + 1,
-						"max_attempts": retry_attempts,
-						"error_message": str(e),
-					},
-				)
-				if attempt < retry_attempts - 1:
-					L.info(
-						"Retrying email send after SMTP timeout.",
-						struct_data={
-							"attempt": attempt + 1,
-							"max_attempts": retry_attempts,
-							"host": self.Host,
-							"tenant": effective_tenant,
-						},
-					)
-					await asyncio.sleep(delay)
-					continue  # Retry the email sending
-				raise ASABIrisError(
-					ErrorCode.SMTP_TIMEOUT,
-					tech_message="SMTP timeout encountered: {}.".format(str(e)),
-					error_i18n_key="The SMTP server for '{{host}}' timed out unexpectedly.",
-					error_dict={
-						"host": self.Host
-					}
-				)
-			except Exception as e:
-				L.warning(
-					"Unexpected SMTP error; review [smtp] configuration and server logs for details.",
-					struct_data={
-						"host": self.Host,
-						"port": self.Port,
-						"tenant": effective_tenant,
-						"attempt": attempt + 1,
-						"max_attempts": retry_attempts,
-						"error_type": type(e).__name__,
-						"error_message": str(e),
-					},
-				)
-				if attempt < retry_attempts - 1:
-					L.info(
-						"Retrying email send after unexpected SMTP error.",
-						struct_data={
-							"attempt": attempt + 1,
-							"max_attempts": retry_attempts,
-							"host": self.Host,
-							"tenant": effective_tenant,
-						},
-					)
-					await asyncio.sleep(delay)
-					continue  # Retry the email sending
-				raise ASABIrisError(
-					ErrorCode.SMTP_GENERIC_ERROR,
-					tech_message="Generic error occurred: {}.".format(str(e)),
-					error_i18n_key="A generic SMTP error occurred for host '{{host}}'.",
-					error_dict={
-						"host": self.Host
-					}
-				)
+			return result
+
+		result = await retry.run(send_message)
 
 		L.log(
 			asab.LOG_NOTICE,
@@ -615,50 +399,76 @@ class EmailOutputService(asab.Service, OutputABC):
 			},
 		)
 
-	async def _send_via_proxy_smtp_client(self, *, msg, sender, recipients):
-		"""
-		Send one SMTP message through an HTTP CONNECT tunnel.
-
-		The tunnel setup uses proxy-specific configuration, but once established the
-		SMTP session should behave like the direct path, including normal SMTP
-		timeouts and TLS validation.
-		"""
-		# Proxy mode cannot reuse the normal hostname/port connect path. We first create a
-		# dedicated socket to the proxy, establish the CONNECT tunnel, and then run SMTP on it.
-		target_port = self._effective_smtp_port()
-		proxy_socket = await self._connect_via_http_proxy()
+	async def _send_smtp_client(self, *, msg, sender, recipients):
+		# Each attempt owns its connection. Proxy timeout never becomes the SMTP timeout.
+		proxy_socket = None
 		client = None
+		before_submission = True
+		cancelled = False
 		try:
-			# Keep the regular SMTP client timeout semantics. proxy_connect_timeout only
-			# applies to the TCP/CONNECT tunnel setup done in _connect_via_http_proxy().
-			client = ProxySMTP(
-				sock=proxy_socket,
-				hostname=self.Host,
-				port=target_port,
-				use_tls=self.SSL,
-				start_tls=False,
-				validate_certs=self.ValidateCerts,
-				cert_bundle=self.Cert or None,
-			)
+			# The library resolves the EHLO hostname synchronously; keep it off the event loop.
+			source_address = await asyncio.to_thread(socket.getfqdn)
+			if self.ProxyHost:
+				proxy_socket = await self._connect_via_http_proxy()
+				client = ProxySMTP(
+					sock=proxy_socket, hostname=self.Host, port=self._effective_smtp_port(), source_address=source_address,
+					use_tls=self.SSL, start_tls=False, validate_certs=self.ValidateCerts,
+					cert_bundle=self.Cert or None,
+				)
+			else:
+				client = aiosmtplib.SMTP(
+					hostname=self.Host, port=int(self.Port) if self.Port else None, source_address=source_address,
+					use_tls=self.SSL, start_tls=self.StartTLS,
+					validate_certs=self.ValidateCerts, cert_bundle=self.Cert or None,
+				)
 			await client.connect()
-
-			if self.StartTLS:
+			if self.ProxyHost and self.StartTLS:
 				await client.starttls(server_hostname=self.Host)
-
 			if self.User is not None:
 				await client.login(self.User, self.Password or "")
-
+			before_submission = False
 			return await client.send_message(msg, sender=sender, recipients=recipients)
+		except asyncio.CancelledError:
+			cancelled = True
+			raise
+		except aiosmtplib.SMTPRecipientsRefused:
+			raise
+		except ProxyConnectError as exc:
+			raise DeliveryError(
+				"SMTP proxy CONNECT failed.", "temporary" if exc.Temporary else "permanent",
+				code=ErrorCode.SMTP_CONNECTION_ERROR, retry_after=exc.RetryAfter) from exc
+		except aiosmtplib.SMTPAuthenticationError as exc:
+			raise DeliveryError("SMTP authentication failed.", code=ErrorCode.SMTP_AUTHENTICATION_ERROR) from exc
+		except aiosmtplib.SMTPResponseException as exc:
+			raise DeliveryError(
+				"SMTP rejected the command.", "temporary" if 400 <= exc.code < 500 else "permanent",
+				code=ErrorCode.SMTP_RESPONSE_ERROR, details={"status": exc.code}) from exc
+		except (OSError, aiosmtplib.SMTPException) as exc:
+			cause = exc
+			while cause.__cause__ is not None:
+				cause = cause.__cause__
+			if isinstance(cause, (ssl.SSLError, FileNotFoundError, PermissionError)) or isinstance(exc, aiosmtplib.SMTPNotSupported):
+				classification = "permanent"
+			elif isinstance(exc, aiosmtplib.SMTPConnectError) and re.match(r"5[0-9]{2} ", exc.message):
+				classification = "permanent"
+			elif isinstance(exc, aiosmtplib.SMTPException) and not isinstance(exc, (aiosmtplib.SMTPConnectError, aiosmtplib.SMTPServerDisconnected, aiosmtplib.SMTPTimeoutError)):
+				classification = "permanent" if before_submission else "uncertain"
+			else:
+				classification = "temporary" if before_submission else "uncertain"
+			raise DeliveryError(
+				"SMTP connection failed or response was lost.", classification,
+				code=ErrorCode.SMTP_CONNECTION_ERROR) from exc
 		finally:
 			if client is not None:
 				try:
-					await client.quit()
+					if not cancelled and client.is_connected:
+						await client.quit()
 				except Exception:
 					pass
-			try:
+				finally:
+					client.close()
+			if proxy_socket is not None:
 				proxy_socket.close()
-			except Exception:
-				pass
 
 	def _effective_smtp_port(self):
 		if self.Port != "":
@@ -698,7 +508,7 @@ class EmailOutputService(asab.Service, OutputABC):
 				raise ProxyConnectError("Proxy closed connection before CONNECT response")
 			buffer += chunk
 			if len(buffer) > max_headers_size:
-				raise ProxyConnectError("Proxy CONNECT response headers are too large")
+				raise ProxyConnectError("Proxy CONNECT response headers are too large", temporary=False)
 		return buffer.split(b"\r\n\r\n", 1)[0]
 
 	async def _connect_via_http_proxy(self):
@@ -727,23 +537,34 @@ class EmailOutputService(asab.Service, OutputABC):
 				self._read_http_headers(sock_obj),
 				timeout=self.ProxyConnectTimeout
 			)
+		except asyncio.CancelledError:
+			sock_obj.close()
+			raise
 		except asyncio.TimeoutError:
 			sock_obj.close()
 			raise ProxyConnectError("Timeout while connecting to proxy {}:{}".format(self.ProxyHost, proxy_port))
+		except ProxyConnectError:
+			sock_obj.close()
+			raise
 		except Exception as e:
 			sock_obj.close()
-			raise ProxyConnectError(str(e))
+			raise ProxyConnectError(str(e), temporary=isinstance(e, OSError)) from e
 
 		try:
 			status_line = header_bytes.split(b"\r\n", 1)[0].decode("iso-8859-1")
 			status_code = int(status_line.split(" ", 2)[1])
 		except Exception as e:
 			sock_obj.close()
-			raise ProxyConnectError("Malformed proxy CONNECT response: {}".format(str(e)))
+			raise ProxyConnectError("Malformed proxy CONNECT response: {}".format(str(e)), temporary=False)
 
 		if status_code != 200:
 			sock_obj.close()
-			raise ProxyConnectError("Proxy CONNECT failed with status {}".format(status_code))
+			headers = email.message_from_bytes(header_bytes.partition(b"\r\n")[2])
+			raise ProxyConnectError(
+				"Proxy CONNECT failed with status {}".format(status_code),
+				temporary=status_code in (429, 500, 502, 503, 504),
+				retry_after=retry_after_seconds(headers.get("Retry-After")),
+			)
 
 		return sock_obj
 

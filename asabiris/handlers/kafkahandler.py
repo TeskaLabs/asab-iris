@@ -19,6 +19,7 @@ from asabiris.schemas.smsschema import sms_schema
 from asabiris.schemas.pushschema import push_schema
 
 from ..errors import ASABIrisError, ErrorCode
+from ..output.retry import DeliveryError
 
 L = logging.getLogger(__name__)
 
@@ -251,6 +252,8 @@ class KafkaHandler(asab.Service):
 
 		try:
 			await self.send_email(msg)
+		except DeliveryError as e:
+			await self._handle_delivery_failure(e, "email", msg)
 		except ASABIrisError as e:
 			server_errors = [
 				ErrorCode.SMTP_CONNECTION_ERROR,
@@ -283,6 +286,8 @@ class KafkaHandler(asab.Service):
 		try:
 			await self.App.SendSlackOrchestrator.send_to_slack(msg)
 
+		except DeliveryError as e:
+			await self._handle_delivery_failure(e, "slack", msg)
 		except ASABIrisError as e:
 			# 1. Business error (DO NOT trigger error notification)
 			if e.ErrorCode == ErrorCode.SLACK_CHANNEL_NOT_FOUND:
@@ -316,6 +321,8 @@ class KafkaHandler(asab.Service):
 
 		try:
 			await self.App.SendMattermostOrchestrator.send_to_mattermost(msg)
+		except DeliveryError as e:
+			await self._handle_delivery_failure(e, "mattermost", msg)
 		except ASABIrisError as e:
 			if e.ErrorCode in (
 				ErrorCode.INVALID_REQUEST,
@@ -344,6 +351,8 @@ class KafkaHandler(asab.Service):
 
 		try:
 			await self.App.SendMSTeamsOrchestrator.send_to_msteams(msg)
+		except DeliveryError as e:
+			await self._handle_delivery_failure(e, "msteams", msg)
 		except ASABIrisError as e:
 			if e.ErrorCode == ErrorCode.SERVER_ERROR:
 				L.warning(
@@ -368,6 +377,8 @@ class KafkaHandler(asab.Service):
 
 		try:
 			await self.App.SendSMSOrchestrator.send_sms(msg)
+		except DeliveryError as e:
+			await self._handle_delivery_failure(e, "sms", msg)
 		except ASABIrisError as e:
 			if e.ErrorCode == ErrorCode.SERVER_ERROR:
 				L.warning(
@@ -410,6 +421,8 @@ class KafkaHandler(asab.Service):
 		try:
 			# Orchestrator is responsible for rendering the template & calling PushOutputService
 			await self.App.SendPushOrchestrator.send_push(msg)
+		except DeliveryError as e:
+			await self._handle_delivery_failure(e, "push", msg)
 		except ASABIrisError as e:
 			# Network/remote errors are SERVER_ERROR; others bubble to error handler
 			if e.ErrorCode == ErrorCode.SERVER_ERROR:
@@ -421,6 +434,12 @@ class KafkaHandler(asab.Service):
 				await self.handle_exception(e.TechMessage, 'push', msg)
 		except Exception as e:
 			await self.handle_exception(e, 'push', msg)
+
+	async def _handle_delivery_failure(self, error, service_type, msg):
+		# A fallback is a new error notification, never a replay of original uploads.
+		fallback_msg = dict(msg)
+		fallback_msg.pop("attachments", None)
+		await self.handle_exception(error.TechMessage, service_type, fallback_msg)
 
 	async def handle_exception(self, exception, service_type, msg=None):
 		"""
@@ -510,8 +529,7 @@ class KafkaHandler(asab.Service):
 							"template": tpl_mattermost,
 							"params": params
 						},
-						"channel_id": msg.get("channel_id"),
-						"username": msg.get("username"),
+						**{key: msg[key] for key in ("channel_id", "username") if msg.get(key)},
 						"tenant": msg.get("tenant")
 					})
 				except ASABIrisError as e:
@@ -609,28 +627,16 @@ class KafkaHandler(asab.Service):
 					)
 					return
 
-				to_numbers = _ensure_list(msg.get("to"))
-				if not to_numbers:
-					L.info(
-						"Error notification via SMS skipped because the original Kafka message has no phone recipient in 'to'.",
-					)
-					return
-
 				try:
-					L.log(asab.LOG_NOTICE, "Sending configured error notification via SMS.", struct_data={"channel": "sms", "phone": to_numbers[0]})
+					L.log(asab.LOG_NOTICE, "Sending configured error notification via SMS.", struct_data={"channel": "sms"})
 					await self.App.SendSMSOrchestrator.send_sms({
-						"to": to_numbers[0],
-						"body": {
-							"template": tpl_sms,
-							"params": params
-						},
-						"tenant": msg.get("tenant")
+						"phone": msg.get("phone"),
+						"body": {"template": tpl_sms, "params": params},
+						"tenant": msg.get("tenant"),
 					})
 				except Exception:
-					L.exception(
-						"Configured error notification via SMS could not be delivered.",
-						struct_data={"channel": "sms", "phone": to_numbers[0]},
-					)
+					L.exception("Configured error notification via SMS could not be delivered.", struct_data={"channel": "sms"})
+
 				return
 
 			elif service_type == "push":

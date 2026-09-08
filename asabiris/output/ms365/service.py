@@ -7,11 +7,13 @@ import kazoo.exceptions
 
 import asab
 import requests
+import urllib3.exceptions
 import msal
 
 from ...errors import ASABIrisError, ErrorCode
 from ...audit import AuditLogger
 from ...output_abc import OutputABC
+from ..retry import DeliveryError, RetryPolicy, http_error
 
 L = logging.getLogger(__name__)
 
@@ -520,7 +522,7 @@ class M365EmailOutputService(asab.Service, OutputABC):
 				"Authorization": "Bearer {}".format(token),
 				"Content-Type": "application/json",
 			}
-			return requests.post(api_url, headers=headers, json=payload, timeout=10)
+			return requests.post(api_url, headers=headers, json=payload, timeout=10, allow_redirects=False)
 
 		return await self._proactor_execute(do_post, None)
 
@@ -752,138 +754,42 @@ class M365EmailOutputService(asab.Service, OutputABC):
 			"saveToSentItems": True,
 		}
 
-		# Get token (app or delegated depending on self.Mode)
-		token = await self._get_access_token_async(force_refresh=False)
+		retry = RetryPolicy("m365")
+		token = None
+		refresh_required = False
+		refreshed = False
 
-		try:
-			resp = await self._graph_post(api_url, payload, token)
-		except requests.exceptions.Timeout as e:
-			L.error(
-				"Microsoft Graph sendMail request timed out; check network connectivity and Graph API availability.",
-				struct_data={
-					"endpoint": api_url,
-					"tenant": effective_tenant,
-					"error_type": type(e).__name__,
-				},
-			)
-			raise ASABIrisError(
-				ErrorCode.SERVER_ERROR,
-				tech_message="Timeout when calling Graph API",
-				error_i18n_key="Email service timeout",
-				error_dict={"error_message": str(e)},
-			)
-		except requests.exceptions.RequestException as e:
-			L.error(
-				"Network error while calling Microsoft Graph sendMail; verify outbound HTTPS access and DNS resolution.",
-				struct_data={
-					"endpoint": api_url,
-					"tenant": effective_tenant,
-					"error_type": type(e).__name__,
-				},
-			)
-			raise ASABIrisError(
-				ErrorCode.SERVER_ERROR,
-				tech_message="Network error during Graph API call",
-				error_i18n_key="Email service network error",
-				error_dict={"error_message": str(e)},
-			)
-
-		if resp.status_code == 401:
-			L.info(
-				"Microsoft Graph returned 401; refreshing access token and retrying sendMail.",
-				struct_data={"endpoint": api_url, "tenant": effective_tenant},
-			)
-			token = await self._get_access_token_async(force_refresh=True)
-
+		async def send_mail():
+			nonlocal token, refresh_required, refreshed
+			if token is None:
+				token = await self._get_access_token_async(force_refresh=False)
+			if refresh_required:
+				token = await self._get_access_token_async(force_refresh=True)
+				refresh_required = False
+				refreshed = True
 			try:
 				resp = await self._graph_post(api_url, payload, token)
-			except requests.exceptions.Timeout as e:
-				L.error(
-					"Microsoft Graph sendMail request timed out on retry after token refresh.",
-					struct_data={
-						"endpoint": api_url,
-						"tenant": effective_tenant,
-						"error_type": type(e).__name__,
-					},
-				)
-				raise ASABIrisError(
-					ErrorCode.SERVER_ERROR,
-					tech_message="Timeout when calling Graph API (retry)",
-					error_i18n_key="Email service timeout",
-					error_dict={"error_message": str(e)},
-				) from e
-			except requests.exceptions.RequestException as e:
-				L.error(
-					"Network error while calling Microsoft Graph sendMail on retry after token refresh.",
-					struct_data={
-						"endpoint": api_url,
-						"tenant": effective_tenant,
-						"error_type": type(e).__name__,
-					},
-				)
-				raise ASABIrisError(
-					ErrorCode.SERVER_ERROR,
-					tech_message="Network error during Graph API call (retry)",
-					error_i18n_key="Email service network error",
-					error_dict={"error_message": str(e)},
-				) from e
-		# Success cases
-		if resp.status_code in (200, 202, 204):
-			AuditLogger.log(
-				asab.LOG_NOTICE,
-				"Email sent",
-				struct_data={"provider": "m365", "to": to_list, "cc": cc_list, "bcc": bcc_list, "tenant": effective_tenant},
-			)
+			except requests.exceptions.SSLError as exc:
+				raise DeliveryError("Graph TLS validation failed.") from exc
+			except requests.exceptions.ConnectTimeout as exc:
+				raise DeliveryError("Graph connection timed out before submission.", "temporary") from exc
+			except requests.exceptions.ConnectionError as exc:
+				# Requests retains urllib3's connection-establishment failure as its cause.
+				cause = exc.args[0] if exc.args else None
+				before_submission = isinstance(cause, urllib3.exceptions.MaxRetryError) and isinstance(cause.reason, urllib3.exceptions.NewConnectionError)
+				raise DeliveryError("Graph connection failed.", "temporary" if before_submission else "uncertain") from exc
+			except requests.exceptions.RequestException as exc:
+				raise DeliveryError("Graph response lost; delivery is uncertain.", "uncertain") from exc
+			if resp.status_code == 401 and not refreshed:
+				refresh_required = True
+				raise DeliveryError("Graph rejected token; refresh required.", "temporary", details={"status": 401})
+			if resp.status_code not in (200, 202, 204):
+				raise http_error(resp.status_code, resp.headers)
 			return True
 
-		# 400 Bad request
-		if resp.status_code == 400:
-			L.error(
-				"Microsoft Graph rejected the email payload with HTTP 400; review recipients, subject, body, and attachments.",
-				struct_data={"endpoint": api_url, "tenant": effective_tenant, "status": resp.status_code, "body": resp.text},
-			)
-			raise ASABIrisError(
-				ErrorCode.INVALID_REQUEST,
-				tech_message="Graph API returned 400: {}".format(resp.text),
-				error_i18n_key="Invalid email payload",
-				error_dict={"status": resp.status_code, "body": resp.text},
-			)
-
-		# 403 Forbidden (e.g. permissions or mailbox issues)
-		if resp.status_code == 403:
-			L.error(
-				"Microsoft Graph denied sendMail with HTTP 403; verify Azure AD app permissions and mailbox access.",
-				struct_data={"endpoint": api_url, "tenant": effective_tenant, "status": resp.status_code, "body": resp.text},
-			)
-			raise ASABIrisError(
-				ErrorCode.INVALID_SERVICE_CONFIGURATION,
-				tech_message="Graph API returned 403: {}".format(resp.text),
-				error_i18n_key="Insufficient permissions",
-				error_dict={"status": resp.status_code, "body": resp.text},
-			)
-
-		# 429 Too many requests
-		if resp.status_code == 429:
-			retry_after = resp.headers.get("Retry-After", "unknown")
-			L.warning(
-				"Microsoft Graph rate limit reached; reduce send frequency or wait before retrying.",
-				struct_data={"endpoint": api_url, "tenant": effective_tenant, "status": resp.status_code, "retry_after": retry_after},
-			)
-			raise ASABIrisError(
-				ErrorCode.SERVER_ERROR,
-				tech_message="Rate limited, retry after {}".format(retry_after),
-				error_i18n_key="Email rate limited",
-				error_dict={"status": resp.status_code, "retry_after": retry_after},
-			)
-
-		# 5xx and unexpected
-		L.error(
-			"Microsoft Graph sendMail returned an unexpected HTTP status; review Graph API response and service configuration.",
-			struct_data={"endpoint": api_url, "tenant": effective_tenant, "status": resp.status_code, "body": resp.text},
+		await retry.run(send_mail)
+		AuditLogger.log(
+			asab.LOG_NOTICE, "Email sent",
+			struct_data={"provider": "m365", "to": to_list, "cc": cc_list, "bcc": bcc_list, "tenant": effective_tenant},
 		)
-		raise ASABIrisError(
-			ErrorCode.SERVER_ERROR,
-			tech_message="Graph API error {}: {}".format(resp.status_code, resp.text),
-			error_i18n_key="Email service error",
-			error_dict={"status": resp.status_code, "body": resp.text},
-		)
+		return True
