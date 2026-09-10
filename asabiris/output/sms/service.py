@@ -3,6 +3,7 @@ import hashlib
 import datetime
 import secrets
 import re
+import uuid
 
 import xml.etree.ElementTree as ET
 
@@ -13,7 +14,7 @@ import pytz
 from ...output_abc import OutputABC
 from ...errors import ASABIrisError, ErrorCode
 from ...audit import AuditLogger
-from ..retry import DeliveryError, RetryPolicy, http_request
+from ..retry import retry
 
 L = logging.getLogger(__name__)
 
@@ -286,11 +287,8 @@ class SMSOutputService(asab.Service, OutputABC):
 		else:
 			message_list = list(message_body)
 
-		retry = RetryPolicy("smsbrana")
-
 		# 6) Reuse one session with a reasonable timeout
 		timeout = aiohttp.ClientTimeout(total=15)
-		part_number = 0
 		async with aiohttp.ClientSession(timeout=timeout) as session:
 			for message in message_list:
 				# Clean + normalize
@@ -318,35 +316,116 @@ class SMSOutputService(asab.Service, OutputABC):
 				message_parts = self._split_message_words(message, prefix_template="{i}/{n} ", include_single=True)
 
 				for part in message_parts:
-					part_number += 1
-					user_id = "{}-{}".format(retry.NotificationId, part_number)
+					user_id = uuid.uuid4().hex
 
-					async def send_part():
-						# Timestamp and nonce are authentication data, never deduplication IDs.
-						time_now, sul, auth = self.generate_auth_params(password)
-						params = {
-							"action": "send_sms", "login": login, "time": time_now,
-							"sul": sul, "auth": auth, "number": phone, "message": part, "user_id": user_id,
-						}
-						response_body = await http_request(session, "GET", api_url, params=params)
-						try:
-							root = ET.fromstring(response_body)
-							err_code = root.findtext("err")
-							if err_code is None:
-								raise ValueError("Missing SMS error code")
-							err_code = err_code.strip()
-						except (ET.ParseError, ValueError) as exc:
-							raise DeliveryError("Invalid SMS acknowledgement.", "uncertain") from exc
-						if err_code not in ("0", "-1"):
-							classification = "temporary" if err_code == "8" else "permanent"
-							if err_code not in self.ERROR_CODE_MAPPING or err_code == "1":
-								classification = "uncertain"
-							raise DeliveryError(
-								self.ERROR_CODE_MAPPING.get(err_code, "Unknown SMS error."),
-								classification, details={"provider_code": err_code},
-							)
-					await retry.run(send_part, step="part-{}".format(part_number))
+					try:
+						async def send_part():
+							time_now, sul, auth = self.generate_auth_params(password)
+							params = {
+								"action": "send_sms", "login": login, "time": time_now,
+								"sul": sul, "auth": auth, "number": phone,
+								"message": part, "user_id": user_id,
+							}
+							async with session.get(api_url, params=params) as response:
+								return response.status, await response.text()
 
+						def is_temporary(result, error):
+							if isinstance(error, aiohttp.ClientConnectorError):
+								return True
+							if result is None:
+								return False
+							if result[0] == 429:
+								return True
+							try:
+								return ET.fromstring(result[1]).findtext("err") == "8"
+							except ET.ParseError:
+								return False
+
+						status, response_body = await retry(send_part, is_temporary)
+					except aiohttp.ClientError as err:
+						L.error(
+							"Network error while calling SMS provider; verify api_url and outbound network access.",
+							struct_data={
+								"tenant": effective_tenant,
+								"api_url": api_url,
+								"error_type": type(err).__name__,
+							},
+						)
+						raise ASABIrisError(
+							ErrorCode.SERVER_ERROR,
+							tech_message="Network error while calling SMSBrana.cz.",
+							error_i18n_key="Error occurred while sending SMS. Reason: '{{error_message}}'.",
+							error_dict={"error_message": str(err)}
+						) from err
+
+					if status != 200:
+						L.warning(
+							"SMS provider returned a non-200 HTTP status; review provider credentials and API settings.",
+							struct_data={
+								"tenant": effective_tenant,
+								"api_url": api_url,
+								"status": status,
+								"response_body": response_body,
+							},
+						)
+						raise ASABIrisError(
+							ErrorCode.SERVER_ERROR,
+							tech_message="SMSBrana.cz responded with '{}': '{}'".format(status, response_body),
+							error_i18n_key="Error occurred while sending SMS. Reason: '{{error_message}}'.",
+							error_dict={"error_message": response_body}
+						)
+
+					# Parse XML to extract error code safely
+					try:
+						root = ET.fromstring(response_body)
+						err_node = root.find("err")
+						err_code = err_node.text.strip() if (err_node is not None and err_node.text) else None
+						if err_code is None:
+							raise ValueError("Missing <err> code in response.")
+						custom_message = self.ERROR_CODE_MAPPING.get(err_code, "Unknown error occurred.")
+					except (ET.ParseError, ValueError) as err:
+						custom_message = "Failed to parse response from SMSBrana.cz."
+						L.warning(
+							"SMS provider returned an invalid XML response; verify api_url and provider service status.",
+							struct_data={
+								"tenant": effective_tenant,
+								"api_url": api_url,
+								"response_body": response_body,
+								"error_type": type(err).__name__,
+							},
+						)
+						raise ASABIrisError(
+							ErrorCode.SERVER_ERROR,
+							tech_message="Failed to parse response from SMSBrana.cz.",
+							error_i18n_key="Error occurred while sending SMS. Reason: '{{error_message}}'.",
+							error_dict={"error_message": custom_message}
+						) from err
+
+					if err_code != "0":
+						L.warning(
+							"SMS delivery failed; review SMS provider error code and account settings.",
+							struct_data={
+								"tenant": effective_tenant,
+								"api_url": api_url,
+								"error_code": err_code,
+								"error_message": custom_message,
+								"response_body": response_body,
+							},
+						)
+						raise ASABIrisError(
+							ErrorCode.SERVER_ERROR,
+							tech_message="SMS delivery failed. Error code: {}. Message: {}".format(
+								err_code, custom_message
+							),
+							error_i18n_key="Error occurred while sending SMS. Reason: '{{error_message}}'.",
+							error_dict={"error_message": custom_message}
+						)
+
+					L.log(
+						asab.LOG_NOTICE,
+						"SMS part sent successfully.",
+						struct_data={"tenant": effective_tenant, "api_url": api_url},
+					)
 		AuditLogger.log(
 			asab.LOG_NOTICE,
 			"SMS sent",

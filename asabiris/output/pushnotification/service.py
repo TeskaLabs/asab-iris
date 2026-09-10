@@ -5,7 +5,7 @@ import aiohttp
 
 from ...errors import ASABIrisError, ErrorCode
 from ...audit import AuditLogger
-from ..retry import RetryPolicy, http_request
+from ..retry import retry
 
 L = logging.getLogger(__name__)
 SLACK_LINK_RE = re.compile(r"<(https?://[^>|]+)(?:\|[^>]+)?>")
@@ -122,11 +122,41 @@ class PushOutputService(asab.Service):
 
 		timeout = aiohttp.ClientTimeout(total=int(timeout))
 
-		retry = RetryPolicy("ntfy", tenant=tenant)
-		async with aiohttp.ClientSession(timeout=timeout) as session:
-			await retry.run(lambda: http_request(
-				session, "POST", final_url, headers=headers, data=message.encode("utf-8"),
-			))
+		try:
+			async with aiohttp.ClientSession(timeout=timeout) as session:
+				async def send_push():
+					async with session.post(final_url, headers=headers, data=message.encode("utf-8")) as response:
+						return response.status, await response.text()
+
+				status, text = await retry(
+					send_push,
+					lambda result, error: isinstance(error, aiohttp.ClientConnectorError) or (
+						result is not None and result[0] == 429
+					),
+				)
+				if status != 200:
+						raise ASABIrisError(
+							ErrorCode.SERVER_ERROR,
+							tech_message="Push failed: {} {}".format(status, text),
+							error_i18n_key="Push notification failed.",
+							error_dict={"error_message": text}
+						)
+		except aiohttp.ClientError as err:
+			L.error(
+				"Network error while sending push notification; verify push url and outbound network access.",
+				struct_data={
+					"tenant": tenant,
+					"topic": topic,
+					"url": final_url,
+					"error_type": type(err).__name__,
+				},
+			)
+			raise ASABIrisError(
+				ErrorCode.SERVER_ERROR,
+				tech_message="Network error while sending push.",
+				error_i18n_key="Error occurred while sending push. Reason: '{{error_message}}'.",
+				error_dict={"error_message": str(err)}
+			)
 
 		AuditLogger.log(
 			asab.LOG_NOTICE,

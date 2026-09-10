@@ -14,7 +14,7 @@ except ModuleNotFoundError:
 from ...errors import ASABIrisError, ErrorCode
 from ...output_abc import OutputABC
 from ...audit import AuditLogger
-from ..retry import DeliveryError, RetryPolicy
+from ..retry import retry
 
 if slack_sdk is not None:
 	SlackApiError = slack_sdk.errors.SlackApiError
@@ -42,6 +42,13 @@ def check_config(config, section, parameter):
 
 
 class SlackOutputService(asab.Service, OutputABC):
+	async def _retry(self, operation):
+		return await retry(
+			lambda: asyncio.to_thread(operation),
+			lambda result, error: isinstance(error, SlackApiError) and (
+				error.response.status_code == 429 or error.response.get("error") == "ratelimited"
+			),
+		)
 
 	def __init__(self, app, service_name="SlackOutputService"):
 		super().__init__(app, service_name)
@@ -70,24 +77,6 @@ class SlackOutputService(asab.Service, OutputABC):
 				to_delete.append(key)
 		for key in to_delete:
 			self.Cache.pop(key, None)
-
-
-	async def _call(self, retry, operation, step):
-		async def attempt():
-			try:
-				return await asyncio.to_thread(operation)
-			except SlackApiError as e:
-				response = e.response
-				status = response.status_code
-				provider_code = response.get("error", "unknown_error")
-				classification = "temporary" if status == 429 or provider_code == "ratelimited" else "permanent"
-				if status >= 500 or provider_code in ("internal_error", "fatal_error", "service_unavailable"):
-					classification = "uncertain"
-				raise DeliveryError(
-					"Slack API error occurred.", classification, code=ErrorCode.SLACK_API_ERROR,
-					details={"provider_code": provider_code, "status": status},
-				) from e
-		return await retry.run(attempt, step=step)
 
 
 	def _resolve(self, channel=None):
@@ -137,7 +126,6 @@ class SlackOutputService(asab.Service, OutputABC):
 			return
 
 		client, channel_id, channel = self._resolve(channel)
-		retry = RetryPolicy("slack")
 
 		if client is None:
 			raise ValueError("Cannot send message to Slack.")
@@ -153,11 +141,11 @@ class SlackOutputService(asab.Service, OutputABC):
 			}
 		)
 		try:
-			await self._call(retry, lambda: client.chat_postMessage(
+			await self._retry(lambda: client.chat_postMessage(
 				channel=channel_id,
 				text=fallback_message,
 				blocks=blocks
-			), "message")
+			))
 		except SlackApiError as e:
 			L.warning(
 				"Failed to send Slack message; verify bot token, channel name, and Slack API permissions.",
@@ -189,7 +177,6 @@ class SlackOutputService(asab.Service, OutputABC):
 			return
 
 		client, channel_id, channel = self._resolve(channel)
-		retry = RetryPolicy("slack")
 
 		try:
 			async for attachment in atts_gen:
@@ -219,7 +206,7 @@ class SlackOutputService(asab.Service, OutputABC):
 						filename=attachment.FileName,
 						initial_comment=body.format() if attachment.Position == 0 else None
 					)
-				await self._call(retry, upload, "file-upload")
+				await self._retry(upload)
 		except SlackApiError as e:
 			L.warning(
 				"Failed to upload files to Slack; verify bot token, channel access, and file size limits.",

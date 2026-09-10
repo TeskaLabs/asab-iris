@@ -8,7 +8,7 @@ import asab
 from ...errors import ASABIrisError, ErrorCode
 from ...output_abc import OutputABC
 from ...audit import AuditLogger
-from ..retry import RetryPolicy, http_request
+from ..retry import retry
 
 L = logging.getLogger(__name__)
 
@@ -139,7 +139,6 @@ class MattermostOutputService(asab.Service, OutputABC):
 			effective_tenant = None
 
 		config = self._resolve_config(effective_tenant)
-		retry = RetryPolicy("mattermost")
 		if not config["url"] or not config["token"]:
 			raise ASABIrisError(
 				ErrorCode.INVALID_SERVICE_CONFIGURATION,
@@ -154,8 +153,8 @@ class MattermostOutputService(asab.Service, OutputABC):
 					tech_message="Mattermost bot_username is required for direct messages.",
 					error_i18n_key="Mattermost bot username is not configured.",
 				)
-			bot_user_id, target_user_id = await self.get_user_ids(config, config["bot_username"], username, retry)
-			channel_id = await self.get_direct_channel(config, bot_user_id, target_user_id, retry)
+			bot_user_id, target_user_id = await self.get_user_ids(config, config["bot_username"], username)
+			channel_id = await self.get_direct_channel(config, bot_user_id, target_user_id)
 		elif not channel_id:
 			channel_id = config["security_channel_id"]
 
@@ -180,7 +179,7 @@ class MattermostOutputService(asab.Service, OutputABC):
 			}
 		)
 
-		result = await self._post_json(config, "/api/v4/posts", post_payload, retry)
+		result = await self._post_json(config, "/api/v4/posts", post_payload)
 		AuditLogger.log(
 			asab.LOG_NOTICE,
 			"Mattermost message sent",
@@ -188,7 +187,7 @@ class MattermostOutputService(asab.Service, OutputABC):
 		)
 		return result
 
-	async def get_user_ids(self, config, bot_username, target_username, retry=None):
+	async def get_user_ids(self, config, bot_username, target_username):
 		"""
 		Resolve Mattermost usernames into user ids.
 
@@ -200,12 +199,10 @@ class MattermostOutputService(asab.Service, OutputABC):
 		Returns:
 			A tuple of `(bot_user_id, target_user_id)`.
 		"""
-		if retry is None:
-			retry = RetryPolicy("mattermost")
 		users = await self._post_json(
 			config,
 			"/api/v4/users/usernames",
-			[bot_username, target_username], retry,
+			[bot_username, target_username],
 		)
 
 		if not isinstance(users, list):
@@ -234,7 +231,7 @@ class MattermostOutputService(asab.Service, OutputABC):
 
 		return bot_user_id, target_user_id
 
-	async def get_direct_channel(self, config, bot_user_id, target_user_id, retry=None):
+	async def get_direct_channel(self, config, bot_user_id, target_user_id):
 		"""
 		Create or retrieve the direct-message channel for two Mattermost users.
 
@@ -246,12 +243,10 @@ class MattermostOutputService(asab.Service, OutputABC):
 		Returns:
 			The direct-message channel id.
 		"""
-		if retry is None:
-			retry = RetryPolicy("mattermost")
 		channel = await self._post_json(
 			config,
 			"/api/v4/channels/direct",
-			[bot_user_id, target_user_id], retry,
+			[bot_user_id, target_user_id],
 		)
 		channel_id = channel.get("id") if isinstance(channel, dict) else None
 		if not channel_id:
@@ -263,7 +258,7 @@ class MattermostOutputService(asab.Service, OutputABC):
 
 		return channel_id
 
-	async def _post_json(self, config, path, payload, retry=None):
+	async def _post_json(self, config, path, payload):
 		"""
 		POST a JSON payload to the Mattermost REST API.
 
@@ -285,14 +280,52 @@ class MattermostOutputService(asab.Service, OutputABC):
 			"Content-Type": "application/json",
 		}
 		timeout = aiohttp.ClientTimeout(total=self.Timeout)
-		if retry is None:
-			retry = RetryPolicy("mattermost")
 
-		async with aiohttp.ClientSession(timeout=timeout) as session:
-			body = await retry.run(lambda: http_request(
-				session, "POST", url, headers=headers, json=payload, success=(200, 201),
-				read_only=path == "/api/v4/users/usernames",
-			))
+		try:
+			async with aiohttp.ClientSession(timeout=timeout) as session:
+				async def post():
+					async with session.post(url, headers=headers, json=payload) as response:
+						return response.status, await response.text()
+
+				status, body = await retry(
+					post,
+					lambda result, error: isinstance(error, aiohttp.ClientConnectorError) or (
+						result is not None and (
+							result[0] == 429 or (path == "/api/v4/users/usernames" and result[0] >= 500)
+						)
+					),
+				)
+		except aiohttp.ClientError as e:
+			raise ASABIrisError(
+				ErrorCode.SERVER_ERROR,
+				tech_message="Mattermost request failed: {}".format(e),
+				error_i18n_key="Error occurred while calling Mattermost. Reason: '{{error_message}}'.",
+				error_dict={"error_message": str(e)},
+			) from e
+
+		if status in (401, 403):
+			raise ASABIrisError(
+				ErrorCode.AUTHENTICATION_FAILED,
+				tech_message="Mattermost authentication failed: {}".format(body),
+				error_i18n_key="Mattermost authentication failed.",
+				error_dict={"error_message": body},
+			)
+
+		if status in (400, 404):
+			raise ASABIrisError(
+				ErrorCode.INVALID_REQUEST,
+				tech_message="Mattermost rejected the request: {}".format(body),
+				error_i18n_key="Mattermost rejected the request.",
+				error_dict={"error_message": body},
+			)
+
+		if status >= 500:
+			raise ASABIrisError(
+				ErrorCode.SERVER_ERROR,
+				tech_message="Mattermost server error {}: {}".format(status, body),
+				error_i18n_key="Mattermost server error.",
+				error_dict={"error_message": body},
+			)
 
 		if len(body.strip()) == 0:
 			return {}
