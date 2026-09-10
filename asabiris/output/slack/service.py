@@ -14,7 +14,7 @@ except ModuleNotFoundError:
 from ...errors import ASABIrisError, ErrorCode
 from ...output_abc import OutputABC
 from ...audit import AuditLogger
-from ..retry import DeliveryError, RetryPolicy, retry_after_seconds
+from ..retry import DeliveryError, RetryPolicy
 
 if slack_sdk is not None:
 	SlackApiError = slack_sdk.errors.SlackApiError
@@ -85,7 +85,6 @@ class SlackOutputService(asab.Service, OutputABC):
 					classification = "uncertain"
 				raise DeliveryError(
 					"Slack API error occurred.", classification, code=ErrorCode.SLACK_API_ERROR,
-					retry_after=retry_after_seconds(response.headers.get("Retry-After")),
 					details={"provider_code": provider_code, "status": status},
 				) from e
 		return await retry.run(attempt, step=step)

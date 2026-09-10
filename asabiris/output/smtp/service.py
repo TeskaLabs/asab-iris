@@ -15,7 +15,7 @@ import aiosmtplib.protocol as smtp_protocol
 from ...output_abc import OutputABC
 from ...errors import ASABIrisError, ErrorCode
 from ...audit import AuditLogger
-from ..retry import DeliveryError, RetryPolicy, retry_after_seconds
+from ..retry import DeliveryError, RetryPolicy
 
 #
 
@@ -23,10 +23,9 @@ L = logging.getLogger(__name__)
 
 
 class ProxyConnectError(Exception):
-	def __init__(self, message, temporary=True, retry_after=None):
+	def __init__(self, message, temporary=True):
 		super().__init__(message)
 		self.Temporary = temporary
-		self.RetryAfter = retry_after
 
 
 class ProxySMTP(aiosmtplib.SMTP):
@@ -436,7 +435,7 @@ class EmailOutputService(asab.Service, OutputABC):
 		except ProxyConnectError as exc:
 			raise DeliveryError(
 				"SMTP proxy CONNECT failed.", "temporary" if exc.Temporary else "permanent",
-				code=ErrorCode.SMTP_CONNECTION_ERROR, retry_after=exc.RetryAfter) from exc
+				code=ErrorCode.SMTP_CONNECTION_ERROR) from exc
 		except aiosmtplib.SMTPAuthenticationError as exc:
 			raise DeliveryError("SMTP authentication failed.", code=ErrorCode.SMTP_AUTHENTICATION_ERROR) from exc
 		except aiosmtplib.SMTPResponseException as exc:
@@ -559,11 +558,9 @@ class EmailOutputService(asab.Service, OutputABC):
 
 		if status_code != 200:
 			sock_obj.close()
-			headers = email.message_from_bytes(header_bytes.partition(b"\r\n")[2])
 			raise ProxyConnectError(
 				"Proxy CONNECT failed with status {}".format(status_code),
 				temporary=status_code in (429, 500, 502, 503, 504),
-				retry_after=retry_after_seconds(headers.get("Retry-After")),
 			)
 
 		return sock_obj

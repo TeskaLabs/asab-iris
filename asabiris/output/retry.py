@@ -1,7 +1,5 @@
 """Bounded delivery retries. Only explicit temporary failures are replayed."""
 import asyncio
-import datetime
-import email.utils
 import logging
 import math
 import random
@@ -28,9 +26,8 @@ asab.Config.add_defaults({
 
 
 class DeliveryError(ASABIrisError):
-	def __init__(self, message, classification="permanent", *, code=ErrorCode.SERVER_ERROR, retry_after=None, details=None):
+	def __init__(self, message, classification="permanent", *, code=ErrorCode.SERVER_ERROR, details=None):
 		self.Classification = classification
-		self.RetryAfter = retry_after
 		error_details = dict(details or {})
 		error_details.setdefault("classification", classification)
 		error_details.setdefault("error_code", code.name)
@@ -40,23 +37,7 @@ class DeliveryError(ASABIrisError):
 		)
 
 
-def retry_after_seconds(value):
-	"""Accept delay-seconds or an HTTP date; ignore malformed headers."""
-	if value is None:
-		return None
-	try:
-		delay = float(value)
-	except (TypeError, ValueError):
-		try:
-			date = email.utils.parsedate_to_datetime(value)
-			delay = (date - datetime.datetime.now(datetime.timezone.utc)).total_seconds()
-		except (TypeError, ValueError, OverflowError):
-			return None
-	return max(0, delay) if math.isfinite(delay) else None
-
-
 def http_error(status, headers, *, read_only=False):
-	headers = {key.lower(): value for key, value in headers.items()}
 	# A gateway/server failure can occur after a write. Do not replay those writes.
 	if status == 429 or (read_only and 500 <= status < 600):
 		classification = "temporary"
@@ -71,7 +52,6 @@ def http_error(status, headers, *, read_only=False):
 		code = ErrorCode.INVALID_REQUEST
 	return DeliveryError(
 		"Provider returned HTTP {}.".format(status), classification, code=code,
-		retry_after=retry_after_seconds(headers.get("retry-after")),
 		details={"status": status, "provider_status": status},
 	)
 
@@ -127,8 +107,6 @@ class RetryPolicy:
 				return result
 
 			wait = random.uniform(delay / 2, delay)
-			if error.RetryAfter is not None:
-				wait = max(wait, error.RetryAfter)
 			if error.Classification != "temporary":
 				outcome = error.Classification
 			elif attempt == self.MaxAttempts or time.monotonic() + wait >= self.Deadline:
