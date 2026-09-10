@@ -55,7 +55,7 @@ def retry_after_seconds(value):
 def http_error(status, headers, *, read_only=False):
 	headers = {key.lower(): value for key, value in headers.items()}
 	# A gateway/server failure can occur after a write. Do not replay those writes.
-	if status in (429, 503) or (read_only and 500 <= status < 600):
+	if status == 429 or (read_only and 500 <= status < 600):
 		classification = "temporary"
 	elif status >= 500 or status == 408:
 		classification = "uncertain"

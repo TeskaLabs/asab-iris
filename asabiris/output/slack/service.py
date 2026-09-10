@@ -109,7 +109,7 @@ class SlackOutputService(asab.Service, OutputABC):
 		return client, channel_id, channel
 
 
-	async def _call(self, retry, operation, step):
+	async def _call(self, retry, operation, step, *, read_only=False):
 		async def attempt():
 			try:
 				return await operation()
@@ -118,15 +118,15 @@ class SlackOutputService(asab.Service, OutputABC):
 				# The SDK exposes ClientResponse when decoding an acknowledgement fails.
 				if isinstance(response, aiohttp.ClientResponse):
 					if response.status != 200:
-						raise http_error(response.status, response.headers) from exc
+						raise http_error(response.status, response.headers, read_only=read_only) from exc
 					raise DeliveryError("Invalid Slack acknowledgement.", "uncertain") from exc
 				headers = {key.lower(): value for key, value in response.headers.items()}
 				if response.status_code != 200:
-					raise http_error(response.status_code, response.headers) from exc
+					raise http_error(response.status_code, response.headers, read_only=read_only) from exc
 				error = response.get("error", "unknown_error")
-				if error in ("ratelimited", "service_unavailable"):
+				if error == "ratelimited" or (read_only and error == "service_unavailable"):
 					classification = "temporary"
-				elif error in ("internal_error", "fatal_error", "unknown_error"):
+				elif error in ("service_unavailable", "internal_error", "fatal_error", "unknown_error"):
 					classification = "uncertain"
 				else:
 					classification = "permanent"
@@ -179,7 +179,7 @@ class SlackOutputService(asab.Service, OutputABC):
 		while True:
 			response = await self._call(retry, lambda: client.conversations_list(
 				types=["public_channel", "private_channel"], cursor=cursor,
-			), "channel-lookup")
+			), "channel-lookup", read_only=True)
 			for channel in response["channels"]:
 				if channel.get("name") == channel_name:
 					return channel["id"]
