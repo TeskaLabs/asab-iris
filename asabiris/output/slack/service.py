@@ -1,21 +1,20 @@
+import asyncio
 import time
 import logging
 import configparser
 
-import aiohttp
 import asab
 
 try:
 	import slack_sdk
 	import slack_sdk.errors
-	from slack_sdk.web.async_client import AsyncWebClient
 except ModuleNotFoundError:
 	slack_sdk = None
 
 from ...errors import ASABIrisError, ErrorCode
 from ...output_abc import OutputABC
 from ...audit import AuditLogger
-from ..retry import DeliveryError, RetryPolicy, http_error, http_request, retry_after_seconds
+from ..retry import DeliveryError, RetryPolicy, retry_after_seconds
 
 if slack_sdk is not None:
 	SlackApiError = slack_sdk.errors.SlackApiError
@@ -73,7 +72,26 @@ class SlackOutputService(asab.Service, OutputABC):
 			self.Cache.pop(key, None)
 
 
-	async def _resolve(self, retry, channel=None):
+	async def _call(self, retry, operation, step):
+		async def attempt():
+			try:
+				return await asyncio.to_thread(operation)
+			except SlackApiError as e:
+				response = e.response
+				status = response.status_code
+				provider_code = response.get("error", "unknown_error")
+				classification = "temporary" if status == 429 or provider_code == "ratelimited" else "permanent"
+				if status >= 500 or provider_code in ("internal_error", "fatal_error", "service_unavailable"):
+					classification = "uncertain"
+				raise DeliveryError(
+					"Slack API error occurred.", classification, code=ErrorCode.SLACK_API_ERROR,
+					retry_after=retry_after_seconds(response.headers.get("Retry-After")),
+					details={"provider_code": provider_code, "status": status},
+				) from e
+		return await retry.run(attempt, step=step)
+
+
+	def _resolve(self, channel=None):
 		try:
 			effective_tenant = asab.contextvars.Tenant.get()
 		except LookupError:
@@ -101,96 +119,147 @@ class SlackOutputService(asab.Service, OutputABC):
 		if cache_hit is not None:
 			return cache_hit[0], cache_hit[1], channel
 
-		client = AsyncWebClient(token=token, retry_handlers=[])
-		channel_id = await self.get_channel_id(client, channel, retry)
+		client = slack_sdk.WebClient(token=token, retry_handlers=[])
+		channel_id = self.get_channel_id(client, channel)
 
 		self.Cache[(token, channel)] = (client, channel_id, time.time())
 
 		return client, channel_id, channel
 
 
-	async def _call(self, retry, operation, step, *, read_only=False):
-		async def attempt():
-			try:
-				return await operation()
-			except SlackApiError as exc:
-				response = exc.response
-				# The SDK exposes ClientResponse when decoding an acknowledgement fails.
-				if isinstance(response, aiohttp.ClientResponse):
-					if response.status != 200:
-						raise http_error(response.status, response.headers, read_only=read_only) from exc
-					raise DeliveryError("Invalid Slack acknowledgement.", "uncertain") from exc
-				headers = {key.lower(): value for key, value in response.headers.items()}
-				if response.status_code != 200:
-					raise http_error(response.status_code, response.headers, read_only=read_only) from exc
-				error = response.get("error", "unknown_error")
-				if error == "ratelimited" or (read_only and error == "service_unavailable"):
-					classification = "temporary"
-				elif error in ("service_unavailable", "internal_error", "fatal_error", "unknown_error"):
-					classification = "uncertain"
-				else:
-					classification = "permanent"
-				code = ErrorCode.AUTHENTICATION_FAILED if error in (
-					"invalid_auth", "not_authed", "account_inactive", "token_revoked",
-				) else ErrorCode.SLACK_API_ERROR
-				raise DeliveryError(
-					"Slack rejected the operation.", classification, code=code,
-					retry_after=retry_after_seconds(headers.get("retry-after")),
-					details={"provider_code": error},
-				) from exc
-		return await retry.run(attempt, step=step)
-
 	async def send_message(self, blocks, fallback_message, channel=None) -> None:
+		"""
+		Sends a message to a Slack channel.
+		"""
 		if slack_sdk is None:
-			raise ASABIrisError(ErrorCode.INVALID_SERVICE_CONFIGURATION, tech_message="Slack SDK is unavailable.")
+			L.warning(
+				"Slack output is disabled because slack_sdk is not installed; install slack_sdk to enable Slack notifications.",
+			)
+			return
+
+		client, channel_id, channel = self._resolve(channel)
 		retry = RetryPolicy("slack")
-		client, channel_id, channel = await self._resolve(retry, channel)
-		await self._call(retry, lambda: client.chat_postMessage(
-			channel=channel_id, text=fallback_message, blocks=blocks,
-		), "message")
+
+		if client is None:
+			raise ValueError("Cannot send message to Slack.")
+
+		# Audit log of outgoing payload at NOTICE level
+		L.log(
+			asab.LOG_NOTICE,
+			"Sending Slack message.",
+			struct_data={
+				"channel": channel,
+				"text": fallback_message,
+				"blocks": blocks,
+			}
+		)
+		try:
+			await self._call(retry, lambda: client.chat_postMessage(
+				channel=channel_id,
+				text=fallback_message,
+				blocks=blocks
+			), "message")
+		except SlackApiError as e:
+			L.warning(
+				"Failed to send Slack message; verify bot token, channel name, and Slack API permissions.",
+				struct_data={"channel": channel, "error_message": str(e)},
+			)
+			raise ASABIrisError(
+				ErrorCode.SLACK_API_ERROR,
+				tech_message="Slack API error occurred: {}".format(str(e)),
+				error_i18n_key="Error occurred while sending message to Slack. Reason: '{{error_message}}'.",
+				error_dict={"error_message": str(e)}
+			)
+
+		L.log(
+			asab.LOG_NOTICE,
+			"Slack message sent successfully.",
+			struct_data={"channel": channel}
+		)
 		AuditLogger.log(asab.LOG_NOTICE, "Slack message sent", struct_data={"channel": channel, "channel_id": channel_id})
 
+
 	async def send_files(self, body: str, atts_gen, channel=None):
+		"""
+		Sends a message to a Slack channel with attachments.
+		"""
 		if slack_sdk is None:
-			raise ASABIrisError(ErrorCode.INVALID_SERVICE_CONFIGURATION, tech_message="Slack SDK is unavailable.")
-		# Materialize the streams once. Each upload stage has its own retry boundary.
-		attachments = []
-		async for attachment in atts_gen:
-			attachment.Content.seek(0)
-			attachments.append((attachment.FileName, attachment.Content.read(), attachment.Position))
+			L.warning(
+				"Slack output is disabled because slack_sdk is not installed; install slack_sdk to enable Slack notifications.",
+			)
+			return
+
+		client, channel_id, channel = self._resolve(channel)
 		retry = RetryPolicy("slack")
-		client, channel_id, channel = await self._resolve(retry, channel)
-		async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=30)) as session:
-			for index, (filename, content, position) in enumerate(attachments):
-				step = "file-{}".format(index + 1)
-				upload = await self._call(retry, lambda: client.files_getUploadURLExternal(
-					filename=filename, length=len(content),
-				), step + "-url")
-				await retry.run(lambda: http_request(
-					session, "POST", upload["upload_url"], data=content,
-				), step=step + "-bytes")
-				await self._call(retry, lambda: client.files_completeUploadExternal(
-					files=[{"id": upload["file_id"], "title": filename}], channel_id=channel_id,
-					initial_comment=body.format() if position == 0 else None,
-				), step + "-complete")
+
+		try:
+			async for attachment in atts_gen:
+				# robust size calculation
+				try:
+					size = len(attachment.Content)
+				except TypeError:
+					size = len(attachment.Content.getbuffer()) if hasattr(attachment.Content, "getbuffer") else -1
+
+				# Audit-log each attachment at NOTICE level
+				L.log(
+					asab.LOG_NOTICE,
+					"Uploading file attachment to Slack.",
+					struct_data={
+						"filename": attachment.FileName,
+						"position": attachment.Position,
+						"size": size,
+						"channel": channel,
+					}
+				)
+
+				def upload():
+					attachment.Content.seek(0)
+					return client.files_upload_v2(
+						channel=channel_id,
+						file=attachment.Content,
+						filename=attachment.FileName,
+						initial_comment=body.format() if attachment.Position == 0 else None
+					)
+				await self._call(retry, upload, "file-upload")
+		except SlackApiError as e:
+			L.warning(
+				"Failed to upload files to Slack; verify bot token, channel access, and file size limits.",
+				struct_data={"channel": channel, "error_message": str(e)},
+			)
+			raise ASABIrisError(
+				ErrorCode.SLACK_API_ERROR,
+				tech_message="Slack API error occurred: {}".format(e),
+				error_i18n_key="Error occurred while uploading files to Slack. Reason: '{{error_message}}'.",
+				error_dict={"error_message": str(e)}
+			)
+
+		L.log(
+			asab.LOG_NOTICE,
+			"Slack files sent successfully.",
+			struct_data={"channel": channel}
+		)
 		AuditLogger.log(asab.LOG_NOTICE, "Slack files sent", struct_data={"channel_id": channel_id})
 
-	async def get_channel_id(self, client, channel_name, retry):
+
+	def get_channel_id(self, client, channel_name, types=None):
+		"""
+		Fetches Slack channel ID from Slack API.
+		"""
+		if types is None:
+			types = ["public_channel", "private_channel"]
+
 		if channel_name.startswith("id "):
 			return channel_name.split("id ")[1]
-		cursor = None
-		while True:
-			response = await self._call(retry, lambda: client.conversations_list(
-				types=["public_channel", "private_channel"], cursor=cursor,
-			), "channel-lookup", read_only=True)
-			for channel in response["channels"]:
-				if channel.get("name") == channel_name:
-					return channel["id"]
-			cursor = response.get("response_metadata", {}).get("next_cursor")
-			if not cursor:
-				break
+
+		for response in client.conversations_list(types=types):
+			for channel in response['channels']:
+				if channel.get('name') == channel_name:
+					return channel['id']
+
+		# Business-level error: channel not found
 		raise ASABIrisError(
 			ErrorCode.SLACK_CHANNEL_NOT_FOUND,
 			tech_message="Slack channel '{}' not found.".format(channel_name),
-			error_i18n_key="Slack channel '{{channel}}' not found.", error_dict={"channel": channel_name},
+			error_i18n_key="Slack channel '{{channel}}' not found.",
+			error_dict={"channel": channel_name},
 		)

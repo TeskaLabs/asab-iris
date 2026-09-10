@@ -8,7 +8,7 @@ import asab
 from ...errors import ASABIrisError, ErrorCode
 from ...output_abc import OutputABC
 from ...audit import AuditLogger
-from ..retry import DeliveryError, RetryPolicy, http_request
+from ..retry import RetryPolicy, http_request
 
 L = logging.getLogger(__name__)
 
@@ -139,6 +139,7 @@ class MattermostOutputService(asab.Service, OutputABC):
 			effective_tenant = None
 
 		config = self._resolve_config(effective_tenant)
+		retry = RetryPolicy("mattermost")
 		if not config["url"] or not config["token"]:
 			raise ASABIrisError(
 				ErrorCode.INVALID_SERVICE_CONFIGURATION,
@@ -146,7 +147,6 @@ class MattermostOutputService(asab.Service, OutputABC):
 				error_i18n_key="Mattermost service is not configured.",
 			)
 
-		retry = RetryPolicy("mattermost")
 		if username:
 			if not config["bot_username"]:
 				raise ASABIrisError(
@@ -188,7 +188,7 @@ class MattermostOutputService(asab.Service, OutputABC):
 		)
 		return result
 
-	async def get_user_ids(self, config, bot_username, target_username, retry):
+	async def get_user_ids(self, config, bot_username, target_username, retry=None):
 		"""
 		Resolve Mattermost usernames into user ids.
 
@@ -200,6 +200,8 @@ class MattermostOutputService(asab.Service, OutputABC):
 		Returns:
 			A tuple of `(bot_user_id, target_user_id)`.
 		"""
+		if retry is None:
+			retry = RetryPolicy("mattermost")
 		users = await self._post_json(
 			config,
 			"/api/v4/users/usernames",
@@ -232,7 +234,7 @@ class MattermostOutputService(asab.Service, OutputABC):
 
 		return bot_user_id, target_user_id
 
-	async def get_direct_channel(self, config, bot_user_id, target_user_id, retry):
+	async def get_direct_channel(self, config, bot_user_id, target_user_id, retry=None):
 		"""
 		Create or retrieve the direct-message channel for two Mattermost users.
 
@@ -244,6 +246,8 @@ class MattermostOutputService(asab.Service, OutputABC):
 		Returns:
 			The direct-message channel id.
 		"""
+		if retry is None:
+			retry = RetryPolicy("mattermost")
 		channel = await self._post_json(
 			config,
 			"/api/v4/channels/direct",
@@ -259,7 +263,7 @@ class MattermostOutputService(asab.Service, OutputABC):
 
 		return channel_id
 
-	async def _post_json(self, config, path, payload, retry):
+	async def _post_json(self, config, path, payload, retry=None):
 		"""
 		POST a JSON payload to the Mattermost REST API.
 
@@ -281,24 +285,24 @@ class MattermostOutputService(asab.Service, OutputABC):
 			"Content-Type": "application/json",
 		}
 		timeout = aiohttp.ClientTimeout(total=self.Timeout)
+		if retry is None:
+			retry = RetryPolicy("mattermost")
 
 		async with aiohttp.ClientSession(timeout=timeout) as session:
-			async def post():
-				body = await http_request(
-					session, "POST", url, headers=headers, json=payload, success=(200, 201),
-					read_only=path == "/api/v4/users/usernames",
-				)
-				try:
-					result = json.loads(body)
-				except json.JSONDecodeError as exc:
-					raise DeliveryError(
-						"Invalid Mattermost acknowledgement.", "uncertain",
-						details={"provider_code": "invalid_acknowledgement"},
-					) from exc
-				if path == "/api/v4/posts" and (not isinstance(result, dict) or not result.get("id")):
-					raise DeliveryError(
-						"Missing Mattermost post acknowledgement.", "uncertain",
-						details={"provider_code": "missing_post_id"},
-					)
-				return result
-			return await retry.run(post, step=path)
+			body = await retry.run(lambda: http_request(
+				session, "POST", url, headers=headers, json=payload, success=(200, 201),
+				read_only=path == "/api/v4/users/usernames",
+			))
+
+		if len(body.strip()) == 0:
+			return {}
+
+		try:
+			return json.loads(body)
+		except json.JSONDecodeError as e:
+			raise ASABIrisError(
+				ErrorCode.SERVER_ERROR,
+				tech_message="Mattermost returned invalid JSON: {}".format(e),
+				error_i18n_key="Mattermost API returned invalid JSON.",
+				error_dict={"error_message": str(e)},
+			) from e

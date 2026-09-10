@@ -5,7 +5,6 @@ import urllib.parse
 import aiohttp
 import asab
 
-from ...errors import ASABIrisError, ErrorCode
 from ...output_abc import OutputABC
 from ...audit import AuditLogger
 from ..retry import DeliveryError, RetryPolicy, http_request
@@ -73,7 +72,7 @@ class MSTeamsOutputService(asab.Service, OutputABC):
                 "Microsoft Teams webhook URL is missing; configure webhook_url in [msteams] or tenant configuration.",
                 struct_data={"tenant": effective_tenant},
             )
-            raise ASABIrisError(ErrorCode.INVALID_SERVICE_CONFIGURATION, tech_message="Teams webhook URL is missing.")
+            return
 
         adaptive_card = {
             "type": "message",
@@ -108,21 +107,13 @@ class MSTeamsOutputService(asab.Service, OutputABC):
         }
 
         retry = RetryPolicy("msteams")
-        async with aiohttp.ClientSession(timeout=aiohttp.ClientTimeout(total=30)) as session:
+        async with aiohttp.ClientSession() as session:
             async def send_card():
-                body = await http_request(session, "POST", webhook_url, json=adaptive_card, success=(200, 202))
-                # Legacy connectors can report throttling inside a successful HTTP response.
-                if "Microsoft Teams endpoint returned HTTP error 429" in body:
-                    raise DeliveryError(
-                        "Teams connector throttled the request.", "temporary",
-                        details={"provider_code": "429"},
-                    )
-                if body.strip() not in ("", "1"):
-                    raise DeliveryError(
-                        "Unrecognized Teams acknowledgement; delivery is uncertain.", "uncertain",
-                        details={"provider_code": "unrecognized_acknowledgement"},
-                    )
+                response = await http_request(session, "POST", webhook_url, json=adaptive_card, success=(200, 202))
+                if "Microsoft Teams endpoint returned HTTP error 429" in response:
+                    raise DeliveryError("Teams connector throttled the request.", "temporary")
             await retry.run(send_card)
+
         AuditLogger.log(
             asab.LOG_NOTICE, "Microsoft Teams message sent",
             struct_data={"webhook_host": urllib.parse.urlsplit(webhook_url).hostname, "tenant": effective_tenant},

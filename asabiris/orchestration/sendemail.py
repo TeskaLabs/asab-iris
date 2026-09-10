@@ -122,12 +122,6 @@ class SendEmailOrchestrator:
 				struct_data={"provider": "m365", "recipients": self._recipient_list_for_log(email_to)},
 			)
 
-		else:
-			raise ASABIrisError(
-				ErrorCode.INVALID_SERVICE_CONFIGURATION,
-				tech_message="No email provider configured.",
-			)
-
 
 	async def _render_template(
 		self,
