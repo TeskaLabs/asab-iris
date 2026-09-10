@@ -113,9 +113,15 @@ class MSTeamsOutputService(asab.Service, OutputABC):
                 body = await http_request(session, "POST", webhook_url, json=adaptive_card, success=(200, 202))
                 # Legacy connectors can report throttling inside a successful HTTP response.
                 if "Microsoft Teams endpoint returned HTTP error 429" in body:
-                    raise DeliveryError("Teams connector throttled the request.", "temporary")
+                    raise DeliveryError(
+                        "Teams connector throttled the request.", "temporary",
+                        details={"provider_code": "429"},
+                    )
                 if body.strip() not in ("", "1"):
-                    raise DeliveryError("Unrecognized Teams acknowledgement; delivery is uncertain.", "uncertain")
+                    raise DeliveryError(
+                        "Unrecognized Teams acknowledgement; delivery is uncertain.", "uncertain",
+                        details={"provider_code": "unrecognized_acknowledgement"},
+                    )
             await retry.run(send_card)
         AuditLogger.log(
             asab.LOG_NOTICE, "Microsoft Teams message sent",

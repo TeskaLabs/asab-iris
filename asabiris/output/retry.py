@@ -31,9 +31,12 @@ class DeliveryError(ASABIrisError):
 	def __init__(self, message, classification="permanent", *, code=ErrorCode.SERVER_ERROR, retry_after=None, details=None):
 		self.Classification = classification
 		self.RetryAfter = retry_after
+		error_details = dict(details or {})
+		error_details.setdefault("classification", classification)
+		error_details.setdefault("error_code", code.name)
 		super().__init__(
 			code, tech_message=message, error_i18n_key="Notification delivery failed.",
-			error_dict=dict(details or {}, classification=classification),
+			error_dict=error_details,
 		)
 
 
@@ -68,7 +71,8 @@ def http_error(status, headers, *, read_only=False):
 		code = ErrorCode.INVALID_REQUEST
 	return DeliveryError(
 		"Provider returned HTTP {}.".format(status), classification, code=code,
-		retry_after=retry_after_seconds(headers.get("retry-after")), details={"status": status},
+		retry_after=retry_after_seconds(headers.get("retry-after")),
+		details={"status": status, "provider_status": status},
 	)
 
 
@@ -142,4 +146,6 @@ class RetryPolicy:
 
 	def _record(self, error, attempt, step, outcome, delay=None):
 		error.ErrorDict.update(self._context(attempt, step, outcome))
+		if error.__cause__ is not None:
+			error.ErrorDict.setdefault("cause_type", type(error.__cause__).__name__)
 		L.warning("Notification delivery step failed.", struct_data=dict(error.ErrorDict, delay=delay))

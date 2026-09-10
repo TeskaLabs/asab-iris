@@ -130,8 +130,11 @@ class SlackOutputService(asab.Service, OutputABC):
 					classification = "uncertain"
 				else:
 					classification = "permanent"
+				code = ErrorCode.AUTHENTICATION_FAILED if error in (
+					"invalid_auth", "not_authed", "account_inactive", "token_revoked",
+				) else ErrorCode.SLACK_API_ERROR
 				raise DeliveryError(
-					"Slack rejected the operation.", classification,
+					"Slack rejected the operation.", classification, code=code,
 					retry_after=retry_after_seconds(headers.get("retry-after")),
 					details={"provider_code": error},
 				) from exc

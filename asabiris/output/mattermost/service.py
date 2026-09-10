@@ -291,8 +291,14 @@ class MattermostOutputService(asab.Service, OutputABC):
 				try:
 					result = json.loads(body)
 				except json.JSONDecodeError as exc:
-					raise DeliveryError("Invalid Mattermost acknowledgement.", "uncertain") from exc
+					raise DeliveryError(
+						"Invalid Mattermost acknowledgement.", "uncertain",
+						details={"provider_code": "invalid_acknowledgement"},
+					) from exc
 				if path == "/api/v4/posts" and (not isinstance(result, dict) or not result.get("id")):
-					raise DeliveryError("Missing Mattermost post acknowledgement.", "uncertain")
+					raise DeliveryError(
+						"Missing Mattermost post acknowledgement.", "uncertain",
+						details={"provider_code": "missing_post_id"},
+					)
 				return result
 			return await retry.run(post, step=path)
