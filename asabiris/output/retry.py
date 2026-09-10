@@ -79,9 +79,12 @@ def http_error(status, headers, *, read_only=False):
 async def http_request(session, method, url, *, success=(200,), read_only=False, **kwargs):
 	"""One HTTP attempt; never follow a redirect that could replay a notification."""
 	async with session.request(method, url, allow_redirects=False, **kwargs) as response:
+		body = await response.text()
 		if response.status not in success:
-			raise http_error(response.status, response.headers, read_only=read_only)
-		return await response.text()
+			error = http_error(response.status, response.headers, read_only=read_only)
+			error.ErrorDict["provider_response"] = body
+			raise error
+		return body
 
 
 class RetryPolicy:
