@@ -341,8 +341,8 @@ class EmailOutputService(asab.Service, OutputABC):
 				)
 
 		# Send the email with retry logic
-		retry_attempts = 3
-		delay = 5  # seconds
+		retry_attempts = asab.Config.getint("notification_retry", "max_attempts")
+		delay = asab.Config.getfloat("notification_retry", "delay")
 
 		for attempt in range(retry_attempts):
 			try:
@@ -471,7 +471,7 @@ class EmailOutputService(asab.Service, OutputABC):
 						"max_attempts": retry_attempts,
 					},
 				)
-				if attempt < retry_attempts - 1:
+				if attempt < retry_attempts - 1 and 400 <= e.code < 500:
 					L.info(
 						"Retrying email send after SMTP response error.",
 						struct_data={
@@ -506,18 +506,6 @@ class EmailOutputService(asab.Service, OutputABC):
 						"error_message": str(e),
 					},
 				)
-				if attempt < retry_attempts - 1:
-					L.info(
-						"Retrying email send after SMTP server disconnect.",
-						struct_data={
-							"attempt": attempt + 1,
-							"max_attempts": retry_attempts,
-							"host": self.Host,
-							"tenant": effective_tenant,
-						},
-					)
-					await asyncio.sleep(delay)
-					continue  # Retry the email sending
 				raise ASABIrisError(
 					ErrorCode.SMTP_SERVER_DISCONNECTED,
 					tech_message="SMTP server disconnected: {}.".format(str(e)),
@@ -538,18 +526,6 @@ class EmailOutputService(asab.Service, OutputABC):
 						"error_message": str(e),
 					},
 				)
-				if attempt < retry_attempts - 1:
-					L.info(
-						"Retrying email send after SMTP timeout.",
-						struct_data={
-							"attempt": attempt + 1,
-							"max_attempts": retry_attempts,
-							"host": self.Host,
-							"tenant": effective_tenant,
-						},
-					)
-					await asyncio.sleep(delay)
-					continue  # Retry the email sending
 				raise ASABIrisError(
 					ErrorCode.SMTP_TIMEOUT,
 					tech_message="SMTP timeout encountered: {}.".format(str(e)),
@@ -571,18 +547,6 @@ class EmailOutputService(asab.Service, OutputABC):
 						"error_message": str(e),
 					},
 				)
-				if attempt < retry_attempts - 1:
-					L.info(
-						"Retrying email send after unexpected SMTP error.",
-						struct_data={
-							"attempt": attempt + 1,
-							"max_attempts": retry_attempts,
-							"host": self.Host,
-							"tenant": effective_tenant,
-						},
-					)
-					await asyncio.sleep(delay)
-					continue  # Retry the email sending
 				raise ASABIrisError(
 					ErrorCode.SMTP_GENERIC_ERROR,
 					tech_message="Generic error occurred: {}.".format(str(e)),

@@ -8,6 +8,7 @@ import asab
 from ...errors import ASABIrisError, ErrorCode
 from ...output_abc import OutputABC
 from ...audit import AuditLogger
+from ..retry import retry
 
 L = logging.getLogger(__name__)
 
@@ -108,8 +109,17 @@ class MSTeamsOutputService(asab.Service, OutputABC):
 
         # Sending the message to MS Teams using aiohttp
         async with aiohttp.ClientSession() as session:
-            async with session.post(webhook_url, json=adaptive_card) as resp:
-                if resp.status in (200, 202):
+            async def send_card():
+                async with session.post(webhook_url, json=adaptive_card) as response:
+                    return response.status, await response.text()
+
+            status, error_message = await retry(
+                send_card,
+                lambda result, error: isinstance(error, aiohttp.ClientConnectorError) or (
+                    result is not None and result[0] == 429
+                ),
+            )
+            if status in (200, 202):
                     AuditLogger.log(
                         asab.LOG_NOTICE,
                         "Microsoft Teams message sent",
@@ -124,23 +134,22 @@ class MSTeamsOutputService(asab.Service, OutputABC):
                         struct_data={"tenant": effective_tenant},
                     )
                     return True
-                else:
-                    error_message = await resp.text()
+            else:
                     L.warning(
                         "Microsoft Teams webhook rejected the message; verify webhook_url and incoming connector settings.",
                         struct_data={
                             "tenant": effective_tenant,
-                            "status": resp.status,
+                            "status": status,
                             "response_body": error_message,
                         },
                     )
 
                     # Mapping specific status codes to error codes
-                    if resp.status == 400:  # Bad Request
+                    if status == 400:  # Bad Request
                         error_code = ErrorCode.INVALID_SERVICE_CONFIGURATION
-                    elif resp.status == 404:  # Not Found
+                    elif status == 404:  # Not Found
                         error_code = ErrorCode.TEMPLATE_NOT_FOUND
-                    elif resp.status == 503:  # Service Unavailable
+                    elif status == 503:  # Service Unavailable
                         error_code = ErrorCode.SERVER_ERROR
                     else:
                         error_code = ErrorCode.SERVER_ERROR  # General server error for other cases
@@ -148,7 +157,7 @@ class MSTeamsOutputService(asab.Service, OutputABC):
                     raise ASABIrisError(
                         error_code,
                         tech_message="Error encountered sending message to MS Teams. Status: {}, Reason: {}".format(
-                            resp.status, error_message),
+                            status, error_message),
                         error_i18n_key="Error occurred while sending message to MS Teams. Reason: '{{error_message}}'.",
                         error_dict={
                             "error_message": error_message,

@@ -12,6 +12,7 @@ import msal
 from ...errors import ASABIrisError, ErrorCode
 from ...audit import AuditLogger
 from ...output_abc import OutputABC
+from ..retry import retry
 
 L = logging.getLogger(__name__)
 
@@ -755,8 +756,16 @@ class M365EmailOutputService(asab.Service, OutputABC):
 		# Get token (app or delegated depending on self.Mode)
 		token = await self._get_access_token_async(force_refresh=False)
 
+		async def graph_post(access_token):
+			return await retry(
+				lambda: self._graph_post(api_url, payload, access_token),
+				lambda result, error: isinstance(error, requests.exceptions.ConnectTimeout) or (
+					result is not None and result.status_code == 429
+				),
+			)
+
 		try:
-			resp = await self._graph_post(api_url, payload, token)
+			resp = await graph_post(token)
 		except requests.exceptions.Timeout as e:
 			L.error(
 				"Microsoft Graph sendMail request timed out; check network connectivity and Graph API availability.",
@@ -796,7 +805,7 @@ class M365EmailOutputService(asab.Service, OutputABC):
 			token = await self._get_access_token_async(force_refresh=True)
 
 			try:
-				resp = await self._graph_post(api_url, payload, token)
+				resp = await graph_post(token)
 			except requests.exceptions.Timeout as e:
 				L.error(
 					"Microsoft Graph sendMail request timed out on retry after token refresh.",

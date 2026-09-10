@@ -3,6 +3,7 @@ import hashlib
 import datetime
 import secrets
 import re
+import uuid
 
 import xml.etree.ElementTree as ET
 
@@ -13,6 +14,7 @@ import pytz
 from ...output_abc import OutputABC
 from ...errors import ASABIrisError, ErrorCode
 from ...audit import AuditLogger
+from ..retry import retry
 
 L = logging.getLogger(__name__)
 
@@ -314,20 +316,32 @@ class SMSOutputService(asab.Service, OutputABC):
 				message_parts = self._split_message_words(message, prefix_template="{i}/{n} ", include_single=True)
 
 				for part in message_parts:
-					time_now, sul, auth = self.generate_auth_params(password)
-					params = {
-						"action": "send_sms",
-						"login": login,
-						"time": time_now,
-						"sul": sul,
-						"auth": auth,
-						"number": phone,
-						"message": part,
-					}
+					user_id = uuid.uuid4().hex
 
 					try:
-						async with session.get(api_url, params=params) as resp:
-							response_body = await resp.text()
+						async def send_part():
+							time_now, sul, auth = self.generate_auth_params(password)
+							params = {
+								"action": "send_sms", "login": login, "time": time_now,
+								"sul": sul, "auth": auth, "number": phone,
+								"message": part, "user_id": user_id,
+							}
+							async with session.get(api_url, params=params) as response:
+								return response.status, await response.text()
+
+						def is_temporary(result, error):
+							if isinstance(error, aiohttp.ClientConnectorError):
+								return True
+							if result is None:
+								return False
+							if result[0] == 429:
+								return True
+							try:
+								return ET.fromstring(result[1]).findtext("err") == "8"
+							except ET.ParseError:
+								return False
+
+						status, response_body = await retry(send_part, is_temporary)
 					except aiohttp.ClientError as err:
 						L.error(
 							"Network error while calling SMS provider; verify api_url and outbound network access.",
@@ -344,19 +358,19 @@ class SMSOutputService(asab.Service, OutputABC):
 							error_dict={"error_message": str(err)}
 						) from err
 
-					if resp.status != 200:
+					if status != 200:
 						L.warning(
 							"SMS provider returned a non-200 HTTP status; review provider credentials and API settings.",
 							struct_data={
 								"tenant": effective_tenant,
 								"api_url": api_url,
-								"status": resp.status,
+								"status": status,
 								"response_body": response_body,
 							},
 						)
 						raise ASABIrisError(
 							ErrorCode.SERVER_ERROR,
-							tech_message="SMSBrana.cz responded with '{}': '{}'".format(resp.status, response_body),
+							tech_message="SMSBrana.cz responded with '{}': '{}'".format(status, response_body),
 							error_i18n_key="Error occurred while sending SMS. Reason: '{{error_message}}'.",
 							error_dict={"error_message": response_body}
 						)

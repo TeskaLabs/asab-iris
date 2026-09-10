@@ -5,6 +5,7 @@ import aiohttp
 
 from ...errors import ASABIrisError, ErrorCode
 from ...audit import AuditLogger
+from ..retry import retry
 
 L = logging.getLogger(__name__)
 SLACK_LINK_RE = re.compile(r"<(https?://[^>|]+)(?:\|[^>]+)?>")
@@ -123,12 +124,20 @@ class PushOutputService(asab.Service):
 
 		try:
 			async with aiohttp.ClientSession(timeout=timeout) as session:
-				async with session.post(final_url, headers=headers, data=message.encode("utf-8")) as resp:
-					text = await resp.text()
-					if resp.status != 200:
+				async def send_push():
+					async with session.post(final_url, headers=headers, data=message.encode("utf-8")) as response:
+						return response.status, await response.text()
+
+				status, text = await retry(
+					send_push,
+					lambda result, error: isinstance(error, aiohttp.ClientConnectorError) or (
+						result is not None and result[0] == 429
+					),
+				)
+				if status != 200:
 						raise ASABIrisError(
 							ErrorCode.SERVER_ERROR,
-							tech_message="Push failed: {} {}".format(resp.status, text),
+							tech_message="Push failed: {} {}".format(status, text),
 							error_i18n_key="Push notification failed.",
 							error_dict={"error_message": text}
 						)

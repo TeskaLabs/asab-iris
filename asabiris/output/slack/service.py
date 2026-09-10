@@ -1,3 +1,4 @@
+import asyncio
 import time
 import logging
 import configparser
@@ -13,6 +14,7 @@ except ModuleNotFoundError:
 from ...errors import ASABIrisError, ErrorCode
 from ...output_abc import OutputABC
 from ...audit import AuditLogger
+from ..retry import retry
 
 if slack_sdk is not None:
 	SlackApiError = slack_sdk.errors.SlackApiError
@@ -40,6 +42,13 @@ def check_config(config, section, parameter):
 
 
 class SlackOutputService(asab.Service, OutputABC):
+	async def _retry(self, operation):
+		return await retry(
+			lambda: asyncio.to_thread(operation),
+			lambda result, error: isinstance(error, SlackApiError) and (
+				error.response.status_code == 429 or error.response.get("error") == "ratelimited"
+			),
+		)
 
 	def __init__(self, app, service_name="SlackOutputService"):
 		super().__init__(app, service_name)
@@ -98,7 +107,7 @@ class SlackOutputService(asab.Service, OutputABC):
 		if cache_hit is not None:
 			return cache_hit[0], cache_hit[1], channel
 
-		client = slack_sdk.WebClient(token=token)
+		client = slack_sdk.WebClient(token=token, retry_handlers=[])
 		channel_id = self.get_channel_id(client, channel)
 
 		self.Cache[(token, channel)] = (client, channel_id, time.time())
@@ -132,11 +141,11 @@ class SlackOutputService(asab.Service, OutputABC):
 			}
 		)
 		try:
-			client.chat_postMessage(
+			await self._retry(lambda: client.chat_postMessage(
 				channel=channel_id,
 				text=fallback_message,
 				blocks=blocks
-			)
+			))
 		except SlackApiError as e:
 			L.warning(
 				"Failed to send Slack message; verify bot token, channel name, and Slack API permissions.",
@@ -188,12 +197,16 @@ class SlackOutputService(asab.Service, OutputABC):
 						"channel": channel,
 					}
 				)
-				client.files_upload_v2(
-					channel=channel_id,
-					file=attachment.Content,
-					filename=attachment.FileName,
-					initial_comment=body.format() if attachment.Position == 0 else None
-				)
+
+				def upload():
+					attachment.Content.seek(0)
+					return client.files_upload_v2(
+						channel=channel_id,
+						file=attachment.Content,
+						filename=attachment.FileName,
+						initial_comment=body.format() if attachment.Position == 0 else None
+					)
+				await self._retry(upload)
 		except SlackApiError as e:
 			L.warning(
 				"Failed to upload files to Slack; verify bot token, channel access, and file size limits.",
