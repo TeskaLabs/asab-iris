@@ -132,31 +132,29 @@ class NotificationQueueService(asab.Service):
 			await self.Producer.stop()
 
 	async def deliver(self, kind, payload, source_key=None):
-		try:
-			await self._dispatch(kind, payload)
-		except TemporaryDeliveryError as error:
-			if self.MaxAttempts == 1 or self.Producer is None:
-				raise
-			temporary_error_message = error.TechMessage
-		else:
-			self.Counter.add("delivered_without_retry", 1)
-			return True
-
 		now = time.time()
 		envelope = {
 			"id": source_key or uuid.uuid4().hex,
 			"kind": kind,
 			"payload": payload,
-			"attempts": 1,
-			"next_attempt_at": now + self._delay(1),
+			"attempts": 0,
+			"next_attempt_at": now,
 			"expires_at": now + self.Retention,
-			"last_error": temporary_error_message,
 		}
+		error = await self._attempt_delivery(envelope)
+		if error is None:
+			self.Counter.add("delivered_without_retry", 1)
+			return True
+
+		if envelope["attempts"] >= self.MaxAttempts or self.Producer is None:
+			raise error
+		envelope["next_attempt_at"] = time.time() + self._delay(envelope["attempts"])
+		envelope["last_error"] = error.TechMessage
 		await self._publish(envelope)
 		self.Counter.add("queued", 1)
 		L.warning(
 			"Notification queued in Kafka after a temporary provider failure.",
-			struct_data={"notification_id": envelope["id"], "provider": kind, "attempt": 1},
+			struct_data={"notification_id": envelope["id"], "provider": kind, "attempt": envelope["attempts"]},
 		)
 		return False
 
@@ -237,24 +235,8 @@ class NotificationQueueService(asab.Service):
 			await self._terminal_fallback(kind, payload, "Retry retention expired")
 			return
 
-		self.Counter.add("attempted", 1)
 		try:
-			await self._dispatch(kind, payload)
-		except TemporaryDeliveryError as error:
-			attempts = envelope["attempts"] + 1
-			now = time.time()
-			if attempts >= self.MaxAttempts or now >= envelope["expires_at"]:
-				self.Counter.add("failed", 1)
-				L.error(
-					"Notification retry exhausted.",
-					struct_data={"notification_id": envelope["id"], "provider": kind, "attempts": attempts},
-				)
-				await self._terminal_fallback(kind, payload, error.TechMessage)
-				return
-			envelope["attempts"] = attempts
-			envelope["next_attempt_at"] = now + self._delay(attempts)
-			envelope["last_error"] = error.TechMessage
-			await self._publish(envelope)
+			error = await self._attempt_delivery(envelope)
 		except Exception as error:
 			self.Counter.add("failed", 1)
 			L.exception(
@@ -262,12 +244,37 @@ class NotificationQueueService(asab.Service):
 				struct_data={"notification_id": envelope["id"], "provider": kind, "worker": worker},
 			)
 			await self._terminal_fallback(kind, payload, str(error))
-		else:
+			return
+
+		if error is None:
 			self.Counter.add("delivered_after_retry", 1)
 			L.info(
 				"Queued notification delivered.",
-				struct_data={"notification_id": envelope["id"], "provider": kind, "attempts": envelope["attempts"] + 1},
+				struct_data={"notification_id": envelope["id"], "provider": kind, "attempts": envelope["attempts"]},
 			)
+			return
+
+		now = time.time()
+		if envelope["attempts"] >= self.MaxAttempts or now >= envelope["expires_at"]:
+			self.Counter.add("failed", 1)
+			L.error(
+				"Notification retry exhausted.",
+				struct_data={"notification_id": envelope["id"], "provider": kind, "attempts": envelope["attempts"]},
+			)
+			await self._terminal_fallback(kind, payload, error.TechMessage)
+			return
+		envelope["next_attempt_at"] = now + self._delay(envelope["attempts"])
+		envelope["last_error"] = error.TechMessage
+		await self._publish(envelope)
+
+	async def _attempt_delivery(self, envelope):
+		envelope["attempts"] += 1
+		self.Counter.add("attempted", 1)
+		try:
+			await self._dispatch(envelope["kind"], envelope["payload"])
+		except TemporaryDeliveryError as error:
+			return error
+		return None
 
 	async def _terminal_fallback(self, kind, payload, error):
 		await self.App.KafkaHandler.handle_exception(error, kind, payload)
