@@ -125,7 +125,7 @@ class SlackOutputService(asab.Service, OutputABC):
 			)
 			return
 
-		client, channel_id, channel = self._resolve(channel)
+		client, channel_id, channel = await self._retry(lambda: self._resolve(channel))
 
 		if client is None:
 			raise ValueError("Cannot send message to Slack.")
@@ -166,7 +166,7 @@ class SlackOutputService(asab.Service, OutputABC):
 		AuditLogger.log(asab.LOG_NOTICE, "Slack message sent", struct_data={"channel": channel, "channel_id": channel_id})
 
 
-	async def send_files(self, body: str, atts_gen, channel=None):
+	async def send_files(self, body: str, atts_gen, channel=None, retry_state=None):
 		"""
 		Sends a message to a Slack channel with attachments.
 		"""
@@ -176,10 +176,16 @@ class SlackOutputService(asab.Service, OutputABC):
 			)
 			return
 
-		client, channel_id, channel = self._resolve(channel)
+		client, channel_id, channel = await self._retry(lambda: self._resolve(channel))
 
+		retry_state = retry_state if retry_state is not None else {}
+		completed = retry_state.get("_retry_attachment", 0)
 		try:
+			index = 0
 			async for attachment in atts_gen:
+				if index < completed:
+					index += 1
+					continue
 				# robust size calculation
 				try:
 					size = len(attachment.Content)
@@ -207,6 +213,8 @@ class SlackOutputService(asab.Service, OutputABC):
 						initial_comment=body.format() if attachment.Position == 0 else None
 					)
 				await self._retry(upload)
+				index += 1
+				retry_state["_retry_attachment"] = index
 		except SlackApiError as e:
 			L.warning(
 				"Failed to upload files to Slack; verify bot token, channel access, and file size limits.",

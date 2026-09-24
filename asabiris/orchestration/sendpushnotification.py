@@ -63,33 +63,30 @@ class SendPushOrchestrator(object):
 
 			params = body.get("params", {}) or {}
 
-			# 1) Render
-			rendered = await self.JinjaService.format(template, params)
+			rendered = push_dict.get("rendered_message")
 			if rendered is None:
-				rendered = ""
-			rendered = str(rendered).strip()
-			if len(rendered) == 0:
-				raise ASABIrisError(
-					ErrorCode.RENDERING_ERROR,
-					tech_message="Rendered push body is empty.",
-					error_i18n_key="Rendered push body is empty."
-				)
+				# 1) Render
+				rendered = await self.JinjaService.format(template, params)
+				if rendered is None:
+					rendered = ""
+				rendered = str(rendered).strip()
+				if len(rendered) == 0:
+					raise ASABIrisError(
+						ErrorCode.RENDERING_ERROR,
+						tech_message="Rendered push body is empty.",
+						error_i18n_key="Rendered push body is empty."
+					)
 
-			# 2) Optional: support TITLE: header in the template (like email SUBJECT:)
-			# Precedence: params.title > template TITLE > no title.
-			parts = rendered.split("\n", 1)
-			first_line = parts[0] if len(parts) > 0 else ""
-			match = TITLE_RE.match(first_line)
-			template_title = None
-			if match is not None:
-				template_title = match.group(1).strip()
-				# Always remove template TITLE from message body.
-				rendered = parts[1].strip() if len(parts) > 1 else ""
-
-			title = params.get("title")
-			if not title and template_title:
-				body.setdefault("params", {})
-				body["params"]["title"] = template_title
+				# 2) Optional: support TITLE: header in the template (like email SUBJECT:)
+				parts = rendered.split("\n", 1)
+				first_line = parts[0] if len(parts) > 0 else ""
+				match = TITLE_RE.match(first_line)
+				if match is not None:
+					template_title = match.group(1).strip()
+					rendered = parts[1].strip() if len(parts) > 1 else ""
+					if not params.get("title") and template_title:
+						body.setdefault("params", {})
+						body["params"]["title"] = template_title
 
 			# 3) Attach rendered content and pass through
 			push_dict["rendered_message"] = rendered

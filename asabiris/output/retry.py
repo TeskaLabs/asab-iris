@@ -1,30 +1,31 @@
-"""Small retry helper for explicitly temporary notification failures."""
-import asyncio
+"""Temporary-delivery classification shared by notification providers."""
 
-import asab
+from ..errors import ASABIrisError, ErrorCode
 
 
-asab.Config.add_defaults({
-	"notification_retry": {
-		"max_attempts": "3",
-		"delay": "1",
-	}
-})
+class TemporaryDeliveryError(ASABIrisError):
+	"""A provider operation that is safe to retry from the durable queue."""
+
+	def __init__(self, error=None, result=None):
+		message = str(error) if error is not None else "Temporary provider response: {!r}".format(result)
+		super().__init__(
+			ErrorCode.SERVER_ERROR,
+			tech_message=message,
+			error_i18n_key="Notification delivery temporarily unavailable.",
+			error_dict={"error_message": message},
+		)
+		self.OriginalError = error
+		self.Result = result
 
 
 async def retry(operation, is_temporary):
-	max_attempts = asab.Config.getint("notification_retry", "max_attempts")
-	delay = asab.Config.getfloat("notification_retry", "delay")
-	if max_attempts < 1 or delay < 0:
-		raise ValueError("Invalid [notification_retry] configuration")
+	try:
+		result = await operation()
+	except Exception as error:
+		if is_temporary(None, error):
+			raise TemporaryDeliveryError(error=error) from error
+		raise
 
-	for attempt in range(1, max_attempts + 1):
-		try:
-			result = await operation()
-		except Exception as error:
-			if attempt == max_attempts or not is_temporary(None, error):
-				raise
-		else:
-			if attempt == max_attempts or not is_temporary(result, None):
-				return result
-		await asyncio.sleep(delay)
+	if is_temporary(result, None):
+		raise TemporaryDeliveryError(result=result)
+	return result

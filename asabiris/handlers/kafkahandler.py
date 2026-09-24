@@ -140,8 +140,11 @@ class KafkaHandler(asab.Service):
 			return
 		async for msg in self.Consumer:
 			try:
+				source_key = "{}:{}:{}".format(msg.topic, msg.partition, msg.offset)
 				msg = msg.value.decode("utf-8")
 				msg = json.loads(msg)
+				if isinstance(msg, dict):
+					msg["_iris_source_key"] = source_key
 			except (UnicodeDecodeError, json.JSONDecodeError) as e:
 				L.warning(
 					"Kafka alert message is not valid UTF-8 JSON; message was skipped. Verify the producer publishes JSON to the configured topic.",
@@ -281,7 +284,7 @@ class KafkaHandler(asab.Service):
 			return
 
 		try:
-			await self.App.SendSlackOrchestrator.send_to_slack(msg)
+			await self.App.NotificationQueueService.deliver("slack", msg, source="kafka", source_key=msg.get("_iris_source_key"))
 
 		except ASABIrisError as e:
 			# 1. Business error (DO NOT trigger error notification)
@@ -315,7 +318,7 @@ class KafkaHandler(asab.Service):
 			return
 
 		try:
-			await self.App.SendMattermostOrchestrator.send_to_mattermost(msg)
+			await self.App.NotificationQueueService.deliver("mattermost", msg, source="kafka", source_key=msg.get("_iris_source_key"))
 		except ASABIrisError as e:
 			if e.ErrorCode in (
 				ErrorCode.INVALID_REQUEST,
@@ -343,7 +346,7 @@ class KafkaHandler(asab.Service):
 			return
 
 		try:
-			await self.App.SendMSTeamsOrchestrator.send_to_msteams(msg)
+			await self.App.NotificationQueueService.deliver("msteams", msg, source="kafka", source_key=msg.get("_iris_source_key"))
 		except ASABIrisError as e:
 			if e.ErrorCode == ErrorCode.SERVER_ERROR:
 				L.warning(
@@ -367,7 +370,7 @@ class KafkaHandler(asab.Service):
 			return
 
 		try:
-			await self.App.SendSMSOrchestrator.send_sms(msg)
+			await self.App.NotificationQueueService.deliver("sms", msg, source="kafka", source_key=msg.get("_iris_source_key"))
 		except ASABIrisError as e:
 			if e.ErrorCode == ErrorCode.SERVER_ERROR:
 				L.warning(
@@ -381,20 +384,12 @@ class KafkaHandler(asab.Service):
 
 
 	async def send_email(self, json_data):
-		await self.App.SendEmailOrchestrator.send_email(
-			email_from=json_data.get('from', None),
-			email_to=json_data['to'],
-			email_subject=json_data.get('subject', None),
-			body_template=json_data['body']['template'],
-			body_template_wrapper=json_data["body"].get("wrapper", None),
-			body_params=json_data['body']['params'],
-			email_cc=json_data.get('cc', []),
-			email_bcc=json_data.get('bcc', []),
-			attachments=json_data.get('attachments', [])
+		delivered = await self.App.NotificationQueueService.deliver(
+			"email", json_data, source="kafka", source_key=json_data.get("_iris_source_key")
 		)
 		L.info(
-			"Kafka email notification delivered successfully.",
-			struct_data={"recipients": json_data.get("to")},
+			"Kafka email notification delivered successfully." if delivered else "Kafka email notification queued for delivery.",
+			struct_data={"recipients": json_data.get("to"), "queued": not delivered},
 		)
 
 	async def handle_push(self, msg):
@@ -409,7 +404,7 @@ class KafkaHandler(asab.Service):
 
 		try:
 			# Orchestrator is responsible for rendering the template & calling PushOutputService
-			await self.App.SendPushOrchestrator.send_push(msg)
+			await self.App.NotificationQueueService.deliver("push", msg, source="kafka", source_key=msg.get("_iris_source_key"))
 		except ASABIrisError as e:
 			# Network/remote errors are SERVER_ERROR; others bubble to error handler
 			if e.ErrorCode == ErrorCode.SERVER_ERROR:

@@ -268,17 +268,7 @@ class WebHandler(object):
 			token = asab.contextvars.Tenant.set(tenant)
 
 		try:
-			await self.App.SendEmailOrchestrator.send_email(
-				email_to=json_data.get("to", None),
-				body_template=json_data["body"]["template"],
-				body_template_wrapper=json_data["body"].get("wrapper", None),
-				email_cc=json_data.get("cc", []),  # Optional
-				email_bcc=json_data.get("bcc", []),  # Optional
-				email_subject=json_data.get("subject", None),  # Optional
-				email_from=json_data.get("from"),
-				body_params=json_data["body"].get("params", {}),  # Optional
-				attachments=json_data.get("attachments", []),
-			)
+			await self.App.NotificationQueueService.deliver("email", json_data)
 		except ASABIrisError as e:
 			# Map ErrorCode to HTTP status codes
 			status_code = self.map_error_code_to_status(e.ErrorCode)
@@ -378,7 +368,7 @@ class WebHandler(object):
 			token = asab.contextvars.Tenant.set(tenant)
 
 		try:
-			await self.App.SendSlackOrchestrator.send_to_slack(json_data)
+			await self.App.NotificationQueueService.deliver("slack", json_data)
 		except ASABIrisError as e:
 			# Map ErrorCode to HTTP status codes
 			status_code = self.map_error_code_to_status(e.ErrorCode)
@@ -473,7 +463,7 @@ class WebHandler(object):
 			token = asab.contextvars.Tenant.set(tenant)
 
 		try:
-			await self.App.SendMSTeamsOrchestrator.send_to_msteams(json_data)
+			await self.App.NotificationQueueService.deliver("msteams", json_data)
 		except ASABIrisError as e:
 			# Map ErrorCode to HTTP status codes
 			status_code = self.map_error_code_to_status(e.ErrorCode)
@@ -568,7 +558,7 @@ class WebHandler(object):
 			token = asab.contextvars.Tenant.set(tenant)
 
 		try:
-			await self.App.SendMattermostOrchestrator.send_to_mattermost(json_data)
+			await self.App.NotificationQueueService.deliver("mattermost", json_data)
 		except ASABIrisError as e:
 			status_code = self.map_error_code_to_status(e.ErrorCode)
 
@@ -772,7 +762,7 @@ class WebHandler(object):
 
 		# Render a body
 		try:
-			await self.App.SendSMSOrchestrator.send_sms(json_data)
+			await self.App.NotificationQueueService.deliver("sms", json_data)
 		except ASABIrisError as e:
 			# Map ErrorCode to HTTP status codes
 			status_code = self.map_error_code_to_status(e.ErrorCode)
@@ -859,7 +849,7 @@ class WebHandler(object):
 			)
 
 		try:
-			await self.App.SendPushOrchestrator.send_push(json_data)
+			await self.App.NotificationQueueService.deliver("push", json_data)
 		except ASABIrisError as e:
 			status_code = self.map_error_code_to_status(e.ErrorCode)
 			response = {

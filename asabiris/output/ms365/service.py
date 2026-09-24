@@ -760,7 +760,7 @@ class M365EmailOutputService(asab.Service, OutputABC):
 			return await retry(
 				lambda: self._graph_post(api_url, payload, access_token),
 				lambda result, error: isinstance(error, requests.exceptions.ConnectTimeout) or (
-					result is not None and result.status_code == 429
+					result is not None and (result.status_code == 429 or result.status_code >= 500)
 				),
 			)
 
@@ -873,16 +873,15 @@ class M365EmailOutputService(asab.Service, OutputABC):
 
 		# 429 Too many requests
 		if resp.status_code == 429:
-			retry_after = resp.headers.get("Retry-After", "unknown")
 			L.warning(
-				"Microsoft Graph rate limit reached; reduce send frequency or wait before retrying.",
-				struct_data={"endpoint": api_url, "tenant": effective_tenant, "status": resp.status_code, "retry_after": retry_after},
+				"Microsoft Graph rate limit reached; reduce send frequency.",
+				struct_data={"endpoint": api_url, "tenant": effective_tenant, "status": resp.status_code},
 			)
 			raise ASABIrisError(
 				ErrorCode.SERVER_ERROR,
-				tech_message="Rate limited, retry after {}".format(retry_after),
+				tech_message="Microsoft Graph rate limit reached.",
 				error_i18n_key="Email rate limited",
-				error_dict={"status": resp.status_code, "retry_after": retry_after},
+				error_dict={"status": resp.status_code},
 			)
 
 		# 5xx and unexpected

@@ -291,7 +291,7 @@ class MattermostOutputService(asab.Service, OutputABC):
 					post,
 					lambda result, error: isinstance(error, aiohttp.ClientConnectorError) or (
 						result is not None and (
-							result[0] == 429 or (path == "/api/v4/users/usernames" and result[0] >= 500)
+							result[0] == 429 or result[0] >= 500
 						)
 					),
 				)

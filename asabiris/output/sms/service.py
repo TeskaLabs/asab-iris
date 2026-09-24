@@ -288,6 +288,9 @@ class SMSOutputService(asab.Service, OutputABC):
 			message_list = list(message_body)
 
 		# 6) Reuse one session with a reasonable timeout
+		completed_parts = sms_data.get("_retry_sms_part", 0)
+		part_ids = sms_data.setdefault("_retry_sms_part_ids", {})
+		part_index = 0
 		timeout = aiohttp.ClientTimeout(total=15)
 		async with aiohttp.ClientSession(timeout=timeout) as session:
 			for message in message_list:
@@ -316,7 +319,11 @@ class SMSOutputService(asab.Service, OutputABC):
 				message_parts = self._split_message_words(message, prefix_template="{i}/{n} ", include_single=True)
 
 				for part in message_parts:
-					user_id = uuid.uuid4().hex
+					if part_index < completed_parts:
+						part_index += 1
+						continue
+					part_key = str(part_index)
+					user_id = part_ids.setdefault(part_key, uuid.uuid4().hex)
 
 					try:
 						async def send_part():
@@ -334,7 +341,7 @@ class SMSOutputService(asab.Service, OutputABC):
 								return True
 							if result is None:
 								return False
-							if result[0] == 429:
+							if result[0] == 429 or result[0] >= 500:
 								return True
 							try:
 								return ET.fromstring(result[1]).findtext("err") == "8"
@@ -426,6 +433,8 @@ class SMSOutputService(asab.Service, OutputABC):
 						"SMS part sent successfully.",
 						struct_data={"tenant": effective_tenant, "api_url": api_url},
 					)
+					part_index += 1
+					sms_data["_retry_sms_part"] = part_index
 		AuditLogger.log(
 			asab.LOG_NOTICE,
 			"SMS sent",

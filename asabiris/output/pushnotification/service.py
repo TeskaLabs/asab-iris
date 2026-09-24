@@ -131,7 +131,7 @@ class PushOutputService(asab.Service):
 				status, text = await retry(
 					send_push,
 					lambda result, error: isinstance(error, aiohttp.ClientConnectorError) or (
-						result is not None and result[0] == 429
+						result is not None and (result[0] == 429 or result[0] >= 500)
 					),
 				)
 				if status != 200:
