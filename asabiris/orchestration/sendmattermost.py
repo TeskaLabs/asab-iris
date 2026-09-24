@@ -68,14 +68,17 @@ class SendMattermostOrchestrator(object):
 				}
 			)
 
-		params = body.get("params", {}) or {}
-		message = await self.JinjaService.format(template, params)
-		payload = {"message": message}
+		payload = msg.get("_iris_rendered_payload")
+		if payload is None:
+			params = body.get("params", {}) or {}
+			message = await self.JinjaService.format(template, params)
+			payload = {"message": message}
 
-		props = body.get("props")
-		if props:
-			context = construct_context(dict(), getattr(self.JinjaService, "Variables", {}), params)
-			payload["props"] = self._render_props(props, context)
+			props = body.get("props")
+			if props:
+				context = construct_context(dict(), getattr(self.JinjaService, "Variables", {}), params)
+				payload["props"] = self._render_props(props, context)
+			msg["_iris_rendered_payload"] = payload
 
 		await self.MattermostOutputService.send(
 			payload,

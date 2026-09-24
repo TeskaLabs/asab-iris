@@ -63,6 +63,9 @@ class SendMSTeamsOrchestrator(object):
 			)
 
 		params = body.get("params", {})
-		output = await self.JinjaService.format(template, params)
+		output = msg.get("_iris_rendered_message")
+		if output is None:
+			output = await self.JinjaService.format(template, params)
+			msg["_iris_rendered_message"] = output
 
 		return await self.MSTeamsOutputService.send(output)

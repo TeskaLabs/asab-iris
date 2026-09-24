@@ -42,5 +42,6 @@ class SendSMSOrchestrator(object):
 			)
 
 		params = body.get("params", {})
-		sms_dict['message_body'] = await self.JinjaService.format(template, params)
+		if "message_body" not in sms_dict:
+			sms_dict['message_body'] = await self.JinjaService.format(template, params)
 		return await self.SMSOutput.send(sms_dict)

@@ -14,6 +14,7 @@ import aiosmtplib.protocol as smtp_protocol
 from ...output_abc import OutputABC
 from ...errors import ASABIrisError, ErrorCode
 from ...audit import AuditLogger
+from ..retry import TemporaryDeliveryError
 
 #
 
@@ -205,6 +206,7 @@ class EmailOutputService(asab.Service, OutputABC):
 		email_subject=None,
 		email_from=None,
 		attachments=None,
+		retry_payload=None,
 	):
 		"""
 		Send an outgoing email with the given parameters.
@@ -263,6 +265,12 @@ class EmailOutputService(asab.Service, OutputABC):
 		# Prefer tenant list, else body list
 		if not to_list:
 			to_list = body_to
+		if retry_payload is not None and retry_payload.get("_retry_smtp_recipients") is not None:
+			to_list = retry_payload["_retry_smtp_recipients"]
+			tenant_cc = []
+			tenant_bcc = []
+			email_cc = []
+			email_bcc = []
 
 		# Enforce "no default to"
 		if not to_list:
@@ -341,7 +349,7 @@ class EmailOutputService(asab.Service, OutputABC):
 				)
 
 		# Send the email with retry logic
-		retry_attempts = 3
+		retry_attempts = 1 if retry_payload is not None else 3
 		delay = 5  # seconds
 
 		for attempt in range(retry_attempts):
@@ -365,6 +373,20 @@ class EmailOutputService(asab.Service, OutputABC):
 						start_tls=self.StartTLS,
 						cert_bundle=self.Cert or None,
 						validate_certs=self.ValidateCerts
+					)
+				refused = result[0]
+				if retry_payload is not None and refused:
+					temporary = [address for address, response in refused.items() if 400 <= response.code < 500]
+					permanent = [address for address in refused if address not in temporary]
+					if temporary:
+						if retry_payload is not None:
+							retry_payload["_retry_smtp_recipients"] = temporary
+						raise TemporaryDeliveryError(result=refused)
+					raise ASABIrisError(
+						ErrorCode.SMTP_RESPONSE_ERROR,
+						tech_message="SMTP permanently rejected recipients: {}".format(", ".join(permanent)),
+						error_i18n_key="SMTP rejected one or more recipients.",
+						error_dict={"recipients": permanent},
 					)
 				break  # Email sent successfully, exit the retry loop
 
@@ -397,13 +419,13 @@ class EmailOutputService(asab.Service, OutputABC):
 					)
 					await asyncio.sleep(delay)
 					continue
+				if retry_payload is not None:
+					raise TemporaryDeliveryError(error=e) from e
 				raise ASABIrisError(
 					ErrorCode.SMTP_CONNECTION_ERROR,
 					tech_message="SMTP proxy connection failed: {}.".format(str(e)),
 					error_i18n_key="Could not connect to SMTP for host '{{host}}'.",
-					error_dict={
-						"host": self.Host,
-					}
+					error_dict={"host": self.Host},
 				)
 			except ASABIrisError:
 				raise
@@ -432,14 +454,36 @@ class EmailOutputService(asab.Service, OutputABC):
 					)
 					await asyncio.sleep(delay)
 					continue  # Retry the email sending
+				if retry_payload is not None:
+					raise TemporaryDeliveryError(error=e) from e
 				raise ASABIrisError(
 					ErrorCode.SMTP_CONNECTION_ERROR,
 					tech_message="SMTP connection failed: {}.".format(str(e)),
 					error_i18n_key="Could not connect to SMTP for host '{{host}}'.",
-					error_dict={
-						"host": self.Host,
-					}
+					error_dict={"host": self.Host},
 				)
+			except aiosmtplib.SMTPRecipientsRefused as e:
+				if retry_payload is None:
+					if attempt < retry_attempts - 1:
+						await asyncio.sleep(delay)
+						continue
+					raise ASABIrisError(
+						ErrorCode.SMTP_GENERIC_ERROR,
+						tech_message="Generic error occurred: {}.".format(str(e)),
+						error_i18n_key="A generic SMTP error occurred for host '{{host}}'.",
+						error_dict={"host": self.Host},
+					) from e
+				temporary = [recipient.recipient for recipient in e.recipients if 400 <= recipient.code < 500]
+				permanent = [recipient.recipient for recipient in e.recipients if recipient.recipient not in temporary]
+				if temporary:
+					retry_payload["_retry_smtp_recipients"] = temporary
+					raise TemporaryDeliveryError(error=e) from e
+				raise ASABIrisError(
+					ErrorCode.SMTP_RESPONSE_ERROR,
+					tech_message="SMTP permanently rejected recipients: {}".format(", ".join(permanent)),
+					error_i18n_key="SMTP rejected one or more recipients.",
+					error_dict={"recipients": permanent},
+				) from e
 			except aiosmtplib.SMTPAuthenticationError as e:
 				L.warning(
 					"SMTP authentication failed; verify user and password in [smtp] or tenant email configuration.",
@@ -484,6 +528,8 @@ class EmailOutputService(asab.Service, OutputABC):
 					)
 					await asyncio.sleep(delay)
 					continue  # Retry the email sending
+				if retry_payload is not None and 400 <= e.code < 500:
+					raise TemporaryDeliveryError(error=e) from e
 				raise ASABIrisError(
 					ErrorCode.SMTP_RESPONSE_ERROR,
 					tech_message="SMTP response exception: Code {}, Message '{}'.".format(e.code, e.message),

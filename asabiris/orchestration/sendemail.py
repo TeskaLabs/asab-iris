@@ -9,12 +9,15 @@ import os
 import re
 import datetime
 import logging
+import base64
+import io
 from typing import List, Tuple, Dict
 
 import asab
 import yaml
 
 from ..errors import ASABIrisError, ErrorCode
+from ..formatter.attachments import Attachment
 
 L = logging.getLogger(__name__)
 
@@ -59,7 +62,8 @@ class SendEmailOrchestrator:
 		email_cc=None,
 		email_bcc=None,
 		email_subject=None,
-		attachments=None
+		attachments=None,
+		retry_payload=None,
 	):
 		"""
 		Send an email using rendered template and delegate to the configured provider.
@@ -78,18 +82,42 @@ class SendEmailOrchestrator:
 		email_cc = email_cc or []
 		email_bcc = email_bcc or []
 
-		# Render the body and subject
-		body_html, rendered_subject = await self._render_template(
-			body_template,
-			body_params,
-			body_template_wrapper or self.MarkdownWrapper
-		)
-		if not email_subject:
-			email_subject = rendered_subject
+		cached = retry_payload.get("_iris_email_content") if retry_payload is not None else None
+		if cached is None:
+			body_html, rendered_subject = await self._render_template(
+				body_template,
+				body_params,
+				body_template_wrapper or self.MarkdownWrapper
+			)
+			if not email_subject:
+				email_subject = rendered_subject
+			if retry_payload is not None:
+				rendered_attachments = []
+				async for attachment in self.AttachmentRenderingService.render_attachment(attachments):
+					attachment.Content.seek(0)
+					rendered_attachments.append({
+						"content": base64.b64encode(attachment.Content.read()).decode("ascii"),
+						"content_type": attachment.ContentType,
+						"filename": attachment.FileName,
+						"position": attachment.Position,
+					})
+				cached = {
+					"body": body_html,
+					"subject": email_subject,
+					"attachments": rendered_attachments,
+				}
+				retry_payload["_iris_email_content"] = cached
+		else:
+			body_html = cached["body"]
+			email_subject = cached["subject"]
+
+		if cached is None:
+			atts_gen = self.AttachmentRenderingService.render_attachment(attachments)
+		else:
+			atts_gen = self._cached_attachments(cached["attachments"])
 
 		# PREFER SMTP if available; only fall back to MS365
 		if self.SmtpService is not None:
-			atts_gen = self.AttachmentRenderingService.render_attachment(attachments)
 			await self.SmtpService.send(
 				email_from=email_from,
 				email_to=email_to,
@@ -97,7 +125,8 @@ class SendEmailOrchestrator:
 				email_bcc=email_bcc,
 				email_subject=email_subject,
 				body=body_html,
-				attachments=atts_gen
+				attachments=atts_gen,
+				retry_payload=retry_payload,
 			)
 			L.info(
 				"Email sent via SMTP.",
@@ -105,8 +134,6 @@ class SendEmailOrchestrator:
 			)
 
 		elif self.M365Service is not None:
-			# MS365 path: use same async Attachment generator
-			atts_gen = self.AttachmentRenderingService.render_attachment(attachments)
 			await self.M365Service.send_email(
 				email_from,  # maps to from_recipient
 				email_to,  # maps to recipient
@@ -120,6 +147,15 @@ class SendEmailOrchestrator:
 			L.info(
 				"Email sent via Microsoft 365.",
 				struct_data={"provider": "m365", "recipients": self._recipient_list_for_log(email_to)},
+			)
+
+	async def _cached_attachments(self, attachments):
+		for attachment in attachments:
+			yield Attachment(
+				Content=io.BytesIO(base64.b64decode(attachment["content"])),
+				ContentType=attachment["content_type"],
+				FileName=attachment["filename"],
+				Position=attachment["position"],
 			)
 
 
