@@ -284,7 +284,7 @@ class KafkaHandler(asab.Service):
 			return
 
 		try:
-			await self.App.NotificationQueueService.deliver("slack", msg, source="kafka", source_key=msg.get("_iris_source_key"))
+			await self.App.NotificationQueueService.deliver("slack", msg, source_key=msg.get("_iris_source_key"))
 
 		except ASABIrisError as e:
 			# 1. Business error (DO NOT trigger error notification)
@@ -318,7 +318,7 @@ class KafkaHandler(asab.Service):
 			return
 
 		try:
-			await self.App.NotificationQueueService.deliver("mattermost", msg, source="kafka", source_key=msg.get("_iris_source_key"))
+			await self.App.NotificationQueueService.deliver("mattermost", msg, source_key=msg.get("_iris_source_key"))
 		except ASABIrisError as e:
 			if e.ErrorCode in (
 				ErrorCode.INVALID_REQUEST,
@@ -346,7 +346,7 @@ class KafkaHandler(asab.Service):
 			return
 
 		try:
-			await self.App.NotificationQueueService.deliver("msteams", msg, source="kafka", source_key=msg.get("_iris_source_key"))
+			await self.App.NotificationQueueService.deliver("msteams", msg, source_key=msg.get("_iris_source_key"))
 		except ASABIrisError as e:
 			if e.ErrorCode == ErrorCode.SERVER_ERROR:
 				L.warning(
@@ -370,7 +370,7 @@ class KafkaHandler(asab.Service):
 			return
 
 		try:
-			await self.App.NotificationQueueService.deliver("sms", msg, source="kafka", source_key=msg.get("_iris_source_key"))
+			await self.App.NotificationQueueService.deliver("sms", msg, source_key=msg.get("_iris_source_key"))
 		except ASABIrisError as e:
 			if e.ErrorCode == ErrorCode.SERVER_ERROR:
 				L.warning(
@@ -385,7 +385,7 @@ class KafkaHandler(asab.Service):
 
 	async def send_email(self, json_data):
 		delivered = await self.App.NotificationQueueService.deliver(
-			"email", json_data, source="kafka", source_key=json_data.get("_iris_source_key")
+			"email", json_data, source_key=json_data.get("_iris_source_key")
 		)
 		L.info(
 			"Kafka email notification delivered successfully." if delivered else "Kafka email notification queued for delivery.",
@@ -404,7 +404,7 @@ class KafkaHandler(asab.Service):
 
 		try:
 			# Orchestrator is responsible for rendering the template & calling PushOutputService
-			await self.App.NotificationQueueService.deliver("push", msg, source="kafka", source_key=msg.get("_iris_source_key"))
+			await self.App.NotificationQueueService.deliver("push", msg, source_key=msg.get("_iris_source_key"))
 		except ASABIrisError as e:
 			# Network/remote errors are SERVER_ERROR; others bubble to error handler
 			if e.ErrorCode == ErrorCode.SERVER_ERROR:

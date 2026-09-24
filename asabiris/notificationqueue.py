@@ -131,10 +131,7 @@ class NotificationQueueService(asab.Service):
 		if self.Producer is not None:
 			await self.Producer.stop()
 
-	async def deliver(self, kind, payload, source=None, source_key=None):
-		if source is not None:
-			payload = dict(payload)
-			payload["_iris_retry_source"] = source
+	async def deliver(self, kind, payload, source_key=None):
 		try:
 			await self._dispatch(kind, payload)
 		except TemporaryDeliveryError as error:
@@ -273,8 +270,6 @@ class NotificationQueueService(asab.Service):
 			)
 
 	async def _terminal_fallback(self, kind, payload, error):
-		if payload.get("_iris_retry_source") != "kafka":
-			return
 		await self.App.KafkaHandler.handle_exception(error, kind, payload)
 
 	async def _dispatch(self, kind, payload):
