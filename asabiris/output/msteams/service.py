@@ -113,53 +113,56 @@ class MSTeamsOutputService(asab.Service, OutputABC):
                 async with session.post(webhook_url, json=adaptive_card) as response:
                     return response.status, await response.text()
 
+            def is_temporary(result, error):
+                return isinstance(error, aiohttp.ClientConnectorError) or (
+                    result is not None and result[0] == 429
+                )
+
             status, error_message = await retry(
                 send_card,
-                lambda result, error: isinstance(error, aiohttp.ClientConnectorError) or (
-                    result is not None and (result[0] == 429 or result[0] >= 500)
-                ),
+                is_temporary,
             )
             if status in (200, 202):
-                    AuditLogger.log(
-                        asab.LOG_NOTICE,
-                        "Microsoft Teams message sent",
-                        struct_data={
-                            "webhook_host": urllib.parse.urlsplit(webhook_url).hostname,
-                            "tenant": effective_tenant,
-                        },
-                    )
-                    L.log(
-                        asab.LOG_NOTICE,
-                        "Microsoft Teams message sent successfully.",
-                        struct_data={"tenant": effective_tenant},
-                    )
-                    return True
+                AuditLogger.log(
+                    asab.LOG_NOTICE,
+                    "Microsoft Teams message sent",
+                    struct_data={
+                        "webhook_host": urllib.parse.urlsplit(webhook_url).hostname,
+                        "tenant": effective_tenant,
+                    },
+                )
+                L.log(
+                    asab.LOG_NOTICE,
+                    "Microsoft Teams message sent successfully.",
+                    struct_data={"tenant": effective_tenant},
+                )
+                return True
             else:
-                    L.warning(
-                        "Microsoft Teams webhook rejected the message; verify webhook_url and incoming connector settings.",
-                        struct_data={
-                            "tenant": effective_tenant,
-                            "status": status,
-                            "response_body": error_message,
-                        },
-                    )
+                L.warning(
+                    "Microsoft Teams webhook rejected the message; verify webhook_url and incoming connector settings.",
+                    struct_data={
+                        "tenant": effective_tenant,
+                        "status": status,
+                        "response_body": error_message,
+                    },
+                )
 
-                    # Mapping specific status codes to error codes
-                    if status == 400:  # Bad Request
-                        error_code = ErrorCode.INVALID_SERVICE_CONFIGURATION
-                    elif status == 404:  # Not Found
-                        error_code = ErrorCode.TEMPLATE_NOT_FOUND
-                    elif status == 503:  # Service Unavailable
-                        error_code = ErrorCode.SERVER_ERROR
-                    else:
-                        error_code = ErrorCode.SERVER_ERROR  # General server error for other cases
+                # Mapping specific status codes to error codes
+                if status == 400:  # Bad Request
+                    error_code = ErrorCode.INVALID_SERVICE_CONFIGURATION
+                elif status == 404:  # Not Found
+                    error_code = ErrorCode.TEMPLATE_NOT_FOUND
+                elif status == 503:  # Service Unavailable
+                    error_code = ErrorCode.SERVER_ERROR
+                else:
+                    error_code = ErrorCode.SERVER_ERROR  # General server error for other cases
 
-                    raise ASABIrisError(
-                        error_code,
-                        tech_message="Error encountered sending message to MS Teams. Status: {}, Reason: {}".format(
-                            status, error_message),
-                        error_i18n_key="Error occurred while sending message to MS Teams. Reason: '{{error_message}}'.",
-                        error_dict={
-                            "error_message": error_message,
-                        }
-                    )
+                raise ASABIrisError(
+                    error_code,
+                    tech_message="Error encountered sending message to MS Teams. Status: {}, Reason: {}".format(
+                        status, error_message),
+                    error_i18n_key="Error occurred while sending message to MS Teams. Reason: '{{error_message}}'.",
+                    error_dict={
+                        "error_message": error_message,
+                    }
+                )

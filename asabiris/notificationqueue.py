@@ -105,7 +105,7 @@ class NotificationQueueService(asab.Service):
 				loop=self.App.Loop,
 				enable_auto_commit=False,
 				auto_offset_reset="earliest",
-				max_poll_interval_ms=int((self.MaxDelay + 60) * 1000),
+				max_poll_interval_ms=int((self.MaxDelay * (1 + self.Jitter) + 60) * 1000),
 			)
 			try:
 				await consumer.start()
@@ -214,7 +214,7 @@ class NotificationQueueService(asab.Service):
 	async def _wait_until_due(self, envelope):
 		delay = max(0, float(envelope["next_attempt_at"]) - time.time())
 		if delay:
-			await asyncio.sleep(min(delay, self.MaxDelay))
+			await asyncio.sleep(delay)
 
 	async def _throttle(self):
 		async with self.RateLock:

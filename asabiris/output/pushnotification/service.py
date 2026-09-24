@@ -128,19 +128,22 @@ class PushOutputService(asab.Service):
 					async with session.post(final_url, headers=headers, data=message.encode("utf-8")) as response:
 						return response.status, await response.text()
 
+				def is_temporary(result, error):
+					return isinstance(error, aiohttp.ClientConnectorError) or (
+						result is not None and result[0] == 429
+					)
+
 				status, text = await retry(
 					send_push,
-					lambda result, error: isinstance(error, aiohttp.ClientConnectorError) or (
-						result is not None and (result[0] == 429 or result[0] >= 500)
-					),
+					is_temporary,
 				)
 				if status != 200:
-						raise ASABIrisError(
-							ErrorCode.SERVER_ERROR,
-							tech_message="Push failed: {} {}".format(status, text),
-							error_i18n_key="Push notification failed.",
-							error_dict={"error_message": text}
-						)
+					raise ASABIrisError(
+						ErrorCode.SERVER_ERROR,
+						tech_message="Push failed: {} {}".format(status, text),
+						error_i18n_key="Push notification failed.",
+						error_dict={"error_message": text}
+					)
 		except aiohttp.ClientError as err:
 			L.error(
 				"Network error while sending push notification; verify push url and outbound network access.",

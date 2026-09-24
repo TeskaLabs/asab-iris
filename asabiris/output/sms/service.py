@@ -341,7 +341,7 @@ class SMSOutputService(asab.Service, OutputABC):
 								return True
 							if result is None:
 								return False
-							if result[0] == 429 or result[0] >= 500:
+							if result[0] == 429:
 								return True
 							try:
 								return ET.fromstring(result[1]).findtext("err") == "8"

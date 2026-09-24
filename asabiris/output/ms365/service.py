@@ -757,11 +757,17 @@ class M365EmailOutputService(asab.Service, OutputABC):
 		token = await self._get_access_token_async(force_refresh=False)
 
 		async def graph_post(access_token):
+			async def post():
+				return await self._graph_post(api_url, payload, access_token)
+
+			def is_temporary(result, error):
+				return isinstance(error, requests.exceptions.ConnectTimeout) or (
+					result is not None and result.status_code == 429
+				)
+
 			return await retry(
-				lambda: self._graph_post(api_url, payload, access_token),
-				lambda result, error: isinstance(error, requests.exceptions.ConnectTimeout) or (
-					result is not None and (result.status_code == 429 or result.status_code >= 500)
-				),
+				post,
+				is_temporary,
 			)
 
 		try:

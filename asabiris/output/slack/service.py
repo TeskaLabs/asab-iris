@@ -43,11 +43,17 @@ def check_config(config, section, parameter):
 
 class SlackOutputService(asab.Service, OutputABC):
 	async def _retry(self, operation):
-		return await retry(
-			lambda: asyncio.to_thread(operation),
-			lambda result, error: isinstance(error, SlackApiError) and (
+		async def run_operation():
+			return await asyncio.to_thread(operation)
+
+		def is_temporary(result, error):
+			return isinstance(error, SlackApiError) and (
 				error.response.status_code == 429 or error.response.get("error") == "ratelimited"
-			),
+			)
+
+		return await retry(
+			run_operation,
+			is_temporary,
 		)
 
 	def __init__(self, app, service_name="SlackOutputService"):
@@ -125,7 +131,10 @@ class SlackOutputService(asab.Service, OutputABC):
 			)
 			return
 
-		client, channel_id, channel = await self._retry(lambda: self._resolve(channel))
+		def resolve_channel():
+			return self._resolve(channel)
+
+		client, channel_id, channel = await self._retry(resolve_channel)
 
 		if client is None:
 			raise ValueError("Cannot send message to Slack.")
@@ -141,11 +150,14 @@ class SlackOutputService(asab.Service, OutputABC):
 			}
 		)
 		try:
-			await self._retry(lambda: client.chat_postMessage(
-				channel=channel_id,
-				text=fallback_message,
-				blocks=blocks
-			))
+			def post_message():
+				return client.chat_postMessage(
+					channel=channel_id,
+					text=fallback_message,
+					blocks=blocks
+				)
+
+			await self._retry(post_message)
 		except SlackApiError as e:
 			L.warning(
 				"Failed to send Slack message; verify bot token, channel name, and Slack API permissions.",
@@ -176,7 +188,10 @@ class SlackOutputService(asab.Service, OutputABC):
 			)
 			return
 
-		client, channel_id, channel = await self._retry(lambda: self._resolve(channel))
+		def resolve_channel():
+			return self._resolve(channel)
+
+		client, channel_id, channel = await self._retry(resolve_channel)
 
 		retry_state = retry_state if retry_state is not None else {}
 		completed = retry_state.get("_retry_attachment", 0)

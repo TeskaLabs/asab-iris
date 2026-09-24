@@ -287,13 +287,14 @@ class MattermostOutputService(asab.Service, OutputABC):
 					async with session.post(url, headers=headers, json=payload) as response:
 						return response.status, await response.text()
 
+				def is_temporary(result, error):
+					return isinstance(error, aiohttp.ClientConnectorError) or (
+						result is not None and result[0] == 429
+					)
+
 				status, body = await retry(
 					post,
-					lambda result, error: isinstance(error, aiohttp.ClientConnectorError) or (
-						result is not None and (
-							result[0] == 429 or result[0] >= 500
-						)
-					),
+					is_temporary,
 				)
 		except aiohttp.ClientError as e:
 			raise ASABIrisError(
