@@ -135,9 +135,14 @@ class NotificationQueueService(asab.Service):
 		if source is not None:
 			payload = dict(payload)
 			payload["_iris_retry_source"] = source
-		if self.Producer is None:
+		try:
 			await self._dispatch(kind, payload)
-			self.Counter.add("delivered_without_queue", 1)
+		except TemporaryDeliveryError as error:
+			if self.MaxAttempts == 1 or self.Producer is None:
+				raise
+			temporary_error_message = error.TechMessage
+		else:
+			self.Counter.add("delivered_without_retry", 1)
 			return True
 
 		now = time.time()
@@ -145,15 +150,16 @@ class NotificationQueueService(asab.Service):
 			"id": source_key or uuid.uuid4().hex,
 			"kind": kind,
 			"payload": payload,
-			"attempts": 0,
-			"next_attempt_at": now,
+			"attempts": 1,
+			"next_attempt_at": now + self._delay(1),
 			"expires_at": now + self.Retention,
+			"last_error": temporary_error_message,
 		}
 		await self._publish(envelope)
 		self.Counter.add("queued", 1)
-		L.info(
-			"Notification queued in Kafka for delivery.",
-			struct_data={"notification_id": envelope["id"], "provider": kind},
+		L.warning(
+			"Notification queued in Kafka after a temporary provider failure.",
+			struct_data={"notification_id": envelope["id"], "provider": kind, "attempt": 1},
 		)
 		return False
 
