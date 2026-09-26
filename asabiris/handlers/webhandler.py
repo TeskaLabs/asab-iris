@@ -3,6 +3,7 @@ import logging
 import jsonata
 
 import asab.web.rest
+import asab.web.auth
 import asab.contextvars
 
 import aiohttp.web
@@ -57,6 +58,7 @@ class WebHandler(object):
 
 
 	@asab.web.tenant.allow_no_tenant
+	@asab.web.auth.noauth
 	async def get_features(self, request):
 		"""
 		List notification channels enabled in the current Iris instance.
@@ -913,6 +915,7 @@ class WebHandler(object):
 		return error_code_mapping.get(error_code, 400)  # Default to 400 Bad Request
 
 	@asab.web.tenant.allow_no_tenant
+	@asab.web.auth.noauth
 	async def authorize_ms365(self, request):
 		"""
 		Complete the Microsoft 365 delegated OAuth authorization flow.

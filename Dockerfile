@@ -44,6 +44,7 @@ RUN pip3 install --break-system-packages --no-cache-dir \
     fastjsonschema \
     jsonata-python \
     jinja2 \
+    jwcrypto==1.5.6 \
     markdown \
     pyyaml \
     xhtml2pdf \

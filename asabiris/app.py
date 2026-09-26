@@ -3,6 +3,7 @@ import configparser
 import asab.api
 import asab
 import asab.web.rest
+import asab.web.auth
 import asab.zookeeper
 import asab.library
 import asab.proactor
@@ -201,9 +202,10 @@ class ASABIRISApplication(asab.Application):
 		# Orchestrators
 		self.RenderReportOrchestrator = RenderReportOrchestrator(self)
 
-		self.WebHandler = WebHandler(self)
+		self.TenantService = asab.web.tenant.TenantService(self)
+		self.AuthService = asab.web.auth.AuthService(self)
 
-		self.TenantService = asab.web.tenant.TenantService(self, strict=False)
+		self.WebHandler = WebHandler(self)
 
 		# Apache Kafka API is conditional
 		if "kafka" in asab.Config.sections():
