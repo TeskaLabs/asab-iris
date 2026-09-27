@@ -1,13 +1,10 @@
 import datetime
 import logging
 import mimetypes
-import base64
-import io
 
 import fastjsonschema
 
 from ..errors import ASABIrisError, ErrorCode
-from ..formatter.attachments import Attachment
 from ..schemas import slack_schema
 
 #
@@ -69,13 +66,7 @@ class SendSlackOrchestrator(object):
 			)
 
 		params = body.get("params", {})
-		cached = msg.get("_iris_slack_content")
-		if cached is None:
-			output = await self.JinjaService.format(template, params)
-			cached = {"output": output}
-			msg["_iris_slack_content"] = cached
-		else:
-			output = cached["output"]
+		output = await self.JinjaService.format(template, params)
 
 		if attachments is None:
 			# No attachments provided, send the message as a block
@@ -106,29 +97,8 @@ class SendSlackOrchestrator(object):
 		# Sending attachments
 
 		output = self.MarkdownFormatterService.unformat(output)
-		cached_attachments = cached.get("attachments")
-		if cached_attachments is None:
-			cached_attachments = []
-			async for attachment in self.AttachmentRenderingService.render_attachment(attachments):
-				attachment.Content.seek(0)
-				cached_attachments.append({
-					"content": base64.b64encode(attachment.Content.read()).decode("ascii"),
-					"content_type": attachment.ContentType,
-					"filename": attachment.FileName,
-					"position": attachment.Position,
-				})
-			cached["attachments"] = cached_attachments
-		atts_gen = self._cached_attachments(cached_attachments)
-		await self.SlackOutputService.send_files(output, atts_gen, channel, retry_state=msg)
-
-	async def _cached_attachments(self, attachments):
-		for attachment in attachments:
-			yield Attachment(
-				Content=io.BytesIO(base64.b64decode(attachment["content"])),
-				ContentType=attachment["content_type"],
-				FileName=attachment["filename"],
-				Position=attachment["position"],
-			)
+		atts_gen = self.AttachmentRenderingService.render_attachment(attachments)
+		await self.SlackOutputService.send_files(output, atts_gen, channel)
 
 
 	async def render_attachment(self, template, params):

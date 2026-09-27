@@ -206,7 +206,7 @@ class EmailOutputService(asab.Service, OutputABC):
 		email_subject=None,
 		email_from=None,
 		attachments=None,
-		retry_payload=None,
+		queued_delivery=False,
 	):
 		"""
 		Send an outgoing email with the given parameters.
@@ -265,12 +265,6 @@ class EmailOutputService(asab.Service, OutputABC):
 		# Prefer tenant list, else body list
 		if not to_list:
 			to_list = body_to
-		if retry_payload is not None and retry_payload.get("_retry_smtp_recipients") is not None:
-			to_list = retry_payload["_retry_smtp_recipients"]
-			tenant_cc = []
-			tenant_bcc = []
-			email_cc = []
-			email_bcc = []
 
 		# Enforce "no default to"
 		if not to_list:
@@ -349,7 +343,7 @@ class EmailOutputService(asab.Service, OutputABC):
 				)
 
 		# Send the email with retry logic
-		retry_attempts = 1 if retry_payload is not None else 3
+		retry_attempts = 1 if queued_delivery else 3
 		delay = 5  # seconds
 
 		for attempt in range(retry_attempts):
@@ -375,13 +369,12 @@ class EmailOutputService(asab.Service, OutputABC):
 						validate_certs=self.ValidateCerts
 					)
 				refused = result[0]
-				if retry_payload is not None and refused:
+				if queued_delivery and refused:
 					temporary = [address for address, response in refused.items() if 400 <= response.code < 500]
 					permanent = [address for address in refused if address not in temporary]
 					if temporary:
-						if retry_payload is not None:
-							retry_payload["_retry_smtp_recipients"] = temporary
-						raise TemporaryDeliveryError(result=refused)
+						if queued_delivery:
+								raise TemporaryDeliveryError(result=refused)
 					raise ASABIrisError(
 						ErrorCode.SMTP_RESPONSE_ERROR,
 						tech_message="SMTP permanently rejected recipients: {}".format(", ".join(permanent)),
@@ -419,7 +412,7 @@ class EmailOutputService(asab.Service, OutputABC):
 					)
 					await asyncio.sleep(delay)
 					continue
-				if retry_payload is not None:
+				if queued_delivery:
 					raise TemporaryDeliveryError(error=e) from e
 				raise ASABIrisError(
 					ErrorCode.SMTP_CONNECTION_ERROR,
@@ -454,7 +447,7 @@ class EmailOutputService(asab.Service, OutputABC):
 					)
 					await asyncio.sleep(delay)
 					continue  # Retry the email sending
-				if retry_payload is not None:
+				if queued_delivery:
 					raise TemporaryDeliveryError(error=e) from e
 				raise ASABIrisError(
 					ErrorCode.SMTP_CONNECTION_ERROR,
@@ -463,7 +456,7 @@ class EmailOutputService(asab.Service, OutputABC):
 					error_dict={"host": self.Host},
 				)
 			except aiosmtplib.SMTPRecipientsRefused as e:
-				if retry_payload is None:
+				if not queued_delivery:
 					if attempt < retry_attempts - 1:
 						await asyncio.sleep(delay)
 						continue
@@ -476,7 +469,6 @@ class EmailOutputService(asab.Service, OutputABC):
 				temporary = [recipient.recipient for recipient in e.recipients if 400 <= recipient.code < 500]
 				permanent = [recipient.recipient for recipient in e.recipients if recipient.recipient not in temporary]
 				if temporary:
-					retry_payload["_retry_smtp_recipients"] = temporary
 					raise TemporaryDeliveryError(error=e) from e
 				raise ASABIrisError(
 					ErrorCode.SMTP_RESPONSE_ERROR,
@@ -528,7 +520,7 @@ class EmailOutputService(asab.Service, OutputABC):
 					)
 					await asyncio.sleep(delay)
 					continue  # Retry the email sending
-				if retry_payload is not None and 400 <= e.code < 500:
+				if queued_delivery and 400 <= e.code < 500:
 					raise TemporaryDeliveryError(error=e) from e
 				raise ASABIrisError(
 					ErrorCode.SMTP_RESPONSE_ERROR,

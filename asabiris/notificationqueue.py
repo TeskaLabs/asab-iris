@@ -296,7 +296,7 @@ class NotificationQueueService(asab.Service):
 					email_bcc=payload.get("bcc", []),
 					email_subject=payload.get("subject"),
 					attachments=payload.get("attachments", []),
-					retry_payload=payload,
+					queued_delivery=True,
 				)
 			elif kind == "slack":
 				await self.App.SendSlackOrchestrator.send_to_slack(payload)
