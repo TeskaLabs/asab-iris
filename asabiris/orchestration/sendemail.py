@@ -59,7 +59,8 @@ class SendEmailOrchestrator:
 		email_cc=None,
 		email_bcc=None,
 		email_subject=None,
-		attachments=None
+		attachments=None,
+		queued_delivery=False,
 	):
 		"""
 		Send an email using rendered template and delegate to the configured provider.
@@ -78,7 +79,6 @@ class SendEmailOrchestrator:
 		email_cc = email_cc or []
 		email_bcc = email_bcc or []
 
-		# Render the body and subject
 		body_html, rendered_subject = await self._render_template(
 			body_template,
 			body_params,
@@ -97,7 +97,8 @@ class SendEmailOrchestrator:
 				email_bcc=email_bcc,
 				email_subject=email_subject,
 				body=body_html,
-				attachments=atts_gen
+				attachments=atts_gen,
+				queued_delivery=queued_delivery,
 			)
 			L.info(
 				"Email sent via SMTP.",
@@ -105,7 +106,6 @@ class SendEmailOrchestrator:
 			)
 
 		elif self.M365Service is not None:
-			# MS365 path: use same async Attachment generator
 			atts_gen = self.AttachmentRenderingService.render_attachment(attachments)
 			await self.M365Service.send_email(
 				email_from,  # maps to from_recipient
@@ -121,7 +121,6 @@ class SendEmailOrchestrator:
 				"Email sent via Microsoft 365.",
 				struct_data={"provider": "m365", "recipients": self._recipient_list_for_log(email_to)},
 			)
-
 
 	async def _render_template(
 		self,
