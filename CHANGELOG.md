@@ -1,8 +1,26 @@
 # CHANGELOG
 
 
-## v26.xx
-- Accept Microsoft Teams Workflows 202 Accepted responses as successful sends.
+## Release Candidate
+
+## v26.37
+
+### Features
+- Add HTTP CONNECT proxy support for SMTP, including STARTTLS and validated implicit TLS. (#125)
+- Add Mattermost notifications. (#126)
+- Add configuration overrides loaded from ZooKeeper. (#128)
+- Add YAML frontmatter support for email templates. (#147)
+
+### Enhancement
+- Refactor Slack notifications and improve logging. (#138, #139)
+- Add audit logging for notification recipients. (#146)
+- Upgrade the Docker image from Alpine 3.18 to Alpine 3.22. (#141)
+
+### Fixes
+- Fix tenant email configuration fallback. (#148)
+- Fix configured Slack channel resolution. (#145)
+- Create the container manifest in the correct location. (#140, #143)
+- Support available aiokafka compression codecs. (#142)
 
 ## v26.12
 
