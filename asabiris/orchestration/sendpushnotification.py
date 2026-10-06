@@ -1,5 +1,6 @@
 import logging
 import re
+import copy
 
 import asab
 from ..errors import ASABIrisError, ErrorCode
@@ -42,6 +43,10 @@ class SendPushOrchestrator(object):
 				error_i18n_key="Push service is not configured."
 			)
 
+		prepared = await self.prepare_push(push_dict)
+		return await self.send_prepared_push(prepared)
+
+	async def prepare_push(self, push_dict):
 		try:
 			body = push_dict.get("body", {})
 			template = body.get("template")
@@ -92,18 +97,39 @@ class SendPushOrchestrator(object):
 				body["params"]["title"] = template_title
 
 			# 3) Attach rendered content and pass through
-			push_dict["rendered_message"] = rendered
-			push_dict["body"] = body
+			prepared = copy.deepcopy(push_dict)
+			prepared["rendered_message"] = rendered
+			prepared["body"] = {"params": body.get("params", {})}
+			return prepared
 
-			# 4) Delegate to output
-			res = await self.PushOutput.send(push_dict, push_dict.get("tenant"))
+		except ASABIrisError:
+			raise
+		except Exception as e:
+			L.exception(
+				"Unexpected error while preparing push notification.",
+				struct_data={
+					"tenant": push_dict.get("tenant"),
+					"topic": push_dict.get("topic"),
+					"template": push_dict.get("body", {}).get("template"),
+					"error_type": type(e).__name__,
+				},
+			)
+			raise ASABIrisError(
+				ErrorCode.SERVER_ERROR,
+				tech_message="Unhandled error in push orchestrator: {}".format(e),
+				error_i18n_key="Push notification failed.",
+				error_dict={"error_message": "{}".format(e)}
+			)
+
+	async def send_prepared_push(self, prepared):
+		try:
+			res = await self.PushOutput.send(prepared, prepared.get("tenant"))
 			L.log(
 				asab.LOG_NOTICE,
 				"Push notification sent successfully via ntfy.",
 				struct_data={
-					"tenant": push_dict.get("tenant"),
-					"topic": push_dict.get("topic"),
-					"template": body.get("template"),
+					"tenant": prepared.get("tenant"),
+					"topic": prepared.get("topic"),
 				},
 			)
 			return res
@@ -114,9 +140,8 @@ class SendPushOrchestrator(object):
 			L.exception(
 				"Unexpected error while sending push notification.",
 				struct_data={
-					"tenant": push_dict.get("tenant"),
-					"topic": push_dict.get("topic"),
-					"template": push_dict.get("body", {}).get("template"),
+					"tenant": prepared.get("tenant"),
+					"topic": prepared.get("topic"),
 					"error_type": type(e).__name__,
 				},
 			)

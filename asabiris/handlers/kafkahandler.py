@@ -139,12 +139,11 @@ class KafkaHandler(asab.Service):
 		if self.Consumer is None:
 			return
 		async for msg in self.Consumer:
+			source_key = None
 			try:
 				source_key = "{}:{}:{}".format(msg.topic, msg.partition, msg.offset)
 				msg = msg.value.decode("utf-8")
 				msg = json.loads(msg)
-				if isinstance(msg, dict):
-					msg["_iris_source_key"] = source_key
 			except (UnicodeDecodeError, json.JSONDecodeError) as e:
 				L.warning(
 					"Kafka alert message is not valid UTF-8 JSON; message was skipped. Verify the producer publishes JSON to the configured topic.",
@@ -152,14 +151,14 @@ class KafkaHandler(asab.Service):
 				)
 				continue
 			try:
-				await self.dispatch(msg)
+				await self.dispatch(msg, source_key=source_key)
 			except Exception:
 				L.exception(
 					"Unexpected error while dispatching a Kafka alert notification; message processing stopped for this payload.",
 					struct_data={"topic": self.KafkaTopic, "message_type": msg.get("type") if isinstance(msg, dict) else None},
 				)
 
-	async def dispatch(self, msg):
+	async def dispatch(self, msg, source_key=None):
 		tenant = None
 		token = None
 
@@ -186,7 +185,7 @@ class KafkaHandler(asab.Service):
 				return
 
 			if msg_type == "email":
-				await self.handle_email(msg)
+				await self.handle_email(msg, source_key)
 			elif msg_type == "mattermost":
 				if self.App.SendMattermostOrchestrator is None:
 					L.warning(
@@ -194,7 +193,7 @@ class KafkaHandler(asab.Service):
 						struct_data={"message_type": msg_type, "tenant": tenant},
 					)
 					return
-				await self.handle_mattermost(msg)
+				await self.handle_mattermost(msg, source_key)
 			elif msg_type == "slack":
 				if self.App.SendSlackOrchestrator is None:
 					L.warning(
@@ -202,7 +201,7 @@ class KafkaHandler(asab.Service):
 						struct_data={"message_type": msg_type, "tenant": tenant},
 					)
 					return
-				await self.handle_slack(msg)
+				await self.handle_slack(msg, source_key)
 			elif msg_type == "msteams":
 				if self.App.SendMSTeamsOrchestrator is None:
 					L.warning(
@@ -210,7 +209,7 @@ class KafkaHandler(asab.Service):
 						struct_data={"message_type": msg_type, "tenant": tenant},
 					)
 					return
-				await self.handle_msteams(msg)
+				await self.handle_msteams(msg, source_key)
 			elif msg_type == "sms":
 				if self.App.SendSMSOrchestrator is None:
 					L.warning(
@@ -218,7 +217,7 @@ class KafkaHandler(asab.Service):
 						struct_data={"message_type": msg_type, "tenant": tenant},
 					)
 					return
-				await self.handle_sms(msg)
+				await self.handle_sms(msg, source_key)
 			elif msg_type == "push":
 				if not hasattr(self.App, "SendPushOrchestrator") or self.App.SendPushOrchestrator is None:
 					L.warning(
@@ -226,7 +225,7 @@ class KafkaHandler(asab.Service):
 						struct_data={"message_type": msg_type, "tenant": tenant},
 					)
 					return
-				await self.handle_push(msg)
+				await self.handle_push(msg, source_key)
 			else:
 				L.warning(
 					"Kafka alert message has unsupported type and was discarded. Supported types: email, mattermost, slack, msteams, sms, push.",
@@ -242,7 +241,7 @@ class KafkaHandler(asab.Service):
 						struct_data={"tenant": tenant},
 					)
 
-	async def handle_email(self, msg):
+	async def handle_email(self, msg, source_key=None):
 		try:
 			KafkaHandler.ValidationSchemaMail(msg)
 		except fastjsonschema.exceptions.JsonSchemaException as e:
@@ -253,7 +252,7 @@ class KafkaHandler(asab.Service):
 			return
 
 		try:
-			await self.send_email(msg)
+			await self.send_email(msg, source_key)
 		except ASABIrisError as e:
 			server_errors = [
 				ErrorCode.SMTP_CONNECTION_ERROR,
@@ -273,7 +272,7 @@ class KafkaHandler(asab.Service):
 		except Exception as e:
 			await self.handle_exception(e, 'email', msg)
 
-	async def handle_slack(self, msg):
+	async def handle_slack(self, msg, source_key=None):
 		try:
 			KafkaHandler.ValidationSchemaSlack(msg)
 		except fastjsonschema.exceptions.JsonSchemaException as e:
@@ -284,7 +283,7 @@ class KafkaHandler(asab.Service):
 			return
 
 		try:
-			await self.App.NotificationQueueService.deliver("slack", msg, source_key=msg.get("_iris_source_key"))
+			await self.App.NotificationQueueService.deliver("slack", msg, source_key=source_key)
 
 		except ASABIrisError as e:
 			# 1. Business error (DO NOT trigger error notification)
@@ -307,7 +306,7 @@ class KafkaHandler(asab.Service):
 		except Exception as e:
 			await self.handle_exception(e, 'slack', msg)
 
-	async def handle_mattermost(self, msg):
+	async def handle_mattermost(self, msg, source_key=None):
 		try:
 			KafkaHandler.ValidationSchemaMattermost(msg)
 		except fastjsonschema.exceptions.JsonSchemaException as e:
@@ -318,7 +317,7 @@ class KafkaHandler(asab.Service):
 			return
 
 		try:
-			await self.App.NotificationQueueService.deliver("mattermost", msg, source_key=msg.get("_iris_source_key"))
+			await self.App.NotificationQueueService.deliver("mattermost", msg, source_key=source_key)
 		except ASABIrisError as e:
 			if e.ErrorCode in (
 				ErrorCode.INVALID_REQUEST,
@@ -335,7 +334,7 @@ class KafkaHandler(asab.Service):
 		except Exception as e:
 			await self.handle_exception(e, 'mattermost', msg)
 
-	async def handle_msteams(self, msg):
+	async def handle_msteams(self, msg, source_key=None):
 		try:
 			KafkaHandler.ValidationSchemaMSTeams(msg)
 		except fastjsonschema.exceptions.JsonSchemaException as e:
@@ -346,7 +345,7 @@ class KafkaHandler(asab.Service):
 			return
 
 		try:
-			await self.App.NotificationQueueService.deliver("msteams", msg, source_key=msg.get("_iris_source_key"))
+			await self.App.NotificationQueueService.deliver("msteams", msg, source_key=source_key)
 		except ASABIrisError as e:
 			if e.ErrorCode == ErrorCode.SERVER_ERROR:
 				L.warning(
@@ -359,7 +358,7 @@ class KafkaHandler(asab.Service):
 		except Exception as e:
 			await self.handle_exception(e, 'msteams', msg)
 
-	async def handle_sms(self, msg):
+	async def handle_sms(self, msg, source_key=None):
 		try:
 			KafkaHandler.ValidationSchemaSMS(msg)
 		except fastjsonschema.exceptions.JsonSchemaException as e:
@@ -370,7 +369,7 @@ class KafkaHandler(asab.Service):
 			return
 
 		try:
-			await self.App.NotificationQueueService.deliver("sms", msg, source_key=msg.get("_iris_source_key"))
+			await self.App.NotificationQueueService.deliver("sms", msg, source_key=source_key)
 		except ASABIrisError as e:
 			if e.ErrorCode == ErrorCode.SERVER_ERROR:
 				L.warning(
@@ -383,16 +382,16 @@ class KafkaHandler(asab.Service):
 			await self.handle_exception(e, 'sms', msg)
 
 
-	async def send_email(self, json_data):
+	async def send_email(self, json_data, source_key=None):
 		delivered = await self.App.NotificationQueueService.deliver(
-			"email", json_data, source_key=json_data.get("_iris_source_key")
+			"email", json_data, source_key=source_key
 		)
 		L.info(
 			"Kafka email notification delivered successfully." if delivered else "Kafka email notification queued for delivery.",
 			struct_data={"recipients": json_data.get("to"), "queued": not delivered},
 		)
 
-	async def handle_push(self, msg):
+	async def handle_push(self, msg, source_key=None):
 		try:
 			KafkaHandler.ValidationSchemaPush(msg)
 		except fastjsonschema.exceptions.JsonSchemaException as e:
@@ -404,7 +403,7 @@ class KafkaHandler(asab.Service):
 
 		try:
 			# Orchestrator is responsible for rendering the template & calling PushOutputService
-			await self.App.NotificationQueueService.deliver("push", msg, source_key=msg.get("_iris_source_key"))
+			await self.App.NotificationQueueService.deliver("push", msg, source_key=source_key)
 		except ASABIrisError as e:
 			# Network/remote errors are SERVER_ERROR; others bubble to error handler
 			if e.ErrorCode == ErrorCode.SERVER_ERROR:

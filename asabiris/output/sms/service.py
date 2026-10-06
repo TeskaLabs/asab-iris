@@ -288,8 +288,8 @@ class SMSOutputService(asab.Service, OutputABC):
 			message_list = list(message_body)
 
 		# 6) Reuse one session with a reasonable timeout
-		completed_parts = sms_data.get("_retry_sms_part", 0)
-		part_ids = sms_data.setdefault("_retry_sms_part_ids", {})
+		completed_parts = sms_data.get("completed_parts", 0)
+		part_ids = sms_data.setdefault("part_ids", {})
 		part_index = 0
 		timeout = aiohttp.ClientTimeout(total=15)
 		async with aiohttp.ClientSession(timeout=timeout) as session:
@@ -434,7 +434,7 @@ class SMSOutputService(asab.Service, OutputABC):
 						struct_data={"tenant": effective_tenant, "api_url": api_url},
 					)
 					part_index += 1
-					sms_data["_retry_sms_part"] = part_index
+					sms_data["completed_parts"] = part_index
 		AuditLogger.log(
 			asab.LOG_NOTICE,
 			"SMS sent",

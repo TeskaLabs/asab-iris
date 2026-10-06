@@ -194,7 +194,7 @@ class SlackOutputService(asab.Service, OutputABC):
 		client, channel_id, channel = await self._retry(resolve_channel)
 
 		retry_state = retry_state if retry_state is not None else {}
-		completed = retry_state.get("_retry_attachment", 0)
+		completed = retry_state.get("completed_attachments", 0)
 		try:
 			index = 0
 			async for attachment in atts_gen:
@@ -229,7 +229,7 @@ class SlackOutputService(asab.Service, OutputABC):
 					)
 				await self._retry(upload)
 				index += 1
-				retry_state["_retry_attachment"] = index
+				retry_state["completed_attachments"] = index
 		except SlackApiError as e:
 			L.warning(
 				"Failed to upload files to Slack; verify bot token, channel access, and file size limits.",

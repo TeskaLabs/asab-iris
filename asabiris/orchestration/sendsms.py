@@ -1,4 +1,5 @@
 import logging
+import copy
 
 from ..errors import ASABIrisError, ErrorCode
 
@@ -28,6 +29,10 @@ class SendSMSOrchestrator(object):
 		Returns:
 			bool: A boolean indicating whether the message was sent successfully.
 		"""
+		prepared = await self.prepare_sms(sms_dict)
+		return await self.send_prepared_sms(prepared)
+
+	async def prepare_sms(self, sms_dict):
 		body = sms_dict['body']
 		template = body['template']
 
@@ -42,6 +47,10 @@ class SendSMSOrchestrator(object):
 			)
 
 		params = body.get("params", {})
-		if "message_body" not in sms_dict:
-			sms_dict['message_body'] = await self.JinjaService.format(template, params)
-		return await self.SMSOutput.send(sms_dict)
+		prepared = copy.deepcopy(sms_dict)
+		prepared['message_body'] = await self.JinjaService.format(template, params)
+		prepared.pop("body", None)
+		return prepared
+
+	async def send_prepared_sms(self, prepared):
+		return await self.SMSOutput.send(prepared)
