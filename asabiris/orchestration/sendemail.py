@@ -15,6 +15,7 @@ import asab
 import yaml
 
 from ..errors import ASABIrisError, ErrorCode
+from .prepared import prepare_attachments, prepared_attachments
 
 L = logging.getLogger(__name__)
 
@@ -59,7 +60,8 @@ class SendEmailOrchestrator:
 		email_cc=None,
 		email_bcc=None,
 		email_subject=None,
-		attachments=None
+		attachments=None,
+		queued_delivery=False,
 	):
 		"""
 		Send an email using rendered template and delegate to the configured provider.
@@ -73,12 +75,36 @@ class SendEmailOrchestrator:
 		:param email_subject:    Subject line
 		:param attachments:      List of attachments (only used by SMTP)
 		"""
+		prepared = await self.prepare_email(
+			email_to=email_to,
+			body_template=body_template,
+			body_template_wrapper=body_template_wrapper,
+			body_params=body_params,
+			email_from=email_from,
+			email_cc=email_cc,
+			email_bcc=email_bcc,
+			email_subject=email_subject,
+			attachments=attachments,
+		)
+		return await self.send_prepared_email(prepared, queued_delivery=queued_delivery)
+
+	async def prepare_email(
+		self,
+		email_to,
+		body_template,
+		body_template_wrapper=None,
+		body_params=None,
+		email_from=None,
+		email_cc=None,
+		email_bcc=None,
+		email_subject=None,
+		attachments=None,
+	):
 		body_params = body_params or {}
 		attachments = attachments or []
 		email_cc = email_cc or []
 		email_bcc = email_bcc or []
 
-		# Render the body and subject
 		body_html, rendered_subject = await self._render_template(
 			body_template,
 			body_params,
@@ -87,33 +113,61 @@ class SendEmailOrchestrator:
 		if not email_subject:
 			email_subject = rendered_subject
 
-		# PREFER SMTP if available; only fall back to MS365
 		if self.SmtpService is not None:
-			atts_gen = self.AttachmentRenderingService.render_attachment(attachments)
+			provider = "smtp"
+		elif self.M365Service is not None:
+			provider = "m365"
+		else:
+			raise ASABIrisError(
+				ErrorCode.INVALID_SERVICE_CONFIGURATION,
+				tech_message="No email provider configured.",
+				error_i18n_key="email_service_not_configured",
+				error_dict={}
+			)
+
+		return {
+			"provider": provider,
+			"from": email_from,
+			"to": email_to,
+			"cc": email_cc,
+			"bcc": email_bcc,
+			"subject": email_subject,
+			"body": body_html,
+			"attachments": await prepare_attachments(
+				self.AttachmentRenderingService.render_attachment(attachments)
+			),
+		}
+
+	async def send_prepared_email(self, prepared, queued_delivery=False):
+		email_to = prepared["to"]
+		email_cc = prepared.get("cc", [])
+		email_bcc = prepared.get("bcc", [])
+		attachments = prepared_attachments(prepared.get("attachments", []))
+
+		if prepared["provider"] == "smtp" and self.SmtpService is not None:
 			await self.SmtpService.send(
-				email_from=email_from,
+				email_from=prepared.get("from"),
 				email_to=email_to,
 				email_cc=email_cc,
 				email_bcc=email_bcc,
-				email_subject=email_subject,
-				body=body_html,
-				attachments=atts_gen
+				email_subject=prepared.get("subject"),
+				body=prepared["body"],
+				attachments=attachments,
+				queued_delivery=queued_delivery,
 			)
 			L.info(
 				"Email sent via SMTP.",
 				struct_data={"provider": "smtp", "recipients": self._recipient_list_for_log(email_to)},
 			)
 
-		elif self.M365Service is not None:
-			# MS365 path: use same async Attachment generator
-			atts_gen = self.AttachmentRenderingService.render_attachment(attachments)
+		elif prepared["provider"] == "m365" and self.M365Service is not None:
 			await self.M365Service.send_email(
-				email_from,  # maps to from_recipient
+				prepared.get("from"),  # maps to from_recipient
 				email_to,  # maps to recipient
-				email_subject,  # maps to subject
-				body_html,  # maps to body
+				prepared.get("subject"),  # maps to subject
+				prepared["body"],  # maps to body
 				"HTML",  # content_type
-				attachments=atts_gen,
+				attachments=attachments,
 				email_cc=email_cc,
 				email_bcc=email_bcc
 			)
@@ -121,7 +175,13 @@ class SendEmailOrchestrator:
 				"Email sent via Microsoft 365.",
 				struct_data={"provider": "m365", "recipients": self._recipient_list_for_log(email_to)},
 			)
-
+		else:
+			raise ASABIrisError(
+				ErrorCode.INVALID_SERVICE_CONFIGURATION,
+				tech_message="Prepared email provider is unavailable.",
+				error_i18n_key="email_service_not_configured",
+				error_dict={}
+			)
 
 	async def _render_template(
 		self,

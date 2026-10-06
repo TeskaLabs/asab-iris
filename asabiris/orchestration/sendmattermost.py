@@ -47,6 +47,12 @@ class SendMattermostOrchestrator(object):
 			ASABIrisError: When the template path is invalid or when downstream
 				Mattermost delivery fails.
 		"""
+		prepared = await self.prepare_mattermost(msg)
+		if prepared is None:
+			return
+		return await self.send_prepared_mattermost(prepared)
+
+	async def prepare_mattermost(self, msg):
 		try:
 			SendMattermostOrchestrator.ValidationSchemaMattermost(msg)
 		except fastjsonschema.exceptions.JsonSchemaException as e:
@@ -77,10 +83,18 @@ class SendMattermostOrchestrator(object):
 			context = construct_context(dict(), getattr(self.JinjaService, "Variables", {}), params)
 			payload["props"] = self._render_props(props, context)
 
-		await self.MattermostOutputService.send(
-			payload,
-			channel_id=msg.get("channel_id"),
-			username=msg.get("username"),
+		return {
+			"tenant": msg.get("tenant"),
+			"payload": payload,
+			"channel_id": msg.get("channel_id"),
+			"username": msg.get("username"),
+		}
+
+	async def send_prepared_mattermost(self, prepared):
+		return await self.MattermostOutputService.send(
+			prepared["payload"],
+			channel_id=prepared.get("channel_id"),
+			username=prepared.get("username"),
 		)
 
 	def _render_props(self, value, context):

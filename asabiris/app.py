@@ -31,6 +31,7 @@ from .orchestration.sendmattermost import SendMattermostOrchestrator
 
 from .handlers.webhandler import WebHandler
 from .orchestration.sendslack import SendSlackOrchestrator
+from .notificationqueue import NotificationQueueService
 
 L = logging.getLogger(__name__)
 
@@ -200,6 +201,7 @@ class ASABIRISApplication(asab.Application):
 
 		# Orchestrators
 		self.RenderReportOrchestrator = RenderReportOrchestrator(self)
+		self.NotificationQueueService = NotificationQueueService(self)
 
 		self.WebHandler = WebHandler(self)
 
