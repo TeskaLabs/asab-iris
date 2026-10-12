@@ -202,7 +202,7 @@ class ASABIRISApplication(asab.Application):
 		# Orchestrators
 		self.RenderReportOrchestrator = RenderReportOrchestrator(self)
 
-		self.TenantService = asab.web.tenant.TenantService(self)
+		self.TenantService = asab.web.tenant.TenantService(self, strict=False)
 		self.AuthService = asab.web.auth.AuthService(self)
 
 		self.WebHandler = WebHandler(self)
