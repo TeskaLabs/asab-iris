@@ -3,6 +3,7 @@ import os
 import base64
 import datetime
 import dataclasses
+from typing import BinaryIO
 
 import asab
 
@@ -12,7 +13,7 @@ from ..utils import normalize_body
 
 @dataclasses.dataclass
 class Attachment:
-	Content: object
+	Content: BinaryIO
 	ContentType: str
 	FileName: str
 	Position: int
