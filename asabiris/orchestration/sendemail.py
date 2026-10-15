@@ -61,7 +61,6 @@ class SendEmailOrchestrator:
 		email_bcc=None,
 		email_subject=None,
 		attachments=None,
-		queued_delivery=False,
 	):
 		"""
 		Send an email using rendered template and delegate to the configured provider.
@@ -86,7 +85,7 @@ class SendEmailOrchestrator:
 			email_subject=email_subject,
 			attachments=attachments,
 		)
-		return await self.send_prepared_email(prepared, queued_delivery=queued_delivery)
+		return await self.send_prepared_email(prepared)
 
 	async def prepare_email(
 		self,
@@ -138,7 +137,7 @@ class SendEmailOrchestrator:
 			),
 		}
 
-	async def send_prepared_email(self, prepared, queued_delivery=False):
+	async def send_prepared_email(self, prepared):
 		email_to = prepared["to"]
 		email_cc = prepared.get("cc", [])
 		email_bcc = prepared.get("bcc", [])
@@ -153,7 +152,6 @@ class SendEmailOrchestrator:
 				email_subject=prepared.get("subject"),
 				body=prepared["body"],
 				attachments=attachments,
-				queued_delivery=queued_delivery,
 			)
 			L.info(
 				"Email sent via SMTP.",

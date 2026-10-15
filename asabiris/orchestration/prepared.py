@@ -8,15 +8,14 @@ async def prepare_attachments(attachments):
 	prepared = []
 	async for attachment in attachments:
 		content = attachment.Content
-		if hasattr(content, "getvalue"):
-			content = content.getvalue()
-		elif hasattr(content, "read"):
-			position = content.tell()
+		position = content.tell()
+		try:
 			content.seek(0)
-			content = content.read()
-			attachment.Content.seek(position)
+			content_bytes = content.read()
+		finally:
+			content.seek(position)
 		prepared.append({
-			"content": base64.b64encode(content).decode("ascii"),
+			"content": base64.b64encode(content_bytes).decode("ascii"),
 			"content_type": attachment.ContentType,
 			"filename": attachment.FileName,
 			"position": attachment.Position,

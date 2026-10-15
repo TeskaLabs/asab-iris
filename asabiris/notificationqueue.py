@@ -94,8 +94,7 @@ class NotificationQueueService(asab.Service):
 		prepared = await self._prepare(kind, payload)
 		if prepared is None:
 			return True
-		if prepared.get("tenant") is None and payload.get("tenant") is not None:
-			prepared["tenant"] = payload["tenant"]
+		prepared["tenant"] = asab.contextvars.Tenant.get(None) or prepared.get("tenant") or payload.get("tenant")
 		now = time.time()
 		envelope = {
 			"id": notification_id,
@@ -105,6 +104,7 @@ class NotificationQueueService(asab.Service):
 			"next_attempt_at": now,
 			"expires_at": now + self.Retention,
 			"last_error": None,
+			"fallback": source_key is not None,
 		}
 		ready = self._path("ready", notification_id)
 		self._write(ready, envelope)
@@ -244,7 +244,9 @@ class NotificationQueueService(asab.Service):
 			await self._dispatch(envelope["kind"], envelope["payload"])
 		except TemporaryDeliveryError as error:
 			if envelope["attempts"] >= self.MaxAttempts or time.time() >= envelope["expires_at"]:
-				await self._fail(path, envelope, error.TechMessage, worker)
+				await self._fail(path, envelope, error.TechMessage, worker, fallback=not raise_permanent)
+				if raise_permanent:
+					raise
 				return False
 			envelope["last_error"] = error.TechMessage
 			envelope["next_attempt_at"] = time.time() + self._delay(envelope["attempts"])
@@ -275,7 +277,7 @@ class NotificationQueueService(asab.Service):
 			"Notification delivery stopped.",
 			struct_data={"notification_id": envelope["id"], "provider": envelope["kind"], "attempts": envelope["attempts"], "worker": worker, "error": error},
 		)
-		if fallback:
+		if fallback and envelope.get("fallback", True):
 			await self._terminal_fallback(envelope["kind"], envelope["payload"], error)
 
 	async def _terminal_fallback(self, kind, payload, error):
@@ -337,7 +339,7 @@ class NotificationQueueService(asab.Service):
 			token = asab.contextvars.Tenant.set(tenant)
 		try:
 			if kind == "email":
-				await self.App.SendEmailOrchestrator.send_prepared_email(payload, queued_delivery=True)
+				await self.App.SendEmailOrchestrator.send_prepared_email(payload)
 			elif kind == "slack":
 				await self.App.SendSlackOrchestrator.send_prepared_slack(payload)
 			elif kind == "mattermost":
