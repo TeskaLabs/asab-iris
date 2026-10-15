@@ -206,6 +206,7 @@ class EmailOutputService(asab.Service, OutputABC):
 		email_subject=None,
 		email_from=None,
 		attachments=None,
+		pending_recipients=None,
 	):
 		"""
 		Send an outgoing email with the given parameters.
@@ -342,18 +343,20 @@ class EmailOutputService(asab.Service, OutputABC):
 				)
 
 		# One provider attempt; the notification spool schedules retries.
+		# Partial retries restrict the SMTP envelope while preserving the original To/Cc headers.
+		recipients = pending_recipients if pending_recipients is not None else to_recipients + cc_recipients + bcc_recipients
 		try:
 			if self.ProxyHost:
 				result = await self._send_via_proxy_smtp_client(
 					msg=msg,
 					sender=sender,
-					recipients=to_recipients + cc_recipients + bcc_recipients
+					recipients=recipients
 				)
 			else:
 				result = await aiosmtplib.send(
 					msg,
 					sender=sender,
-					recipients=to_recipients + cc_recipients + bcc_recipients,
+					recipients=recipients,
 					hostname=self.Host,
 					port=int(self.Port) if self.Port != "" else None,
 					username=self.User,
@@ -406,7 +409,9 @@ class EmailOutputService(asab.Service, OutputABC):
 			temporary = [recipient.recipient for recipient in e.recipients if 400 <= recipient.code < 500]
 			permanent = [recipient.recipient for recipient in e.recipients if recipient.recipient not in temporary]
 			if temporary:
-				raise TemporaryDeliveryError(error=e) from e
+				raise TemporaryDeliveryError(
+					error=e, result={recipient.recipient: recipient for recipient in e.recipients}
+				) from e
 			raise ASABIrisError(
 				ErrorCode.SMTP_RESPONSE_ERROR,
 				tech_message="SMTP permanently rejected recipients: {}".format(", ".join(permanent)),

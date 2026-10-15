@@ -288,6 +288,7 @@ class SMSOutputService(asab.Service, OutputABC):
 			message_list = list(message_body)
 
 		# 6) Reuse one session with a reasonable timeout
+		# Internal spool progress: skip accepted parts and reuse each pending part's provider ID.
 		completed_parts = sms_data.get("completed_parts", 0)
 		part_ids = sms_data.setdefault("part_ids", {})
 		part_index = 0

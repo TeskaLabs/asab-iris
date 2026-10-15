@@ -19,6 +19,7 @@ class TemporaryDeliveryError(ASABIrisError):
 
 
 async def retry(operation, is_temporary):
+	"""Make one attempt and classify its outcome; the disk spool owns retry scheduling."""
 	try:
 		result = await operation()
 	except Exception as error:

@@ -499,14 +499,13 @@ class KafkaHandler(asab.Service):
 
 				try:
 					L.log(asab.LOG_NOTICE, "Sending configured error notification via Mattermost.", struct_data={"channel": "mattermost"})
+					# Omit unset destinations: the Mattermost request schema accepts strings, not null.
 					await self.App.SendMattermostOrchestrator.send_to_mattermost({
 						"body": {
 							"template": tpl_mattermost,
 							"params": params
 						},
-						"channel_id": msg.get("channel_id"),
-						"username": msg.get("username"),
-						"tenant": msg.get("tenant")
+						**{key: msg[key] for key in ("channel_id", "username", "tenant") if msg.get(key) is not None},
 					})
 				except ASABIrisError as e:
 					L.warning(

@@ -15,6 +15,7 @@ import asab
 import yaml
 
 from ..errors import ASABIrisError, ErrorCode
+from ..output.retry import TemporaryDeliveryError
 from .prepared import prepare_attachments, prepared_attachments
 
 L = logging.getLogger(__name__)
@@ -144,15 +145,25 @@ class SendEmailOrchestrator:
 		attachments = prepared_attachments(prepared.get("attachments", []))
 
 		if prepared["provider"] == "smtp" and self.SmtpService is not None:
-			await self.SmtpService.send(
-				email_from=prepared.get("from"),
-				email_to=email_to,
-				email_cc=email_cc,
-				email_bcc=email_bcc,
-				email_subject=prepared.get("subject"),
-				body=prepared["body"],
-				attachments=attachments,
-			)
+			try:
+				await self.SmtpService.send(
+					email_from=prepared.get("from"),
+					email_to=email_to,
+					email_cc=email_cc,
+					email_bcc=email_bcc,
+					email_subject=prepared.get("subject"),
+					body=prepared["body"],
+					attachments=attachments,
+					# Internal spool progress, not a Kafka/API input field. Absent on the first attempt;
+					# after partial delivery, retry only temporary refusals to avoid duplicate emails.
+					pending_recipients=prepared.get("pending_recipients"),
+				)
+			except TemporaryDeliveryError as error:
+				if error.Result is not None:
+					prepared["pending_recipients"] = [
+						address for address, response in error.Result.items() if 400 <= response.code < 500
+					]
+				raise
 			L.info(
 				"Email sent via SMTP.",
 				struct_data={"provider": "smtp", "recipients": self._recipient_list_for_log(email_to)},

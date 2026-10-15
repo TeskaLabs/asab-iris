@@ -12,6 +12,7 @@ import uuid
 import asab
 import asab.contextvars
 
+from .errors import ASABIrisError, ErrorCode
 from .output.retry import TemporaryDeliveryError
 
 
@@ -33,6 +34,7 @@ asab.Config.add_defaults({
 
 
 class NotificationQueueService(asab.Service):
+	"""Persist rendered notifications and internal delivery progress, separate from incoming request schemas."""
 
 	States = ("tmp", "ready", "processing", "retry", "failed")
 
@@ -53,6 +55,7 @@ class NotificationQueueService(asab.Service):
 		self.Tasks = []
 		self.Wakeup = asyncio.Event()
 		self.RateLock = asyncio.Lock()
+		self.DeliverySlots = asyncio.Semaphore(self.WorkerCount)
 		self.NextDelivery = 0
 		self._validate_config()
 
@@ -104,6 +107,7 @@ class NotificationQueueService(asab.Service):
 			"next_attempt_at": now,
 			"expires_at": now + self.Retention,
 			"last_error": None,
+			# Keep Kafka's configured error-notification fallback; HTTP requests do not use it.
 			"fallback": source_key is not None,
 		}
 		ready = self._path("ready", notification_id)
@@ -114,6 +118,7 @@ class NotificationQueueService(asab.Service):
 		return await self._process(processing, envelope, worker=None, raise_permanent=True)
 
 	def _notification_id(self, source_key):
+		# Kafka redelivery uses the same ID while its spool entry exists; HTTP requests get fresh IDs.
 		if source_key is None:
 			return uuid.uuid4().hex
 		return hashlib.sha256(source_key.encode("utf-8")).hexdigest()
@@ -132,6 +137,7 @@ class NotificationQueueService(asab.Service):
 		return None
 
 	def _write(self, path, envelope):
+		# Flush the full record before atomic replacement, then persist the directory changes.
 		temporary = self._directory("tmp") / "{}.{}.tmp".format(envelope["id"], uuid.uuid4().hex)
 		data = json.dumps(envelope, separators=(",", ":"), ensure_ascii=False).encode("utf-8")
 		fd = os.open(str(temporary), os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
@@ -233,10 +239,23 @@ class NotificationQueueService(asab.Service):
 				pass
 
 	async def _process(self, path, envelope, worker, raise_permanent=False):
+		# Initial attempts run in the caller, so they must share the workers' concurrency limit.
+		async with self.DeliverySlots:
+			return await self._process_attempt(path, envelope, worker, raise_permanent)
+
+	async def _process_attempt(self, path, envelope, worker, raise_permanent):
+		if time.time() < envelope["expires_at"]:
+			await self._throttle()
+		# Waiting for a delivery slot or rate limit can consume the remaining retention time.
 		if time.time() >= envelope["expires_at"]:
-			await self._fail(path, envelope, "Retry retention expired", worker)
+			await self._fail(path, envelope, "Retry retention expired", worker, fallback=not raise_permanent)
+			if raise_permanent:
+				raise ASABIrisError(
+					ErrorCode.SERVER_ERROR,
+					tech_message="Retry retention expired before delivery.",
+					error_i18n_key="Notification expired before delivery.",
+				)
 			return False
-		await self._throttle()
 		envelope["attempts"] += 1
 		self.Counter.add("attempted", 1)
 		self._write(path, envelope)
@@ -250,6 +269,7 @@ class NotificationQueueService(asab.Service):
 				return False
 			envelope["last_error"] = error.TechMessage
 			envelope["next_attempt_at"] = time.time() + self._delay(envelope["attempts"])
+			# Providers may have updated partial progress in payload; persist it before the next attempt.
 			self._write(path, envelope)
 			self._move(path, "retry")
 			self.Counter.add("queued", 1)

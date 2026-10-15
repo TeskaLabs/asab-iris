@@ -113,6 +113,7 @@ class SlackOutputService(asab.Service, OutputABC):
 		if cache_hit is not None:
 			return cache_hit[0], cache_hit[1], channel
 
+		# Let the spool schedule retries rather than allowing hidden SDK retries.
 		client = slack_sdk.WebClient(token=token, retry_handlers=[])
 		channel_id = self.get_channel_id(client, channel)
 
@@ -193,6 +194,7 @@ class SlackOutputService(asab.Service, OutputABC):
 
 		client, channel_id, channel = await self._retry(resolve_channel)
 
+		# The prepared spool payload records completed uploads so later attempts skip them.
 		retry_state = retry_state if retry_state is not None else {}
 		completed = retry_state.get("completed_attachments", 0)
 		try:

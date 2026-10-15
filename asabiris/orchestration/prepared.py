@@ -5,6 +5,7 @@ from ..formatter.attachments import Attachment
 
 
 async def prepare_attachments(attachments):
+	"""Store binary attachment contents as Base64 text without consuming the original streams."""
 	prepared = []
 	async for attachment in attachments:
 		content = attachment.Content
