@@ -40,6 +40,12 @@ class SendMSTeamsOrchestrator(object):
 		Returns:
 			None
 		"""
+		prepared = await self.prepare_msteams(msg)
+		if prepared is None:
+			return
+		return await self.send_prepared_msteams(prepared)
+
+	async def prepare_msteams(self, msg):
 		try:
 			SendMSTeamsOrchestrator.ValidationSchemaMSTeams(msg)
 		except fastjsonschema.exceptions.JsonSchemaException as e:
@@ -65,4 +71,7 @@ class SendMSTeamsOrchestrator(object):
 		params = body.get("params", {})
 		output = await self.JinjaService.format(template, params)
 
-		return await self.MSTeamsOutputService.send(output)
+		return {"tenant": msg.get("tenant"), "body": output}
+
+	async def send_prepared_msteams(self, prepared):
+		return await self.MSTeamsOutputService.send(prepared["body"])

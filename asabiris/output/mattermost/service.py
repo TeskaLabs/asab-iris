@@ -8,6 +8,7 @@ import asab
 from ...errors import ASABIrisError, ErrorCode
 from ...output_abc import OutputABC
 from ...audit import AuditLogger
+from ..retry import log_provider_response, retry
 
 L = logging.getLogger(__name__)
 
@@ -174,7 +175,6 @@ class MattermostOutputService(asab.Service, OutputABC):
 				"channel_id": channel_id,
 				"username": username,
 				"tenant": effective_tenant,
-				"payload": post_payload,
 			}
 		)
 
@@ -282,8 +282,21 @@ class MattermostOutputService(asab.Service, OutputABC):
 
 		try:
 			async with aiohttp.ClientSession(timeout=timeout) as session:
-				async with session.post(url, headers=headers, json=payload) as resp:
-					body = await resp.text()
+				async def post():
+					async with session.post(url, headers=headers, json=payload) as response:
+						return response.status, await response.text()
+
+				def is_temporary(result, error):
+					if result is not None:
+						log_provider_response(result[0])
+					return isinstance(error, aiohttp.ClientConnectorError) or (
+						result is not None and result[0] == 429
+					)
+
+				status, body = await retry(
+					post,
+					is_temporary,
+				)
 		except aiohttp.ClientError as e:
 			raise ASABIrisError(
 				ErrorCode.SERVER_ERROR,
@@ -292,7 +305,7 @@ class MattermostOutputService(asab.Service, OutputABC):
 				error_dict={"error_message": str(e)},
 			) from e
 
-		if resp.status in (401, 403):
+		if status in (401, 403):
 			raise ASABIrisError(
 				ErrorCode.AUTHENTICATION_FAILED,
 				tech_message="Mattermost authentication failed: {}".format(body),
@@ -300,7 +313,7 @@ class MattermostOutputService(asab.Service, OutputABC):
 				error_dict={"error_message": body},
 			)
 
-		if resp.status in (400, 404):
+		if status in (400, 404):
 			raise ASABIrisError(
 				ErrorCode.INVALID_REQUEST,
 				tech_message="Mattermost rejected the request: {}".format(body),
@@ -308,10 +321,10 @@ class MattermostOutputService(asab.Service, OutputABC):
 				error_dict={"error_message": body},
 			)
 
-		if resp.status >= 500:
+		if status >= 500:
 			raise ASABIrisError(
 				ErrorCode.SERVER_ERROR,
-				tech_message="Mattermost server error {}: {}".format(resp.status, body),
+				tech_message="Mattermost server error {}: {}".format(status, body),
 				error_i18n_key="Mattermost server error.",
 				error_dict={"error_message": body},
 			)

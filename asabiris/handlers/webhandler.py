@@ -33,8 +33,8 @@ class WebHandler(object):
 	"""
 	REST API for document rendering and outbound notifications.
 
-	Each send endpoint returns `{"result": "OK"}` on success. When a channel is
-	not configured, the endpoint responds with HTTP 400 and
+	Each send endpoint returns `{"result": "OK"}` with HTTP 200 after delivery
+	or HTTP 202 when stored for retry. When a channel is not configured, the endpoint responds with HTTP 400 and
 	`{"result": "FAILED", "error": "..."}`.
 	"""
 
@@ -150,13 +150,15 @@ class WebHandler(object):
 		Your automated ASAB report
 		```
 
-		On success returns `{"result": "OK"}`. Transport (SMTP, SMTP via proxy, or
-		MS365) is selected by server configuration, not by the request body.
+		Returns `{"result": "OK"}` with HTTP 200 after delivery or HTTP 202 when stored for retry.
+		Transport (SMTP, SMTP via proxy, or MS365) is selected by server configuration, not by the request body.
 
 		`/send_mail` is an alias of this endpoint kept for backward compatibility.
 		---
 		tags: ['E-Mail']
 		responses:
+			'202':
+				description: Notification stored on disk for retry after a temporary delivery failure.
 			'200':
 				description: Email accepted for delivery.
 				content:
@@ -268,17 +270,7 @@ class WebHandler(object):
 			token = asab.contextvars.Tenant.set(tenant)
 
 		try:
-			await self.App.SendEmailOrchestrator.send_email(
-				email_to=json_data.get("to", None),
-				body_template=json_data["body"]["template"],
-				body_template_wrapper=json_data["body"].get("wrapper", None),
-				email_cc=json_data.get("cc", []),  # Optional
-				email_bcc=json_data.get("bcc", []),  # Optional
-				email_subject=json_data.get("subject", None),  # Optional
-				email_from=json_data.get("from"),
-				body_params=json_data["body"].get("params", {}),  # Optional
-				attachments=json_data.get("attachments", []),
-			)
+			delivered = await self.App.NotificationQueueService.deliver("email", json_data)
 		except ASABIrisError as e:
 			# Map ErrorCode to HTTP status codes
 			status_code = self.map_error_code_to_status(e.ErrorCode)
@@ -308,7 +300,7 @@ class WebHandler(object):
 			if token is not None:
 				asab.contextvars.Tenant.reset(token)
 
-		return asab.web.rest.json_response(request, {"result": "OK"})
+		return asab.web.rest.json_response(request, {"result": "OK"}, status=200 if delivered else 202)
 
 	@asab.web.tenant.allow_no_tenant
 	@asab.web.rest.json_schema_handler(slack_schema)
@@ -335,10 +327,12 @@ class WebHandler(object):
 		}
 		```
 
-		On success returns `{"result": "OK"}`.
+		Returns `{"result": "OK"}` with HTTP 200 after delivery or HTTP 202 when stored for retry.
 		---
 		tags: ['Slack']
 		responses:
+			'202':
+				description: Notification stored on disk for retry after a temporary delivery failure.
 			'200':
 				description: Message accepted for delivery.
 				content:
@@ -378,7 +372,7 @@ class WebHandler(object):
 			token = asab.contextvars.Tenant.set(tenant)
 
 		try:
-			await self.App.SendSlackOrchestrator.send_to_slack(json_data)
+			delivered = await self.App.NotificationQueueService.deliver("slack", json_data)
 		except ASABIrisError as e:
 			# Map ErrorCode to HTTP status codes
 			status_code = self.map_error_code_to_status(e.ErrorCode)
@@ -411,7 +405,7 @@ class WebHandler(object):
 			if token is not None:
 				asab.contextvars.Tenant.reset(token)
 
-		return asab.web.rest.json_response(request, {"result": "OK"})
+		return asab.web.rest.json_response(request, {"result": "OK"}, status=200 if delivered else 202)
 
 	@asab.web.tenant.allow_no_tenant
 	@asab.web.rest.json_schema_handler(teams_schema)
@@ -437,10 +431,12 @@ class WebHandler(object):
 		}
 		```
 
-		On success returns `{"result": "OK"}`.
+		Returns `{"result": "OK"}` with HTTP 200 after delivery or HTTP 202 when stored for retry.
 		---
 		tags: ['Microsoft Teams']
 		responses:
+			'202':
+				description: Notification stored on disk for retry after a temporary delivery failure.
 			'200':
 				description: Message accepted for delivery.
 				content:
@@ -473,7 +469,7 @@ class WebHandler(object):
 			token = asab.contextvars.Tenant.set(tenant)
 
 		try:
-			await self.App.SendMSTeamsOrchestrator.send_to_msteams(json_data)
+			delivered = await self.App.NotificationQueueService.deliver("msteams", json_data)
 		except ASABIrisError as e:
 			# Map ErrorCode to HTTP status codes
 			status_code = self.map_error_code_to_status(e.ErrorCode)
@@ -503,7 +499,7 @@ class WebHandler(object):
 			if token is not None:
 				asab.contextvars.Tenant.reset(token)
 
-		return asab.web.rest.json_response(request, {"result": "OK"})
+		return asab.web.rest.json_response(request, {"result": "OK"}, status=200 if delivered else 202)
 
 	@asab.web.tenant.allow_no_tenant
 	@asab.web.rest.json_schema_handler(mattermost_schema)
@@ -531,10 +527,12 @@ class WebHandler(object):
 		}
 		```
 
-		On success returns `{"result": "OK"}`.
+		Returns `{"result": "OK"}` with HTTP 200 after delivery or HTTP 202 when stored for retry.
 		---
 		tags: ['Mattermost']
 		responses:
+			'202':
+				description: Notification stored on disk for retry after a temporary delivery failure.
 			'200':
 				description: Message accepted for delivery.
 				content:
@@ -568,7 +566,7 @@ class WebHandler(object):
 			token = asab.contextvars.Tenant.set(tenant)
 
 		try:
-			await self.App.SendMattermostOrchestrator.send_to_mattermost(json_data)
+			delivered = await self.App.NotificationQueueService.deliver("mattermost", json_data)
 		except ASABIrisError as e:
 			status_code = self.map_error_code_to_status(e.ErrorCode)
 
@@ -596,7 +594,7 @@ class WebHandler(object):
 			if token is not None:
 				asab.contextvars.Tenant.reset(token)
 
-		return asab.web.rest.json_response(request, {"result": "OK"})
+		return asab.web.rest.json_response(request, {"result": "OK"}, status=200 if delivered else 202)
 
 	@asab.web.tenant.allow_no_tenant
 	@asab.web.rest.json_schema_handler({"type": "object"})
@@ -734,10 +732,12 @@ class WebHandler(object):
 		}
 		```
 
-		On success returns `{"result": "OK"}`.
+		Returns `{"result": "OK"}` with HTTP 200 after delivery or HTTP 202 when stored for retry.
 		---
 		tags: ['SMS']
 		responses:
+			'202':
+				description: Notification stored on disk for retry after a temporary delivery failure.
 			'200':
 				description: SMS accepted for delivery.
 				content:
@@ -772,7 +772,7 @@ class WebHandler(object):
 
 		# Render a body
 		try:
-			await self.App.SendSMSOrchestrator.send_sms(json_data)
+			delivered = await self.App.NotificationQueueService.deliver("sms", json_data)
 		except ASABIrisError as e:
 			# Map ErrorCode to HTTP status codes
 			status_code = self.map_error_code_to_status(e.ErrorCode)
@@ -802,7 +802,7 @@ class WebHandler(object):
 			if token is not None:
 				asab.contextvars.Tenant.reset(token)
 
-		return asab.web.rest.json_response(request, {"result": "OK"})
+		return asab.web.rest.json_response(request, {"result": "OK"}, status=200 if delivered else 202)
 
 	@asab.web.rest.json_schema_handler(push_schema)
 	async def send_push(self, request, *, json_data):
@@ -829,10 +829,12 @@ class WebHandler(object):
 		}
 		```
 
-		On success returns `{"result": "OK"}`.
+		Returns `{"result": "OK"}` with HTTP 200 after delivery or HTTP 202 when stored for retry.
 		---
 		tags: ['Push Notification (ntfy.sh)']
 		responses:
+			'202':
+				description: Notification stored on disk for retry after a temporary delivery failure.
 			'200':
 				description: Push notification accepted for delivery.
 				content:
@@ -859,7 +861,7 @@ class WebHandler(object):
 			)
 
 		try:
-			await self.App.SendPushOrchestrator.send_push(json_data)
+			delivered = await self.App.NotificationQueueService.deliver("push", json_data)
 		except ASABIrisError as e:
 			status_code = self.map_error_code_to_status(e.ErrorCode)
 			response = {
@@ -883,7 +885,7 @@ class WebHandler(object):
 			}
 			return aiohttp.web.json_response(response, status=400)
 
-		return asab.web.rest.json_response(request, {"result": "OK"})
+		return asab.web.rest.json_response(request, {"result": "OK"}, status=200 if delivered else 202)
 
 	def map_error_code_to_status(self, error_code):
 		"""

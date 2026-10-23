@@ -12,6 +12,7 @@ import msal
 from ...errors import ASABIrisError, ErrorCode
 from ...audit import AuditLogger
 from ...output_abc import OutputABC
+from ..retry import log_provider_response, retry
 
 L = logging.getLogger(__name__)
 
@@ -755,8 +756,24 @@ class M365EmailOutputService(asab.Service, OutputABC):
 		# Get token (app or delegated depending on self.Mode)
 		token = await self._get_access_token_async(force_refresh=False)
 
+		async def graph_post(access_token):
+			async def post():
+				return await self._graph_post(api_url, payload, access_token)
+
+			def is_temporary(result, error):
+				if result is not None:
+					log_provider_response(result.status_code)
+				return isinstance(error, requests.exceptions.ConnectTimeout) or (
+					result is not None and result.status_code == 429
+				)
+
+			return await retry(
+				post,
+				is_temporary,
+			)
+
 		try:
-			resp = await self._graph_post(api_url, payload, token)
+			resp = await graph_post(token)
 		except requests.exceptions.Timeout as e:
 			L.error(
 				"Microsoft Graph sendMail request timed out; check network connectivity and Graph API availability.",
@@ -796,7 +813,7 @@ class M365EmailOutputService(asab.Service, OutputABC):
 			token = await self._get_access_token_async(force_refresh=True)
 
 			try:
-				resp = await self._graph_post(api_url, payload, token)
+				resp = await graph_post(token)
 			except requests.exceptions.Timeout as e:
 				L.error(
 					"Microsoft Graph sendMail request timed out on retry after token refresh.",
@@ -840,7 +857,7 @@ class M365EmailOutputService(asab.Service, OutputABC):
 		if resp.status_code == 400:
 			L.error(
 				"Microsoft Graph rejected the email payload with HTTP 400; review recipients, subject, body, and attachments.",
-				struct_data={"endpoint": api_url, "tenant": effective_tenant, "status": resp.status_code, "body": resp.text},
+				struct_data={"endpoint": api_url, "tenant": effective_tenant, "status": resp.status_code},
 			)
 			raise ASABIrisError(
 				ErrorCode.INVALID_REQUEST,
@@ -853,7 +870,7 @@ class M365EmailOutputService(asab.Service, OutputABC):
 		if resp.status_code == 403:
 			L.error(
 				"Microsoft Graph denied sendMail with HTTP 403; verify Azure AD app permissions and mailbox access.",
-				struct_data={"endpoint": api_url, "tenant": effective_tenant, "status": resp.status_code, "body": resp.text},
+				struct_data={"endpoint": api_url, "tenant": effective_tenant, "status": resp.status_code},
 			)
 			raise ASABIrisError(
 				ErrorCode.INVALID_SERVICE_CONFIGURATION,
@@ -864,22 +881,21 @@ class M365EmailOutputService(asab.Service, OutputABC):
 
 		# 429 Too many requests
 		if resp.status_code == 429:
-			retry_after = resp.headers.get("Retry-After", "unknown")
 			L.warning(
-				"Microsoft Graph rate limit reached; reduce send frequency or wait before retrying.",
-				struct_data={"endpoint": api_url, "tenant": effective_tenant, "status": resp.status_code, "retry_after": retry_after},
+				"Microsoft Graph rate limit reached; reduce send frequency.",
+				struct_data={"endpoint": api_url, "tenant": effective_tenant, "status": resp.status_code},
 			)
 			raise ASABIrisError(
 				ErrorCode.SERVER_ERROR,
-				tech_message="Rate limited, retry after {}".format(retry_after),
+				tech_message="Microsoft Graph rate limit reached.",
 				error_i18n_key="Email rate limited",
-				error_dict={"status": resp.status_code, "retry_after": retry_after},
+				error_dict={"status": resp.status_code},
 			)
 
 		# 5xx and unexpected
 		L.error(
 			"Microsoft Graph sendMail returned an unexpected HTTP status; review Graph API response and service configuration.",
-			struct_data={"endpoint": api_url, "tenant": effective_tenant, "status": resp.status_code, "body": resp.text},
+			struct_data={"endpoint": api_url, "tenant": effective_tenant, "status": resp.status_code},
 		)
 		raise ASABIrisError(
 			ErrorCode.SERVER_ERROR,

@@ -3,6 +3,7 @@ import hashlib
 import datetime
 import secrets
 import re
+import uuid
 
 import xml.etree.ElementTree as ET
 
@@ -13,6 +14,7 @@ import pytz
 from ...output_abc import OutputABC
 from ...errors import ASABIrisError, ErrorCode
 from ...audit import AuditLogger
+from ..retry import log_provider_response, retry
 
 L = logging.getLogger(__name__)
 
@@ -286,6 +288,10 @@ class SMSOutputService(asab.Service, OutputABC):
 			message_list = list(message_body)
 
 		# 6) Reuse one session with a reasonable timeout
+		# Internal spool progress: skip accepted parts and reuse each pending part's provider ID.
+		completed_parts = sms_data.get("completed_parts", 0)
+		part_ids = sms_data.setdefault("part_ids", {})
+		part_index = 0
 		timeout = aiohttp.ClientTimeout(total=15)
 		async with aiohttp.ClientSession(timeout=timeout) as session:
 			for message in message_list:
@@ -314,20 +320,40 @@ class SMSOutputService(asab.Service, OutputABC):
 				message_parts = self._split_message_words(message, prefix_template="{i}/{n} ", include_single=True)
 
 				for part in message_parts:
-					time_now, sul, auth = self.generate_auth_params(password)
-					params = {
-						"action": "send_sms",
-						"login": login,
-						"time": time_now,
-						"sul": sul,
-						"auth": auth,
-						"number": phone,
-						"message": part,
-					}
+					if part_index < completed_parts:
+						part_index += 1
+						continue
+					part_key = str(part_index)
+					user_id = part_ids.setdefault(part_key, uuid.uuid4().hex)
 
 					try:
-						async with session.get(api_url, params=params) as resp:
-							response_body = await resp.text()
+						async def send_part():
+							time_now, sul, auth = self.generate_auth_params(password)
+							params = {
+								"action": "send_sms", "login": login, "time": time_now,
+								"sul": sul, "auth": auth, "number": phone,
+								"message": part, "user_id": user_id,
+							}
+							async with session.get(api_url, params=params) as response:
+								return response.status, await response.text()
+
+						def is_temporary(result, error):
+							if isinstance(error, aiohttp.ClientConnectorError):
+								return True
+							if result is None:
+								return False
+							if result[0] == 429:
+								log_provider_response(result[0])
+								return True
+							try:
+								code = ET.fromstring(result[1]).findtext("err")
+								log_provider_response(result[0], code if code and code.lstrip("-").isdigit() else None)
+								return code == "8"
+							except ET.ParseError:
+								log_provider_response(result[0])
+								return False
+
+						status, response_body = await retry(send_part, is_temporary)
 					except aiohttp.ClientError as err:
 						L.error(
 							"Network error while calling SMS provider; verify api_url and outbound network access.",
@@ -344,19 +370,18 @@ class SMSOutputService(asab.Service, OutputABC):
 							error_dict={"error_message": str(err)}
 						) from err
 
-					if resp.status != 200:
+					if status != 200:
 						L.warning(
 							"SMS provider returned a non-200 HTTP status; review provider credentials and API settings.",
 							struct_data={
 								"tenant": effective_tenant,
 								"api_url": api_url,
-								"status": resp.status,
-								"response_body": response_body,
+								"status": status,
 							},
 						)
 						raise ASABIrisError(
 							ErrorCode.SERVER_ERROR,
-							tech_message="SMSBrana.cz responded with '{}': '{}'".format(resp.status, response_body),
+							tech_message="SMSBrana.cz responded with '{}': '{}'".format(status, response_body),
 							error_i18n_key="Error occurred while sending SMS. Reason: '{{error_message}}'.",
 							error_dict={"error_message": response_body}
 						)
@@ -376,7 +401,6 @@ class SMSOutputService(asab.Service, OutputABC):
 							struct_data={
 								"tenant": effective_tenant,
 								"api_url": api_url,
-								"response_body": response_body,
 								"error_type": type(err).__name__,
 							},
 						)
@@ -395,7 +419,6 @@ class SMSOutputService(asab.Service, OutputABC):
 								"api_url": api_url,
 								"error_code": err_code,
 								"error_message": custom_message,
-								"response_body": response_body,
 							},
 						)
 						raise ASABIrisError(
@@ -412,6 +435,8 @@ class SMSOutputService(asab.Service, OutputABC):
 						"SMS part sent successfully.",
 						struct_data={"tenant": effective_tenant, "api_url": api_url},
 					)
+					part_index += 1
+					sms_data["completed_parts"] = part_index
 		AuditLogger.log(
 			asab.LOG_NOTICE,
 			"SMS sent",

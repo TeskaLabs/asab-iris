@@ -1,3 +1,4 @@
+import asyncio
 import time
 import logging
 import configparser
@@ -13,6 +14,7 @@ except ModuleNotFoundError:
 from ...errors import ASABIrisError, ErrorCode
 from ...output_abc import OutputABC
 from ...audit import AuditLogger
+from ..retry import log_provider_response, retry
 
 if slack_sdk is not None:
 	SlackApiError = slack_sdk.errors.SlackApiError
@@ -40,6 +42,22 @@ def check_config(config, section, parameter):
 
 
 class SlackOutputService(asab.Service, OutputABC):
+	async def _retry(self, operation):
+		async def run_operation():
+			return await asyncio.to_thread(operation)
+
+		def is_temporary(result, error):
+			if isinstance(error, SlackApiError):
+				log_provider_response(error.response.status_code, error.response.get("error"))
+				return error.response.status_code == 429 or error.response.get("error") == "ratelimited"
+			if isinstance(result, slack_sdk.web.SlackResponse):
+				log_provider_response(result.status_code)
+			return False
+
+		return await retry(
+			run_operation,
+			is_temporary,
+		)
 
 	def __init__(self, app, service_name="SlackOutputService"):
 		super().__init__(app, service_name)
@@ -98,7 +116,8 @@ class SlackOutputService(asab.Service, OutputABC):
 		if cache_hit is not None:
 			return cache_hit[0], cache_hit[1], channel
 
-		client = slack_sdk.WebClient(token=token)
+		# Let the spool schedule retries rather than allowing hidden SDK retries.
+		client = slack_sdk.WebClient(token=token, retry_handlers=[])
 		channel_id = self.get_channel_id(client, channel)
 
 		self.Cache[(token, channel)] = (client, channel_id, time.time())
@@ -116,31 +135,35 @@ class SlackOutputService(asab.Service, OutputABC):
 			)
 			return
 
-		client, channel_id, channel = self._resolve(channel)
+		def resolve_channel():
+			return self._resolve(channel)
+
+		client, channel_id, channel = await self._retry(resolve_channel)
 
 		if client is None:
 			raise ValueError("Cannot send message to Slack.")
 
-		# Audit log of outgoing payload at NOTICE level
+		# Log the destination without exposing message text or blocks.
 		L.log(
 			asab.LOG_NOTICE,
 			"Sending Slack message.",
 			struct_data={
 				"channel": channel,
-				"text": fallback_message,
-				"blocks": blocks,
 			}
 		)
 		try:
-			client.chat_postMessage(
-				channel=channel_id,
-				text=fallback_message,
-				blocks=blocks
-			)
+			def post_message():
+				return client.chat_postMessage(
+					channel=channel_id,
+					text=fallback_message,
+					blocks=blocks
+				)
+
+			await self._retry(post_message)
 		except SlackApiError as e:
 			L.warning(
 				"Failed to send Slack message; verify bot token, channel name, and Slack API permissions.",
-				struct_data={"channel": channel, "error_message": str(e)},
+				struct_data={"channel": channel, "status": e.response.status_code, "provider_error_code": e.response.get("error")},
 			)
 			raise ASABIrisError(
 				ErrorCode.SLACK_API_ERROR,
@@ -157,7 +180,7 @@ class SlackOutputService(asab.Service, OutputABC):
 		AuditLogger.log(asab.LOG_NOTICE, "Slack message sent", struct_data={"channel": channel, "channel_id": channel_id})
 
 
-	async def send_files(self, body: str, atts_gen, channel=None):
+	async def send_files(self, body: str, atts_gen, channel=None, retry_state=None):
 		"""
 		Sends a message to a Slack channel with attachments.
 		"""
@@ -167,10 +190,20 @@ class SlackOutputService(asab.Service, OutputABC):
 			)
 			return
 
-		client, channel_id, channel = self._resolve(channel)
+		def resolve_channel():
+			return self._resolve(channel)
 
+		client, channel_id, channel = await self._retry(resolve_channel)
+
+		# The prepared spool payload records completed uploads so later attempts skip them.
+		retry_state = retry_state if retry_state is not None else {}
+		completed = retry_state.get("completed_attachments", 0)
 		try:
+			index = 0
 			async for attachment in atts_gen:
+				if index < completed:
+					index += 1
+					continue
 				# robust size calculation
 				try:
 					size = len(attachment.Content)
@@ -188,16 +221,22 @@ class SlackOutputService(asab.Service, OutputABC):
 						"channel": channel,
 					}
 				)
-				client.files_upload_v2(
-					channel=channel_id,
-					file=attachment.Content,
-					filename=attachment.FileName,
-					initial_comment=body.format() if attachment.Position == 0 else None
-				)
+
+				def upload():
+					attachment.Content.seek(0)
+					return client.files_upload_v2(
+						channel=channel_id,
+						file=attachment.Content,
+						filename=attachment.FileName,
+						initial_comment=body.format() if attachment.Position == 0 else None
+					)
+				await self._retry(upload)
+				index += 1
+				retry_state["completed_attachments"] = index
 		except SlackApiError as e:
 			L.warning(
 				"Failed to upload files to Slack; verify bot token, channel access, and file size limits.",
-				struct_data={"channel": channel, "error_message": str(e)},
+				struct_data={"channel": channel, "status": e.response.status_code, "provider_error_code": e.response.get("error")},
 			)
 			raise ASABIrisError(
 				ErrorCode.SLACK_API_ERROR,

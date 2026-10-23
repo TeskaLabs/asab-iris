@@ -6,6 +6,7 @@ import fastjsonschema
 
 from ..errors import ASABIrisError, ErrorCode
 from ..schemas import slack_schema
+from .prepared import prepare_attachments, prepared_attachments
 
 #
 
@@ -30,6 +31,12 @@ class SendSlackOrchestrator(object):
 
 
 	async def send_to_slack(self, msg):
+		prepared = await self.prepare_slack(msg)
+		if prepared is None:
+			return
+		return await self.send_prepared_slack(prepared)
+
+	async def prepare_slack(self, msg):
 		try:
 			SendSlackOrchestrator.ValidationSchemaSlack(msg)
 		except fastjsonschema.exceptions.JsonSchemaException as e:
@@ -91,14 +98,38 @@ class SendSlackOrchestrator(object):
 				fallback_message = output
 				blocks = None
 
-			await self.SlackOutputService.send_message(blocks, fallback_message, channel)
-			return
+			return {
+				"tenant": msg.get("tenant"),
+				"channel": channel,
+				"message": fallback_message,
+				"blocks": blocks,
+			}
 
 		# Sending attachments
 
 		output = self.MarkdownFormatterService.unformat(output)
-		atts_gen = self.AttachmentRenderingService.render_attachment(attachments)
-		await self.SlackOutputService.send_files(output, atts_gen, channel)
+		attachments = await prepare_attachments(
+			self.AttachmentRenderingService.render_attachment(attachments)
+		)
+		return {
+			"tenant": msg.get("tenant"),
+			"channel": channel,
+			"message": output,
+			"attachments": attachments,
+			"completed_attachments": 0,
+		}
+
+	async def send_prepared_slack(self, prepared):
+		if "attachments" not in prepared:
+			return await self.SlackOutputService.send_message(
+				prepared.get("blocks"), prepared["message"], prepared.get("channel")
+			)
+		return await self.SlackOutputService.send_files(
+			prepared["message"],
+			prepared_attachments(prepared["attachments"]),
+			prepared.get("channel"),
+			retry_state=prepared,
+		)
 
 
 	async def render_attachment(self, template, params):
