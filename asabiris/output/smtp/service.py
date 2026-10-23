@@ -14,7 +14,7 @@ import aiosmtplib.protocol as smtp_protocol
 from ...output_abc import OutputABC
 from ...errors import ASABIrisError, ErrorCode
 from ...audit import AuditLogger
-from ..retry import TemporaryDeliveryError
+from ..retry import TemporaryDeliveryError, log_provider_response
 
 #
 
@@ -366,7 +366,10 @@ class EmailOutputService(asab.Service, OutputABC):
 					cert_bundle=self.Cert or None,
 					validate_certs=self.ValidateCerts
 				)
+			log_provider_response(250)
 			refused = result[0]
+			for response in refused.values():
+				log_provider_response(response.code)
 			if refused:
 				temporary = [address for address, response in refused.items() if 400 <= response.code < 500]
 				permanent = [address for address in refused if address not in temporary]
@@ -406,6 +409,8 @@ class EmailOutputService(asab.Service, OutputABC):
 			)
 			raise TemporaryDeliveryError(error=e) from e
 		except aiosmtplib.SMTPRecipientsRefused as e:
+			for recipient in e.recipients:
+				log_provider_response(recipient.code)
 			temporary = [recipient.recipient for recipient in e.recipients if 400 <= recipient.code < 500]
 			permanent = [recipient.recipient for recipient in e.recipients if recipient.recipient not in temporary]
 			if temporary:
@@ -419,6 +424,7 @@ class EmailOutputService(asab.Service, OutputABC):
 				error_dict={"recipients": permanent},
 			) from e
 		except aiosmtplib.SMTPAuthenticationError as e:
+			log_provider_response(e.code)
 			L.warning(
 				"SMTP authentication failed; verify user and password in [smtp] or tenant email configuration.",
 				struct_data={
@@ -437,6 +443,7 @@ class EmailOutputService(asab.Service, OutputABC):
 				}
 			)
 		except aiosmtplib.SMTPResponseException as e:
+			log_provider_response(e.code)
 			L.warning(
 				"SMTP server rejected the message; review the SMTP response code and message body.",
 				struct_data={

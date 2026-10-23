@@ -8,7 +8,7 @@ import asab
 from ...errors import ASABIrisError, ErrorCode
 from ...output_abc import OutputABC
 from ...audit import AuditLogger
-from ..retry import retry
+from ..retry import log_provider_response, retry
 
 L = logging.getLogger(__name__)
 
@@ -175,7 +175,6 @@ class MattermostOutputService(asab.Service, OutputABC):
 				"channel_id": channel_id,
 				"username": username,
 				"tenant": effective_tenant,
-				"payload": post_payload,
 			}
 		)
 
@@ -288,6 +287,8 @@ class MattermostOutputService(asab.Service, OutputABC):
 						return response.status, await response.text()
 
 				def is_temporary(result, error):
+					if result is not None:
+						log_provider_response(result[0])
 					return isinstance(error, aiohttp.ClientConnectorError) or (
 						result is not None and result[0] == 429
 					)

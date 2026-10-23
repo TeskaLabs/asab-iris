@@ -14,7 +14,7 @@ import pytz
 from ...output_abc import OutputABC
 from ...errors import ASABIrisError, ErrorCode
 from ...audit import AuditLogger
-from ..retry import retry
+from ..retry import log_provider_response, retry
 
 L = logging.getLogger(__name__)
 
@@ -343,10 +343,14 @@ class SMSOutputService(asab.Service, OutputABC):
 							if result is None:
 								return False
 							if result[0] == 429:
+								log_provider_response(result[0])
 								return True
 							try:
-								return ET.fromstring(result[1]).findtext("err") == "8"
+								code = ET.fromstring(result[1]).findtext("err")
+								log_provider_response(result[0], code if code and code.lstrip("-").isdigit() else None)
+								return code == "8"
 							except ET.ParseError:
+								log_provider_response(result[0])
 								return False
 
 						status, response_body = await retry(send_part, is_temporary)
@@ -373,7 +377,6 @@ class SMSOutputService(asab.Service, OutputABC):
 								"tenant": effective_tenant,
 								"api_url": api_url,
 								"status": status,
-								"response_body": response_body,
 							},
 						)
 						raise ASABIrisError(
@@ -398,7 +401,6 @@ class SMSOutputService(asab.Service, OutputABC):
 							struct_data={
 								"tenant": effective_tenant,
 								"api_url": api_url,
-								"response_body": response_body,
 								"error_type": type(err).__name__,
 							},
 						)
@@ -417,7 +419,6 @@ class SMSOutputService(asab.Service, OutputABC):
 								"api_url": api_url,
 								"error_code": err_code,
 								"error_message": custom_message,
-								"response_body": response_body,
 							},
 						)
 						raise ASABIrisError(

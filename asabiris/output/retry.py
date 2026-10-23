@@ -1,6 +1,27 @@
 """Temporary-delivery classification shared by notification providers."""
 
+import contextvars
+import logging
+
+import asab
+
 from ..errors import ASABIrisError, ErrorCode
+
+
+L = logging.getLogger(__name__)
+
+# Scoped to one provider attempt, including SDK calls executed through asyncio.to_thread.
+DeliveryLogContext = contextvars.ContextVar("IrisDeliveryLogContext", default=None)
+
+
+def log_provider_response(status, provider_error_code=None):
+	context = DeliveryLogContext.get()
+	if context is None:
+		return
+	data = {**context, "status": status}
+	if provider_error_code is not None:
+		data["provider_error_code"] = provider_error_code
+	L.log(asab.LOG_NOTICE, "Notification provider responded.", struct_data=data)
 
 
 class TemporaryDeliveryError(ASABIrisError):

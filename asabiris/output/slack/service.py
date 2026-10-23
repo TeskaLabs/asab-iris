@@ -14,7 +14,7 @@ except ModuleNotFoundError:
 from ...errors import ASABIrisError, ErrorCode
 from ...output_abc import OutputABC
 from ...audit import AuditLogger
-from ..retry import retry
+from ..retry import log_provider_response, retry
 
 if slack_sdk is not None:
 	SlackApiError = slack_sdk.errors.SlackApiError
@@ -47,9 +47,12 @@ class SlackOutputService(asab.Service, OutputABC):
 			return await asyncio.to_thread(operation)
 
 		def is_temporary(result, error):
-			return isinstance(error, SlackApiError) and (
-				error.response.status_code == 429 or error.response.get("error") == "ratelimited"
-			)
+			if isinstance(error, SlackApiError):
+				log_provider_response(error.response.status_code, error.response.get("error"))
+				return error.response.status_code == 429 or error.response.get("error") == "ratelimited"
+			if isinstance(result, slack_sdk.web.SlackResponse):
+				log_provider_response(result.status_code)
+			return False
 
 		return await retry(
 			run_operation,
@@ -140,14 +143,12 @@ class SlackOutputService(asab.Service, OutputABC):
 		if client is None:
 			raise ValueError("Cannot send message to Slack.")
 
-		# Audit log of outgoing payload at NOTICE level
+		# Log the destination without exposing message text or blocks.
 		L.log(
 			asab.LOG_NOTICE,
 			"Sending Slack message.",
 			struct_data={
 				"channel": channel,
-				"text": fallback_message,
-				"blocks": blocks,
 			}
 		)
 		try:
@@ -162,7 +163,7 @@ class SlackOutputService(asab.Service, OutputABC):
 		except SlackApiError as e:
 			L.warning(
 				"Failed to send Slack message; verify bot token, channel name, and Slack API permissions.",
-				struct_data={"channel": channel, "error_message": str(e)},
+				struct_data={"channel": channel, "status": e.response.status_code, "provider_error_code": e.response.get("error")},
 			)
 			raise ASABIrisError(
 				ErrorCode.SLACK_API_ERROR,
@@ -235,7 +236,7 @@ class SlackOutputService(asab.Service, OutputABC):
 		except SlackApiError as e:
 			L.warning(
 				"Failed to upload files to Slack; verify bot token, channel access, and file size limits.",
-				struct_data={"channel": channel, "error_message": str(e)},
+				struct_data={"channel": channel, "status": e.response.status_code, "provider_error_code": e.response.get("error")},
 			)
 			raise ASABIrisError(
 				ErrorCode.SLACK_API_ERROR,

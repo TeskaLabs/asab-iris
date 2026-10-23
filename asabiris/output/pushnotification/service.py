@@ -5,7 +5,7 @@ import aiohttp
 
 from ...errors import ASABIrisError, ErrorCode
 from ...audit import AuditLogger
-from ..retry import retry
+from ..retry import log_provider_response, retry
 
 L = logging.getLogger(__name__)
 SLACK_LINK_RE = re.compile(r"<(https?://[^>|]+)(?:\|[^>]+)?>")
@@ -129,6 +129,8 @@ class PushOutputService(asab.Service):
 						return response.status, await response.text()
 
 				def is_temporary(result, error):
+					if result is not None:
+						log_provider_response(result[0])
 					return isinstance(error, aiohttp.ClientConnectorError) or (
 						result is not None and result[0] == 429
 					)

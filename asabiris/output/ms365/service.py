@@ -12,7 +12,7 @@ import msal
 from ...errors import ASABIrisError, ErrorCode
 from ...audit import AuditLogger
 from ...output_abc import OutputABC
-from ..retry import retry
+from ..retry import log_provider_response, retry
 
 L = logging.getLogger(__name__)
 
@@ -761,6 +761,8 @@ class M365EmailOutputService(asab.Service, OutputABC):
 				return await self._graph_post(api_url, payload, access_token)
 
 			def is_temporary(result, error):
+				if result is not None:
+					log_provider_response(result.status_code)
 				return isinstance(error, requests.exceptions.ConnectTimeout) or (
 					result is not None and result.status_code == 429
 				)
@@ -855,7 +857,7 @@ class M365EmailOutputService(asab.Service, OutputABC):
 		if resp.status_code == 400:
 			L.error(
 				"Microsoft Graph rejected the email payload with HTTP 400; review recipients, subject, body, and attachments.",
-				struct_data={"endpoint": api_url, "tenant": effective_tenant, "status": resp.status_code, "body": resp.text},
+				struct_data={"endpoint": api_url, "tenant": effective_tenant, "status": resp.status_code},
 			)
 			raise ASABIrisError(
 				ErrorCode.INVALID_REQUEST,
@@ -868,7 +870,7 @@ class M365EmailOutputService(asab.Service, OutputABC):
 		if resp.status_code == 403:
 			L.error(
 				"Microsoft Graph denied sendMail with HTTP 403; verify Azure AD app permissions and mailbox access.",
-				struct_data={"endpoint": api_url, "tenant": effective_tenant, "status": resp.status_code, "body": resp.text},
+				struct_data={"endpoint": api_url, "tenant": effective_tenant, "status": resp.status_code},
 			)
 			raise ASABIrisError(
 				ErrorCode.INVALID_SERVICE_CONFIGURATION,
@@ -893,7 +895,7 @@ class M365EmailOutputService(asab.Service, OutputABC):
 		# 5xx and unexpected
 		L.error(
 			"Microsoft Graph sendMail returned an unexpected HTTP status; review Graph API response and service configuration.",
-			struct_data={"endpoint": api_url, "tenant": effective_tenant, "status": resp.status_code, "body": resp.text},
+			struct_data={"endpoint": api_url, "tenant": effective_tenant, "status": resp.status_code},
 		)
 		raise ASABIrisError(
 			ErrorCode.SERVER_ERROR,
