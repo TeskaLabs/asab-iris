@@ -311,7 +311,7 @@ class SMSOutputService(asab.Service, OutputABC):
 						error_dict={"error_message": "Message contains non-ASCII characters."}
 					)
 				# Split on word boundaries (first 160 chars, next 153)
-				message_parts = self._split_message_words(message, prefix_template="{i}/{n} ", include_single=True)
+				message_parts = self._split_message_words(message, prefix_template="{i}/{n} ", include_single=False)
 
 				for part in message_parts:
 					time_now, sul, auth = self.generate_auth_params(password)
