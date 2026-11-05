@@ -21,16 +21,21 @@ from .output.mattermost import MattermostOutputService
 from .output.sms import SMSOutputService
 from .output.msteams import MSTeamsOutputService
 from .output.pushnotification import PushOutputService
-# orchestrators.
+
+# orchestrators
 from .orchestration.sendemail import SendEmailOrchestrator
 from .orchestration.render import RenderReportOrchestrator
 from .orchestration.sendsms import SendSMSOrchestrator
 from .orchestration.sendmsteams import SendMSTeamsOrchestrator
 from .orchestration.sendpushnotification import SendPushOrchestrator
 from .orchestration.sendmattermost import SendMattermostOrchestrator
+from .orchestration.sendslack import SendSlackOrchestrator
+
+# builder
+from .building import NotificationBuildingService
 
 from .handlers.webhandler import WebHandler
-from .orchestration.sendslack import SendSlackOrchestrator
+
 
 L = logging.getLogger(__name__)
 
@@ -39,6 +44,9 @@ asab.Config.add_defaults({
 	"web": {
 		"listen": 8896,  # Well-known port of asab iris
 		"body_max_size": 31457280  # maximum size of the request body that the web server can handle.
+	},
+	"seacat_auth": {
+		"url": "http://seacat-auth.service_id.asab"
 	},
 })
 
@@ -205,10 +213,18 @@ class ASABIRISApplication(asab.Application):
 
 		self.TenantService = asab.web.tenant.TenantService(self, strict=False)
 
+		# AuthService is required by asab.web.authz.required decorator
+		# Initialize authorization after ASABApiService.initialize_zookeeper() to get DiscoveryService into auth module
+		# WebContainer has authorization middleware installed already
+		self.AuthService = asab.web.auth.AuthService(self)
+
 		# Apache Kafka API is conditional
 		if "kafka" in asab.Config.sections():
 			from .handlers.kafkahandler import KafkaHandler
 			self.KafkaHandler = KafkaHandler(self)
+
+		self.NotificationBuildingService = NotificationBuildingService(self)
+		self.DiscoveryService = self.get_service("asab.DiscoveryService")
 
 	def enabled_orchestrators(self):
 		if self.SendEmailOrchestrator is not None:
