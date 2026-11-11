@@ -10,7 +10,7 @@ class NotificationBuilderABC:
 		self.DefaultTemplate = "Default"
 
 
-	def buiuld_template_path(self, folder):
+	def build_template_path(self, folder):
 		template_path = "/Templates{}{}.md"
 		template_name = self.MessageTemplate.get("template")
 		if template_name is None or len(template_name) == 0:

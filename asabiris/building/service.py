@@ -20,7 +20,7 @@ DESTINATION_PUSH = "push"
 DESTINATION_MSTEAMS = "msteams"
 DESTINATION_MATTERMOST = "mattermost"
 DESTINATION_USER = "user"
-DESTINATION_GROUP = "group"
+DESTINATION_GROUP = "group" # TODO: Discuss requirements & add
 
 #
 
@@ -105,13 +105,32 @@ class NotificationBuildingService(asab.Service):
 					copy.deepcopy(msg_template)
 				)
 
-			except Exception as s:
-				continue
+			except Exception as e:
+				L.error(
+					"Failed to build notification",
+					struct_data={
+						"class": e.__class__.__name__.__str__(),
+						"reason": str(e),
+						"type": dest_type,
+						"tenant": tenant
+					}
+				)
 
 			if builder_obj is None:
 				continue
 			
-			notification = builder_obj.build_notification_dict()
+			try:
+				notification = builder_obj.build_notification_dict()
+			except Exception as e:
+				L.error(
+					"Failed to build notification",
+					struct_data={
+						"class": e.__class__.__name__.__str__(),
+						"reason": str(e),
+						"type": dest_type,
+						"tenant": tenant
+					}
+				)
 			notifications.append(notification)
 
 		return notifications
@@ -163,7 +182,7 @@ class NotificationBuildingService(asab.Service):
 		return url
 
 
-	async def _get_credentials_info(self, credentials_id, internal_auth=False):
+	async def _get_credentials_info(self, credentials_id):
 		"""
 		Requests info for a given credentilas_id
 		"""
@@ -176,13 +195,7 @@ class NotificationBuildingService(asab.Service):
 			)
 			return {}
 
-		# asab.web.WebContainer stores every incoming request in asab.contextvars.Request
-		# DiscoveryService.session uses the Authorization header from the Request context by default
-		if internal_auth is False:
-			discovery_session = self.App.DiscoveryService.session()
-		else:
-			discovery_session = self.App.DiscoveryService.session(auth="internal")
-
+		discovery_session = self.App.DiscoveryService.session(auth="internal")
 		async with discovery_session as session:
 			try:
 				async with session.get(url) as resp:
@@ -203,13 +216,6 @@ class NotificationBuildingService(asab.Service):
 						)
 
 					credentials = await resp.json()
-
-			except ASABIrisError as e:
-				L.warning(
-					e.ErrorCode.get_i18n_name(),
-					struct_data=e.ErrorDict | {"tech_message": e.TechMessage}
-				)
-				return {}
 
 			except asab.api.discovery.NotDiscoveredError:
 				raise RuntimeError("SeaCat could not be reached on url: {}".format(self.SeacatAuthUrl))
