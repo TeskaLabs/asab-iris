@@ -20,7 +20,7 @@ DESTINATION_PUSH = "push"
 DESTINATION_MSTEAMS = "msteams"
 DESTINATION_MATTERMOST = "mattermost"
 DESTINATION_USER = "user"
-DESTINATION_GROUP = "group" # TODO: Discuss requirements & add
+DESTINATION_GROUP = "group"  # TODO: Discuss requirements & add
 
 #
 
@@ -118,7 +118,7 @@ class NotificationBuildingService(asab.Service):
 
 			if builder_obj is None:
 				continue
-			
+
 			try:
 				notification = builder_obj.build_notification_dict()
 			except Exception as e:

@@ -223,7 +223,7 @@ class KafkaHandler(asab.Service):
 						)
 						return
 					await self.handle_sms(msg)
-	
+
 				elif msg_type == "push":
 					if not hasattr(self.App, "SendPushOrchestrator") or self.App.SendPushOrchestrator is None:
 						L.warning(
