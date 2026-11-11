@@ -43,7 +43,6 @@ class NotificationBuilderEmail(NotificationBuilderABC):
 		https://ndocs.teskalabs.com/logman.io/analyst/email-notifications/
 		"""
 		template_path = self.build_template_path(self.DefaultTemplatesFolder)
-		# TODO: 'to' is an array, needs some validation / transformation probably
 		email_notification = {
 			"type": self.NotificationType,
 			"to": self.set_destination(),

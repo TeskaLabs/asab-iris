@@ -7,7 +7,7 @@ unified = {
 			"minItems": 1,
 			"items": {
 				"type": "object",
-				"required": ["type", "value"],
+				"required": ["type"],
 				"properties": {
 					"type": {"type": "string"},
 					"value": {},

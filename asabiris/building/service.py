@@ -83,7 +83,7 @@ class NotificationBuildingService(asab.Service):
 		# New format: one unified generic message as a simple json map
 		msg_destination = msg.pop("destination")
 		if msg_destination is None or not isinstance(msg_destination, list):
-			# Log that no notification will be built based on this msg
+			L.warning("Missing destination data in message or wrong format")
 			return notifications
 
 		msg_body = msg.get("body")
