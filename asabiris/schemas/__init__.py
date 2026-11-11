@@ -1,3 +1,4 @@
+from .unified import unified
 from .slackschema import slack_schema
 from .emailschema import email_schema
 from .teamsschema import teams_schema
@@ -5,6 +6,7 @@ from .smsschema import sms_schema
 from .mattermostschema import mattermost_schema
 
 __all__ = [
+	"unified",
 	"email_schema",
 	"slack_schema",
 	"teams_schema",

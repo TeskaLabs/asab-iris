@@ -8,6 +8,7 @@ import asab.contextvars
 import aiohttp.web
 import aiohttp.payload_streamer
 
+from ..schemas.unified import unified
 from ..schemas.emailschema import email_schema
 from ..schemas.mattermostschema import mattermost_schema
 from ..schemas.slackschema import slack_schema
@@ -43,6 +44,8 @@ class WebHandler(object):
 
 		web_app = app.WebContainer.WebApp
 		web_app.router.add_get(r"/features", self.get_features)
+
+		web_app.router.add_put(r"/send", self.send)
 		web_app.router.add_put(r"/send_email", self.send_email)
 		web_app.router.add_put(r"/send_mail", self.send_email)  # This one is for backward compatibility
 		web_app.router.add_put(r"/send_email_jsonata/{jsonata}", self.send_email_jsonata)
@@ -93,6 +96,84 @@ class WebHandler(object):
 			"orchestrators": list(self.App.enabled_orchestrators()),
 		}
 		return asab.web.rest.json_response(request, response)
+
+
+	@asab.web.tenant.allow_no_tenant
+	@asab.web.rest.json_schema_handler(unified)
+	async def send(self, request, *, json_data):
+		token = None
+		sent = []
+		failed = []
+
+		try:
+			tenant = json_data.get("tenant", None)
+			current_tenant = asab.contextvars.Tenant.get(None)
+
+			# Only set tenant from body if there is no tenant already set from the request context
+			if tenant is not None and current_tenant is None:
+				token = asab.contextvars.Tenant.set(tenant)
+
+			notifications = await self.App.NotificationBuildingService.build_messages(tenant, json_data)
+			if not notifications:
+				return asab.web.rest.json_response(
+					request,
+					response={
+						"result": "FAILED",
+						"error": "No notifications could be built from the request."},
+					status=400,
+				)
+
+			handlers = {
+				"email": self._send_email,
+				"slack": self._send_slack,
+				"sms": self._send_sms,
+				"push": self._send_push,
+				"mattermost": self._send_mattermost,
+				"msteams": self._send_msteams
+			}
+
+			for notification in notifications:
+				msg_type = notification.pop("type", None)
+				handler = handlers.get(msg_type)
+				if handler is None:
+					failed.append({
+						"type": msg_type,
+						"result": "FAILED",
+						"error": "Unsupported type"
+					})
+					continue
+
+				try:
+					await handler(notification)
+					sent.append({"type": msg_type, "result": "OK"})
+
+				except ASABIrisError as e:
+					failed.append({
+						"type": msg_type,
+						"result": "FAILED",
+						"error": e.Errori18nKey,
+						"error_dict": e.ErrorDict,
+						"tech_err": e.TechMessage,
+					})
+
+				except Exception as e:
+					failed.append({"type": msg_type, "result": "FAILED", "error": str(e)})
+
+		finally:
+			if token is not None:
+				asab.contextvars.Tenant.reset(token)
+
+		if failed:
+			result, status = "FAILED", 400
+		else:
+			result, status = "OK", 200
+
+		return asab.web.rest.json_response(
+			request,
+			{"result": result, "sent": sent, "failed": failed},
+			status=status,
+		)
+
 
 	@asab.web.tenant.allow_no_tenant
 	@asab.web.rest.json_schema_handler(email_schema)
@@ -192,7 +273,51 @@ class WebHandler(object):
 			'504':
 				description: SMTP timeout.
 		"""
-		return await self._send_email(request, json_data)
+		token = None
+		tenant = json_data.get("tenant", None)
+		current_tenant = asab.contextvars.Tenant.get(None)
+		if tenant is not None and current_tenant is None:
+			token = asab.contextvars.Tenant.set(tenant)
+
+		try:
+			try:
+				await self._send_email(json_data)
+			except ASABIrisError as e:
+				status_code = self.map_error_code_to_status(e.ErrorCode)
+				return aiohttp.web.json_response(
+					{
+						"result": "ERROR",
+						"error": e.Errori18nKey,
+						"error_dict": e.ErrorDict,
+						"tech_err": e.TechMessage,
+					},
+					status=status_code,
+				)
+			except Exception as e:
+				L.exception(
+					"Unexpected error while processing email send request; HTTP 400 returned to the client.",
+					struct_data={
+						"endpoint": "send_email",
+						"tenant": tenant,
+						"template": json_data.get("body", {}).get("template"),
+					},
+				)
+				return asab.web.rest.json_response(
+					request,
+					{
+						"result": "FAILED",
+						"error": {
+							"message": str(e),
+							"error_code": "GENERAL_ERROR",
+						},
+					},
+					status=400,
+				)
+			return asab.web.rest.json_response(request, {"result": "OK"})
+		finally:
+			if token is not None:
+				asab.contextvars.Tenant.reset(token)
+
 
 	@asab.web.tenant.allow_no_tenant
 	async def send_email_jsonata(self, request):
@@ -241,74 +366,74 @@ class WebHandler(object):
 		async with self.App.LibraryService.open('/Templates/JSONata/' + jsonata_template + '.txt') as b:
 			expr = jsonata.Jsonata(b.read().decode("utf-8"))
 
-		result = expr.evaluate(await request.json())
+		json_data = expr.evaluate(await request.json())
 		# TODO: Apply email_schema to the result
-		return await self._send_email(request, json_data=result)
+		token = None
+		tenant = json_data.get("tenant", None) if isinstance(json_data, dict) else None
+		current_tenant = asab.contextvars.Tenant.get(None)
+		if tenant is not None and current_tenant is None:
+			token = asab.contextvars.Tenant.set(tenant)
 
-	async def _send_email(self, request, json_data):
+		try:
+			try:
+				await self._send_email(json_data)
+			except ASABIrisError as e:
+				status_code = self.map_error_code_to_status(e.ErrorCode)
+				return aiohttp.web.json_response(
+					{
+						"result": "ERROR",
+						"error": e.Errori18nKey,
+						"error_dict": e.ErrorDict,
+						"tech_err": e.TechMessage,
+					},
+					status=status_code,
+				)
+			except Exception as e:
+				L.exception(
+					"Unexpected error while processing email send request; HTTP 400 returned to the client.",
+					struct_data={
+						"endpoint": "send_email",
+						"tenant": tenant,
+						"template": json_data.get("body", {}).get("template") if isinstance(json_data, dict) else None,
+					},
+				)
+				return asab.web.rest.json_response(
+					request,
+					{
+						"result": "FAILED",
+						"error": {
+							"message": str(e),
+							"error_code": "GENERAL_ERROR",
+						},
+					},
+					status=400,
+				)
+			return asab.web.rest.json_response(request, {"result": "OK"})
+		finally:
+			if token is not None:
+				asab.contextvars.Tenant.reset(token)
+
+
+	async def _send_email(self, json_data):
 		# If neither SMTP nor MS365 was set up, fail early
 		if self.App.SendEmailOrchestrator is None:
 			L.info(
 				"Email send request rejected because no email provider is configured. Configure [smtp] host or [m365_email], or expect HTTP 400 responses.",
 			)
-			return aiohttp.web.json_response(
-				{
-					"result": "FAILED",
-					"error": "Email service is not configured."
-				},
-				status=400
-			)
+			raise RuntimeError("Email service is not configured.")
 
-		tenant = json_data.get("tenant", None)
-		current_tenant = asab.contextvars.Tenant.get(None)
-		token = None
+		await self.App.SendEmailOrchestrator.send_email(
+			email_to=json_data.get("to", None),
+			body_template=json_data["body"]["template"],
+			body_template_wrapper=json_data["body"].get("wrapper", None),
+			email_cc=json_data.get("cc", []),  # Optional
+			email_bcc=json_data.get("bcc", []),  # Optional
+			email_subject=json_data.get("subject", None),  # Optional
+			email_from=json_data.get("from"),
+			body_params=json_data["body"].get("params", {}),  # Optional
+			attachments=json_data.get("attachments", []),
+		)
 
-		# Only set tenant from body if there is no tenant already set from the request context
-		if tenant is not None and current_tenant is None:
-			token = asab.contextvars.Tenant.set(tenant)
-
-		try:
-			await self.App.SendEmailOrchestrator.send_email(
-				email_to=json_data.get("to", None),
-				body_template=json_data["body"]["template"],
-				body_template_wrapper=json_data["body"].get("wrapper", None),
-				email_cc=json_data.get("cc", []),  # Optional
-				email_bcc=json_data.get("bcc", []),  # Optional
-				email_subject=json_data.get("subject", None),  # Optional
-				email_from=json_data.get("from"),
-				body_params=json_data["body"].get("params", {}),  # Optional
-				attachments=json_data.get("attachments", []),
-			)
-		except ASABIrisError as e:
-			# Map ErrorCode to HTTP status codes
-			status_code = self.map_error_code_to_status(e.ErrorCode)
-
-			response = {
-				"result": "ERROR",
-				"error": e.Errori18nKey,
-				"error_dict": e.ErrorDict,
-				"tech_err": e.TechMessage
-			}
-			return aiohttp.web.json_response(response, status=status_code)
-
-		except Exception as e:
-			L.exception(
-				"Unexpected error while processing email send request; HTTP 400 returned to the client.",
-				struct_data={"endpoint": "send_email", "tenant": tenant, "template": json_data.get("body", {}).get("template")},
-			)
-			bad_response = {
-				"result": "FAILED",
-				"error": {
-					"message": str(e),
-					"error_code": "GENERAL_ERROR",
-				}
-			}
-			return asab.web.rest.json_response(request, bad_response, status=400)
-		finally:
-			if token is not None:
-				asab.contextvars.Tenant.reset(token)
-
-		return asab.web.rest.json_response(request, {"result": "OK"})
 
 	@asab.web.tenant.allow_no_tenant
 	@asab.web.rest.json_schema_handler(slack_schema)
@@ -358,60 +483,62 @@ class WebHandler(object):
 			'503':
 				description: Slack service unavailable.
 		"""
-		if self.App.SendSlackOrchestrator is None:
-			L.info(
-				"Slack send request rejected because Slack is not configured. Add [slack] configuration or expect HTTP 400 responses.",
-			)
-			return aiohttp.web.json_response(
-				{
-					"result": "FAILED",
-					"error": "Slack service is not configured."
-				},
-				status=400
-			)
-
+		token = None
 		tenant = json_data.get("tenant", None)
 		current_tenant = asab.contextvars.Tenant.get(None)
-		token = None
-
 		if tenant is not None and current_tenant is None:
 			token = asab.contextvars.Tenant.set(tenant)
 
 		try:
-			await self.App.SendSlackOrchestrator.send_to_slack(json_data)
-		except ASABIrisError as e:
-			# Map ErrorCode to HTTP status codes
-			status_code = self.map_error_code_to_status(e.ErrorCode)
-
-			response = {
-				"result": "ERROR",
-				"error": e.Errori18nKey,
-				"error_dict": e.ErrorDict,
-				"tech_err": e.TechMessage
-			}
-			return aiohttp.web.json_response(response, status=status_code)
-
-		except SlackApiError as e:
-			raise aiohttp.web.HTTPServiceUnavailable(text="{}".format(e))
-		# More specific exception handling goes here so that the service provides nice output
-		except Exception as e:
-			L.exception(
-				"Unexpected error while processing Slack send request; HTTP 400 returned to the client.",
-				struct_data={"endpoint": "send_slack", "tenant": tenant, "template": json_data.get("body", {}).get("template")},
-			)
-			response = {
-				"result": "FAILED",
-				"error": {
-					"message": str(e),
-					"error_code": "GENERAL_ERROR",
-				}
-			}
-			return aiohttp.web.json_response(response, status=400)
+			try:
+				await self._send_slack(json_data)
+			except ASABIrisError as e:
+				status_code = self.map_error_code_to_status(e.ErrorCode)
+				return aiohttp.web.json_response(
+					{
+						"result": "ERROR",
+						"error": e.Errori18nKey,
+						"error_dict": e.ErrorDict,
+						"tech_err": e.TechMessage,
+					},
+					status=status_code,
+				)
+			except SlackApiError as e:
+				raise aiohttp.web.HTTPServiceUnavailable(text="{}".format(e))
+			except Exception as e:
+				L.exception(
+					"Unexpected error while processing Slack send request; HTTP 400 returned to the client.",
+					struct_data={
+						"endpoint": "send_slack",
+						"tenant": tenant,
+						"template": json_data.get("body", {}).get("template"),
+					},
+				)
+				return aiohttp.web.json_response(
+					{
+						"result": "FAILED",
+						"error": {
+							"message": str(e),
+							"error_code": "GENERAL_ERROR",
+						},
+					},
+					status=400,
+				)
+			return asab.web.rest.json_response(request, {"result": "OK"})
 		finally:
 			if token is not None:
 				asab.contextvars.Tenant.reset(token)
 
-		return asab.web.rest.json_response(request, {"result": "OK"})
+
+	async def _send_slack(self, json_data):
+		if self.App.SendSlackOrchestrator is None:
+			L.info(
+				"Slack send request rejected because Slack is not configured. Add [slack] configuration or expect HTTP 400 responses.",
+			)
+			raise RuntimeError("Slack service is not configured.")
+
+		await self.App.SendSlackOrchestrator.send_to_slack(json_data)
+
 
 	@asab.web.tenant.allow_no_tenant
 	@asab.web.rest.json_schema_handler(teams_schema)
@@ -454,56 +581,60 @@ class WebHandler(object):
 			'400':
 				description: Invalid payload or Microsoft Teams not configured.
 		"""
-		if self.App.SendMSTeamsOrchestrator is None:
-			L.info(
-				"Microsoft Teams send request rejected because MS Teams is not configured. Add [msteams] webhook_url or expect HTTP 400 responses.",
-			)
-			return aiohttp.web.json_response(
-				{
-					"result": "FAILED",
-					"error": "MSTeams service is not configured."
-				},
-				status=400
-			)
-
+		token = None
 		tenant = json_data.get("tenant", None)
 		current_tenant = asab.contextvars.Tenant.get(None)
-		token = None
 		if tenant is not None and current_tenant is None:
 			token = asab.contextvars.Tenant.set(tenant)
 
 		try:
-			await self.App.SendMSTeamsOrchestrator.send_to_msteams(json_data)
-		except ASABIrisError as e:
-			# Map ErrorCode to HTTP status codes
-			status_code = self.map_error_code_to_status(e.ErrorCode)
-
-			response = {
-				"result": "ERROR",
-				"error": e.Errori18nKey,
-				"error_dict": e.ErrorDict,
-				"tech_err": e.TechMessage
-			}
-			return aiohttp.web.json_response(response, status=status_code)
-
-		except Exception as e:
-			L.exception(
-				"Unexpected error while processing Microsoft Teams send request; HTTP 400 returned to the client.",
-				struct_data={"endpoint": "send_msteams", "tenant": tenant, "template": json_data.get("body", {}).get("template")},
-			)
-			response = {
-				"result": "FAILED",
-				"error": {
-					"message": str(e),
-					"error_code": "GENERAL_ERROR",
-				}
-			}
-			return aiohttp.web.json_response(response, status=400)
+			try:
+				await self._send_msteams(json_data)
+			except ASABIrisError as e:
+				status_code = self.map_error_code_to_status(e.ErrorCode)
+				return aiohttp.web.json_response(
+					{
+						"result": "ERROR",
+						"error": e.Errori18nKey,
+						"error_dict": e.ErrorDict,
+						"tech_err": e.TechMessage,
+					},
+					status=status_code,
+				)
+			except Exception as e:
+				L.exception(
+					"Unexpected error while processing Microsoft Teams send request; HTTP 400 returned to the client.",
+					struct_data={
+						"endpoint": "send_msteams",
+						"tenant": tenant,
+						"template": json_data.get("body", {}).get("template"),
+					},
+				)
+				return aiohttp.web.json_response(
+					{
+						"result": "FAILED",
+						"error": {
+							"message": str(e),
+							"error_code": "GENERAL_ERROR",
+						},
+					},
+					status=400,
+				)
+			return asab.web.rest.json_response(request, {"result": "OK"})
 		finally:
 			if token is not None:
 				asab.contextvars.Tenant.reset(token)
 
-		return asab.web.rest.json_response(request, {"result": "OK"})
+
+	async def _send_msteams(self, json_data):
+		if self.App.SendMSTeamsOrchestrator is None:
+			L.info(
+				"Microsoft Teams send request rejected because MS Teams is not configured. Add [msteams] webhook_url or expect HTTP 400 responses.",
+			)
+			raise RuntimeError("MSTeams service is not configured.")
+
+		await self.App.SendMSTeamsOrchestrator.send_to_msteams(json_data)
+
 
 	@asab.web.tenant.allow_no_tenant
 	@asab.web.rest.json_schema_handler(mattermost_schema)
@@ -548,55 +679,60 @@ class WebHandler(object):
 			'400':
 				description: Invalid payload or Mattermost not configured.
 		"""
-		if self.App.SendMattermostOrchestrator is None:
-			L.info(
-				"Mattermost send request rejected because Mattermost is not configured. Add [mattermost] url and token or expect HTTP 400 responses.",
-			)
-			return aiohttp.web.json_response(
-				{
-					"result": "FAILED",
-					"error": "Mattermost service is not configured."
-				},
-				status=400
-			)
-
+		token = None
 		tenant = json_data.get("tenant", None)
 		current_tenant = asab.contextvars.Tenant.get(None)
-		token = None
-
 		if tenant is not None and current_tenant is None:
 			token = asab.contextvars.Tenant.set(tenant)
 
 		try:
-			await self.App.SendMattermostOrchestrator.send_to_mattermost(json_data)
-		except ASABIrisError as e:
-			status_code = self.map_error_code_to_status(e.ErrorCode)
-
-			response = {
-				"result": "ERROR",
-				"error": e.Errori18nKey,
-				"error_dict": e.ErrorDict,
-				"tech_err": e.TechMessage
-			}
-			return aiohttp.web.json_response(response, status=status_code)
-		except Exception as e:
-			L.exception(
-				"Unexpected error while processing Mattermost send request; HTTP 400 returned to the client.",
-				struct_data={"endpoint": "send_mattermost", "tenant": tenant, "template": json_data.get("body", {}).get("template")},
-			)
-			response = {
-				"result": "FAILED",
-				"error": {
-					"message": str(e),
-					"error_code": "GENERAL_ERROR",
-				}
-			}
-			return aiohttp.web.json_response(response, status=400)
+			try:
+				await self._send_mattermost(json_data)
+			except ASABIrisError as e:
+				status_code = self.map_error_code_to_status(e.ErrorCode)
+				return aiohttp.web.json_response(
+					{
+						"result": "ERROR",
+						"error": e.Errori18nKey,
+						"error_dict": e.ErrorDict,
+						"tech_err": e.TechMessage,
+					},
+					status=status_code,
+				)
+			except Exception as e:
+				L.exception(
+					"Unexpected error while processing Mattermost send request; HTTP 400 returned to the client.",
+					struct_data={
+						"endpoint": "send_mattermost",
+						"tenant": tenant,
+						"template": json_data.get("body", {}).get("template"),
+					},
+				)
+				return aiohttp.web.json_response(
+					{
+						"result": "FAILED",
+						"error": {
+							"message": str(e),
+							"error_code": "GENERAL_ERROR",
+						},
+					},
+					status=400,
+				)
+			return asab.web.rest.json_response(request, {"result": "OK"})
 		finally:
 			if token is not None:
 				asab.contextvars.Tenant.reset(token)
 
-		return asab.web.rest.json_response(request, {"result": "OK"})
+
+	async def _send_mattermost(self, json_data):
+		if self.App.SendMattermostOrchestrator is None:
+			L.info(
+				"Mattermost send request rejected because Mattermost is not configured. Add [mattermost] url and token or expect HTTP 400 responses.",
+			)
+			raise RuntimeError("Mattermost service is not configured.")
+
+		await self.App.SendMattermostOrchestrator.send_to_mattermost(json_data)
+
 
 	@asab.web.tenant.allow_no_tenant
 	@asab.web.rest.json_schema_handler({"type": "object"})
@@ -751,58 +887,60 @@ class WebHandler(object):
 			'400':
 				description: Invalid payload, invalid phone number, or SMS not configured.
 		"""
-		if self.App.SendSMSOrchestrator is None:
-			L.info(
-				"SMS send request rejected because SMS is not configured. Add [sms] configuration or expect HTTP 400 responses.",
-			)
-			return aiohttp.web.json_response(
-				{
-					"result": "FAILED",
-					"error": "SMS service is not configured."
-				},
-				status=400
-			)
-
+		token = None
 		tenant = json_data.get("tenant", None)
 		current_tenant = asab.contextvars.Tenant.get(None)
-		token = None
-
 		if tenant is not None and current_tenant is None:
 			token = asab.contextvars.Tenant.set(tenant)
 
-		# Render a body
 		try:
-			await self.App.SendSMSOrchestrator.send_sms(json_data)
-		except ASABIrisError as e:
-			# Map ErrorCode to HTTP status codes
-			status_code = self.map_error_code_to_status(e.ErrorCode)
-
-			response = {
-				"result": "ERROR",
-				"error": e.Errori18nKey,
-				"error_dict": e.ErrorDict,
-				"tech_err": e.TechMessage
-			}
-			return aiohttp.web.json_response(response, status=status_code)
-
-		except Exception as e:
-			L.exception(
-				"Unexpected error while processing SMS send request; HTTP 400 returned to the client.",
-				struct_data={"endpoint": "send_sms", "tenant": tenant, "template": json_data.get("body", {}).get("template")},
-			)
-			response = {
-				"result": "FAILED",
-				"error": {
-					"message": str(e),
-					"error_code": "GENERAL_ERROR",
-				}
-			}
-			return aiohttp.web.json_response(response, status=400)
+			try:
+				await self._send_sms(json_data)
+			except ASABIrisError as e:
+				status_code = self.map_error_code_to_status(e.ErrorCode)
+				return aiohttp.web.json_response(
+					{
+						"result": "ERROR",
+						"error": e.Errori18nKey,
+						"error_dict": e.ErrorDict,
+						"tech_err": e.TechMessage,
+					},
+					status=status_code,
+				)
+			except Exception as e:
+				L.exception(
+					"Unexpected error while processing SMS send request; HTTP 400 returned to the client.",
+					struct_data={
+						"endpoint": "send_sms",
+						"tenant": tenant,
+						"template": json_data.get("body", {}).get("template"),
+					},
+				)
+				return aiohttp.web.json_response(
+					{
+						"result": "FAILED",
+						"error": {
+							"message": str(e),
+							"error_code": "GENERAL_ERROR",
+						},
+					},
+					status=400,
+				)
+			return asab.web.rest.json_response(request, {"result": "OK"})
 		finally:
 			if token is not None:
 				asab.contextvars.Tenant.reset(token)
 
-		return asab.web.rest.json_response(request, {"result": "OK"})
+
+	async def _send_sms(self, json_data):
+		if self.App.SendSMSOrchestrator is None:
+			L.info(
+				"SMS send request rejected because SMS is not configured. Add [sms] configuration or expect HTTP 400 responses.",
+			)
+			raise RuntimeError("SMS service is not configured.")
+
+		await self.App.SendSMSOrchestrator.send_sms(json_data)
+
 
 	@asab.web.rest.json_schema_handler(push_schema)
 	async def send_push(self, request, *, json_data):
@@ -846,44 +984,51 @@ class WebHandler(object):
 			'400':
 				description: Invalid payload or push service not configured.
 		"""
-		if self.App.SendPushOrchestrator is None:
-			L.info(
-				"Push send request rejected because push (ntfy) is not configured. Add [push] url or expect HTTP 400 responses.",
+		try:
+			await self._send_push(json_data)
+		except ASABIrisError as e:
+			status_code = self.map_error_code_to_status(e.ErrorCode)
+			return aiohttp.web.json_response(
+				{
+					"result": "ERROR",
+					"error": e.Errori18nKey,
+					"error_dict": e.ErrorDict,
+					"tech_err": e.TechMessage,
+				},
+				status=status_code,
+			)
+		except Exception as e:
+			L.exception(
+				"Unexpected error while processing push send request; HTTP 400 returned to the client.",
+				struct_data={
+					"endpoint": "send_push",
+					"tenant": json_data.get("tenant"),
+					"topic": json_data.get("topic"),
+					"template": json_data.get("body", {}).get("template"),
+				},
 			)
 			return aiohttp.web.json_response(
 				{
 					"result": "FAILED",
-					"error": "Push service is not configured."
+					"error": {
+						"message": str(e),
+						"error_code": "GENERAL_ERROR",
+					},
 				},
-				status=400
+				status=400,
 			)
-
-		try:
-			await self.App.SendPushOrchestrator.send_push(json_data)
-		except ASABIrisError as e:
-			status_code = self.map_error_code_to_status(e.ErrorCode)
-			response = {
-				"result": "ERROR",
-				"error": e.Errori18nKey,
-				"error_dict": e.ErrorDict,
-				"tech_err": e.TechMessage
-			}
-			return aiohttp.web.json_response(response, status=status_code)
-		except Exception as e:
-			L.exception(
-				"Unexpected error while processing push send request; HTTP 400 returned to the client.",
-				struct_data={"endpoint": "send_push", "tenant": json_data.get("tenant"), "topic": json_data.get("topic"), "template": json_data.get("body", {}).get("template")},
-			)
-			response = {
-				"result": "FAILED",
-				"error": {
-					"message": str(e),
-					"error_code": "GENERAL_ERROR"
-				}
-			}
-			return aiohttp.web.json_response(response, status=400)
-
 		return asab.web.rest.json_response(request, {"result": "OK"})
+
+
+	async def _send_push(self, json_data):
+		if self.App.SendPushOrchestrator is None:
+			L.info(
+				"Push send request rejected because push (ntfy) is not configured. Add [push] url or expect HTTP 400 responses.",
+			)
+			raise RuntimeError("Push service is not configured.")
+
+		await self.App.SendPushOrchestrator.send_push(json_data)
+
 
 	def map_error_code_to_status(self, error_code):
 		"""
