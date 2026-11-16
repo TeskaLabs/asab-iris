@@ -60,6 +60,7 @@ class WebHandler(object):
 
 
 	@asab.web.tenant.allow_no_tenant
+	@asab.web.auth.require("asab:notification:send")
 	async def get_features(self, request):
 		"""
 		List notification channels enabled in the current Iris instance.
@@ -99,6 +100,7 @@ class WebHandler(object):
 
 
 	@asab.web.tenant.allow_no_tenant
+	@asab.web.auth.require("asab:notification:send")
 	@asab.web.rest.json_schema_handler(unified)
 	async def send(self, request, *, json_data):
 		token = None
@@ -176,6 +178,7 @@ class WebHandler(object):
 
 
 	@asab.web.tenant.allow_no_tenant
+	@asab.web.auth.require("asab:notification:send")
 	@asab.web.rest.json_schema_handler(email_schema)
 	async def send_email(self, request, *, json_data):
 		"""
@@ -320,6 +323,7 @@ class WebHandler(object):
 
 
 	@asab.web.tenant.allow_no_tenant
+	@asab.web.auth.require("asab:notification:send")
 	async def send_email_jsonata(self, request):
 		"""
 		Transform the request body with a JSONata template, then send the result via `/send_email`.
@@ -436,6 +440,7 @@ class WebHandler(object):
 
 
 	@asab.web.tenant.allow_no_tenant
+	@asab.web.auth.require("asab:notification:send")
 	@asab.web.rest.json_schema_handler(slack_schema)
 	async def send_slack(self, request, *, json_data):
 		"""
@@ -541,6 +546,7 @@ class WebHandler(object):
 
 
 	@asab.web.tenant.allow_no_tenant
+	@asab.web.auth.require("asab:notification:send")
 	@asab.web.rest.json_schema_handler(teams_schema)
 	async def send_msteams(self, request, *, json_data):
 		"""
@@ -637,6 +643,7 @@ class WebHandler(object):
 
 
 	@asab.web.tenant.allow_no_tenant
+	@asab.web.auth.require("asab:notification:send")
 	@asab.web.rest.json_schema_handler(mattermost_schema)
 	async def send_mattermost(self, request, *, json_data):
 		"""
@@ -735,6 +742,7 @@ class WebHandler(object):
 
 
 	@asab.web.tenant.allow_no_tenant
+	@asab.web.auth.require("asab:notification:send")
 	@asab.web.rest.json_schema_handler({"type": "object"})
 	async def render(self, request, *, json_data):
 		"""
@@ -942,6 +950,8 @@ class WebHandler(object):
 		await self.App.SendSMSOrchestrator.send_sms(json_data)
 
 
+	# TODO: check why everywhere there is @asab.web.tenant.allow_no_tenant except push (service says optional)
+	@asab.web.auth.require("asab:notification:send")
 	@asab.web.rest.json_schema_handler(push_schema)
 	async def send_push(self, request, *, json_data):
 		"""
@@ -1058,6 +1068,7 @@ class WebHandler(object):
 		return error_code_mapping.get(error_code, 400)  # Default to 400 Bad Request
 
 	@asab.web.tenant.allow_no_tenant
+	@asab.web.auth.require("asab:notification:send")
 	async def authorize_ms365(self, request):
 		"""
 		Complete the Microsoft 365 delegated OAuth authorization flow.
