@@ -84,6 +84,7 @@ class KafkaHandler(asab.Service):
 			)
 			self.Consumer = None
 
+
 	async def initialize(self, app):
 		if self.Consumer is None:
 			L.warning(
@@ -172,63 +173,71 @@ class KafkaHandler(asab.Service):
 				"Could not set tenant context from Kafka message; notification will use global configuration.",
 				struct_data={"tenant": tenant, "error_type": e.__class__.__name__},
 			)
-		try:
-			try:
-				msg_type = msg.pop("type", "<missing>")
-			except AttributeError as e:
-				L.warning(
-					"Kafka alert message is not a JSON object; message was discarded.",
-					struct_data={"error_type": e.__class__.__name__},
-				)
-				return
 
-			if msg_type == "email":
-				await self.handle_email(msg)
-			elif msg_type == "mattermost":
-				if self.App.SendMattermostOrchestrator is None:
+		try:
+			msgs = await self.App.NotificationBuildingService.build_messages(tenant, msg)
+			for msg in msgs:
+				msg_type = msg.pop("type", "<missing>")
+
+				if msg_type == "email":
+					if self.App.SendEmailOrchestrator is None:
+						L.warning(
+							"Kafka Email notification discarded because Email is not configured. Add [email] configuration or stop publishing email messages.",
+							struct_data={"message_type": msg_type, "tenant": tenant},
+						)
+						return
+					await self.handle_email(msg)
+
+				elif msg_type == "mattermost":
+					if self.App.SendMattermostOrchestrator is None:
+						L.warning(
+							"Kafka Mattermost notification discarded because Mattermost is not configured. Add [mattermost] configuration or stop publishing mattermost messages.",
+							struct_data={"message_type": msg_type, "tenant": tenant},
+						)
+						return
+					await self.handle_mattermost(msg)
+
+				elif msg_type == "slack":
+					if self.App.SendSlackOrchestrator is None:
+						L.warning(
+							"Kafka Slack notification discarded because Slack is not configured. Add [slack] configuration or stop publishing slack messages.",
+							struct_data={"message_type": msg_type, "tenant": tenant},
+						)
+						return
+					await self.handle_slack(msg)
+
+				elif msg_type == "msteams":
+					if self.App.SendMSTeamsOrchestrator is None:
+						L.warning(
+							"Kafka Microsoft Teams notification discarded because MS Teams is not configured. Add [msteams] configuration or stop publishing msteams messages.",
+							struct_data={"message_type": msg_type, "tenant": tenant},
+						)
+						return
+					await self.handle_msteams(msg)
+
+				elif msg_type == "sms":
+					if self.App.SendSMSOrchestrator is None:
+						L.warning(
+							"Kafka SMS notification discarded because SMS is not configured. Add [sms] configuration or stop publishing sms messages.",
+							struct_data={"message_type": msg_type, "tenant": tenant},
+						)
+						return
+					await self.handle_sms(msg)
+
+				elif msg_type == "push":
+					if not hasattr(self.App, "SendPushOrchestrator") or self.App.SendPushOrchestrator is None:
+						L.warning(
+							"Kafka push notification discarded because push (ntfy) is not configured. Add [push] url configuration or stop publishing push messages.",
+							struct_data={"message_type": msg_type, "tenant": tenant},
+						)
+						return
+					await self.handle_push(msg)
+
+				else:
 					L.warning(
-						"Kafka Mattermost notification discarded because Mattermost is not configured. Add [mattermost] configuration or stop publishing mattermost messages.",
+						"Kafka alert message has unsupported type and was discarded. Supported types: email, mattermost, slack, msteams, sms, push.",
 						struct_data={"message_type": msg_type, "tenant": tenant},
 					)
-					return
-				await self.handle_mattermost(msg)
-			elif msg_type == "slack":
-				if self.App.SendSlackOrchestrator is None:
-					L.warning(
-						"Kafka Slack notification discarded because Slack is not configured. Add [slack] configuration or stop publishing slack messages.",
-						struct_data={"message_type": msg_type, "tenant": tenant},
-					)
-					return
-				await self.handle_slack(msg)
-			elif msg_type == "msteams":
-				if self.App.SendMSTeamsOrchestrator is None:
-					L.warning(
-						"Kafka Microsoft Teams notification discarded because MS Teams is not configured. Add [msteams] configuration or stop publishing msteams messages.",
-						struct_data={"message_type": msg_type, "tenant": tenant},
-					)
-					return
-				await self.handle_msteams(msg)
-			elif msg_type == "sms":
-				if self.App.SendSMSOrchestrator is None:
-					L.warning(
-						"Kafka SMS notification discarded because SMS is not configured. Add [sms] configuration or stop publishing sms messages.",
-						struct_data={"message_type": msg_type, "tenant": tenant},
-					)
-					return
-				await self.handle_sms(msg)
-			elif msg_type == "push":
-				if not hasattr(self.App, "SendPushOrchestrator") or self.App.SendPushOrchestrator is None:
-					L.warning(
-						"Kafka push notification discarded because push (ntfy) is not configured. Add [push] url configuration or stop publishing push messages.",
-						struct_data={"message_type": msg_type, "tenant": tenant},
-					)
-					return
-				await self.handle_push(msg)
-			else:
-				L.warning(
-					"Kafka alert message has unsupported type and was discarded. Supported types: email, mattermost, slack, msteams, sms, push.",
-					struct_data={"message_type": msg_type, "tenant": tenant},
-				)
 		finally:
 			if token is not None:
 				try:
