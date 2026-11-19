@@ -136,7 +136,7 @@
       - docker system prune -f
 
     script:
-      - docker build -t $DOCKER_REGISTRY_IMAGE .
+      - docker build -t $DOCKER_REGISTRY_IMAGE --pull .
       - docker login -u "$DOCKER_USER" -p "$DOCKER_PASSWORD" "$DOCKER_REGISTRY"
       - docker push $DOCKER_REGISTRY_IMAGE
 
@@ -162,7 +162,7 @@
       - docker system prune -f
 
     script:
-      - docker build -t "${DOCKER_REGISTRY_IMAGE}:${CI_COMMIT_TAG}" --no-cache .
+      - docker build -t "${DOCKER_REGISTRY_IMAGE}:${CI_COMMIT_TAG}" --no-cache --pull .
       - docker login -u "$DOCKER_USER" -p "$DOCKER_PASSWORD" "$DOCKER_REGISTRY"
       - docker push "${DOCKER_REGISTRY_IMAGE}:${CI_COMMIT_TAG}"
       - docker rmi "${DOCKER_REGISTRY_IMAGE}:${CI_COMMIT_TAG}"
