@@ -55,6 +55,10 @@ RUN pip3 install --no-cache-dir \
     git+https://github.com/TeskaLabs/asab.git@v26.12.03
 # ^ Use vendored Kazoo library till https://github.com/python-zk/kazoo/pull/715 is merged (persistent watcher support)
 
+# Security fix for CVE-2026-111943 (eMudhra CA compromise)
+RUN python3 -m pip install --upgrade "pip>=26.2.2" \
+    && python3 -m pip install --upgrade "certifi>=2026.10.19"
+
 RUN mkdir -p /app/asab-iris
 
 COPY . /app/asab-iris
