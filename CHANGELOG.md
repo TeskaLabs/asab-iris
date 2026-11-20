@@ -3,6 +3,9 @@
 
 ## v26.12
 
+### Patches
+- emSign CVE security patch (v26.12.03)
+
 ### Features
 - New output push notifications. (#117 v25.50-alpha)
 - Push notification supports tenant configuration. (#121 v26.02-alpha)
