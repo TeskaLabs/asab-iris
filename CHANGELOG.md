@@ -19,7 +19,6 @@
 - Critical: Add tzdata dependency required by xhtml2pdf (#134 v26.12-beta4)
 - Use forked kazoo for persistent watcher support (#135 v26.12-beta5)
 - Accept Microsoft Teams Workflows 202 Accepted responses as successfully sends (#136 v26.12-beta6)
-- Security patch for emSign certs (v26.12.02)
 
 ## v25.47
 
