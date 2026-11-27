@@ -346,11 +346,11 @@ class NotificationBuildingService(asab.Service):
 			}
 		"""
 		# Tenants loaded before Library is ready / Library is not available
-		if not self.App.Library.is_ready():
+		if not self.App.LibraryService.is_ready():
 			return
 
 		# Get the latest version of Tenants List
-		tenants = self.App.TenantService.get_tenants()
+		tenants = await self.App.TenantService.get_tenants()
 
 		# Tenants list is not read yet
 		if tenants is None:
@@ -376,7 +376,7 @@ class NotificationBuildingService(asab.Service):
 					self.Groups[tenant] = {}
 
 				try:
-					library_items = await self.App.Library.list("/Notifications/Groups/")
+					library_items = await self.App.LibraryService.list("/Notifications/Groups/")
 					active_groups = set()
 
 					for library_item in library_items:
@@ -432,7 +432,7 @@ class NotificationBuildingService(asab.Service):
 
 
 	async def read_group(self, tenant, path):
-		declaration = await read_yaml(self.App.Library, path)
+		declaration = await read_yaml(self.App.LibraryService, path)
 		L.debug(
 			"Group for a tenant loaded",
 			struct_data={"tenant": tenant, "path": path}

@@ -164,10 +164,14 @@ class KafkaHandler(asab.Service):
 		# Set tenant context from Kafka message body (if present)
 		try:
 			if isinstance(msg, dict):
-				tenant = msg.get("tenant", None)
+				tenant = msg.get("tenant")
+				if tenant is None:
+					tenant = msg.get("body", {}).get("tenant")
+
 			current_tenant = asab.contextvars.Tenant.get(None)
 			if tenant is not None and current_tenant is None:
 				token = asab.contextvars.Tenant.set(tenant)
+
 		except Exception as e:
 			L.warning(
 				"Could not set tenant context from Kafka message; notification will use global configuration.",
