@@ -51,6 +51,7 @@ RUN pip3 install --break-system-packages --no-cache-dir \
     tzdata \
     sentry-sdk \
     slack_sdk \
+    jwcrypto \
     git+https://github.com/TeskaLabs/kazoo.git \
     git+https://github.com/TeskaLabs/asab.git
 # ^ Use vendored Kazoo library till https://github.com/python-zk/kazoo/pull/715 is merged (persistent watcher support)
